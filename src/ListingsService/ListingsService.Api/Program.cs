@@ -1,4 +1,5 @@
 using ListingsService.Application.Interfaces;
+using ListingsService.Application.Services;
 using ListingsService.Infrastructure.Data;
 using ListingsService.Infrastructure.Repositories;
 using Microsoft.EntityFrameworkCore;
@@ -15,6 +16,7 @@ builder.Services.AddDbContext<ListingsDbContext>(options =>
            .UseSnakeCaseNamingConvention());
 
 builder.Services.AddScoped<IPropertyRepository, PropertyRepository>();
+builder.Services.AddScoped<PropertyService>();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();

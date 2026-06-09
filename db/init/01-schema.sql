@@ -42,7 +42,7 @@ CREATE TABLE IF NOT EXISTS property_media (
     url TEXT,
     caption TEXT,
     display_order INTEGER,
-    is_primary INTEGER
+    is_primary BOOLEAN
 );
 
 CREATE TABLE IF NOT EXISTS property_features (
