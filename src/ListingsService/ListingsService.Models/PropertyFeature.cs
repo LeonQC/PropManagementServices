@@ -1,4 +1,4 @@
-namespace ListingsService.Domain.Entities;
+namespace ListingsService.Models;
 
 public class PropertyFeature
 {

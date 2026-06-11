@@ -1,7 +1,7 @@
-using ListingsService.Domain.Entities;
+using ListingsService.Models;
 using Microsoft.EntityFrameworkCore;
 
-namespace ListingsService.Infrastructure.Data;
+namespace ListingsService.DataAccess;
 
 public class ListingsDbContext(DbContextOptions<ListingsDbContext> options) : DbContext(options)
 {

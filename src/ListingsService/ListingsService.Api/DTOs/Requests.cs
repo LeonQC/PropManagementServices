@@ -1,4 +1,4 @@
-namespace ListingsService.Application.DTOs;
+namespace ListingsService.Api.DTOs;
 
 public record CreatePropertyRequest(
     string Title,

@@ -1,7 +1,7 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
-    <ProjectReference Include="..\ListingsService.Application\ListingsService.Application.csproj" />
+    <ProjectReference Include="..\ListingsService.Models\ListingsService.Models.csproj" />
   </ItemGroup>
 
   <ItemGroup>

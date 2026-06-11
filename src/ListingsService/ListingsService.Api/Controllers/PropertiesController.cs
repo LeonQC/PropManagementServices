@@ -1,5 +1,6 @@
-using ListingsService.Application.DTOs;
-using ListingsService.Application.Services;
+using ListingsService.Api.DTOs;
+using ListingsService.Business;
+using ListingsService.Business.DTOs;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ListingsService.Api.Controllers;
@@ -20,16 +21,32 @@ public class PropertiesController(PropertyService propertyService) : ControllerB
         [FromQuery] double? maxPrice = null,
         CancellationToken ct = default)
     {
-        var response = await propertyService.ListAsync(
+        var (items, totalCount) = await propertyService.ListAsync(
             page, pageSize, propertyType, status, metroArea, minPrice, maxPrice, ct);
-        return Ok(response);
+        return Ok(new PaginatedResponse<PropertyResponse>(
+            items.Select(MapToResponse).ToList(),
+            totalCount, page, pageSize));
     }
 
     // GET /listings/v1/properties/map
     [HttpGet("map")]
     public async Task<ActionResult<GeoJsonResponse>> Map(CancellationToken ct)
     {
-        return Ok(await propertyService.GetMapAsync(ct));
+        var properties = await propertyService.GetMapPointsAsync(ct);
+
+        var features = properties
+            .Where(p => p.Address?.Latitude != null && p.Address?.Longitude != null)
+            .Select(p => new GeoJsonFeature(
+                Type: "Feature",
+                Geometry: new GeoJsonGeometry(
+                    Type: "Point",
+                    Coordinates: [p.Address!.Longitude!.Value, p.Address!.Latitude!.Value]),
+                Properties: new GeoJsonProperties(
+                    p.Id, p.Title, p.PropertyType, p.Status,
+                    p.AskingPrice, p.CapRate)
+            )).ToList();
+
+        return Ok(new GeoJsonResponse("FeatureCollection", features));
     }
 
     // GET /listings/v1/properties/{id}
@@ -37,7 +54,7 @@ public class PropertiesController(PropertyService propertyService) : ControllerB
     public async Task<ActionResult<PropertyResponse>> Get(string id, CancellationToken ct)
     {
         var property = await propertyService.GetByIdAsync(id, ct);
-        return property is null ? NotFound() : Ok(property);
+        return property is null ? NotFound() : Ok(MapToResponse(property));
     }
 
     // POST /listings/v1/properties
@@ -45,8 +62,33 @@ public class PropertiesController(PropertyService propertyService) : ControllerB
     public async Task<ActionResult<PropertyResponse>> Create(
         [FromBody] CreatePropertyRequest request, CancellationToken ct)
     {
-        var created = await propertyService.CreateAsync(request, ct);
-        return CreatedAtAction(nameof(Get), new { id = created.Id }, created);
+        var input = new CreatePropertyDto(
+            request.Title,
+            request.PropertyType,
+            request.PropertySubtype,
+            request.Status,
+            request.TotalSqft,
+            request.LeasableSqft,
+            request.YearBuilt,
+            request.LotSizeAcres,
+            request.UnitCount,
+            request.AskingPrice,
+            request.CapRate,
+            request.Noi,
+            request.OccupancyRate,
+            request.DescriptionText,
+            new CreateAddressDto(
+                request.Address.Street,
+                request.Address.City,
+                request.Address.State,
+                request.Address.Zip,
+                request.Address.MetroArea,
+                request.Address.Latitude,
+                request.Address.Longitude,
+                request.Address.Neighborhood));
+
+        var created = await propertyService.CreateAsync(input, ct);
+        return CreatedAtAction(nameof(Get), new { id = created.Id }, MapToResponse(created));
     }
 
     // PUT /listings/v1/properties/{id}
@@ -54,8 +96,24 @@ public class PropertiesController(PropertyService propertyService) : ControllerB
     public async Task<ActionResult<PropertyResponse>> Update(
         string id, [FromBody] UpdatePropertyRequest request, CancellationToken ct)
     {
-        var updated = await propertyService.UpdateAsync(id, request, ct);
-        return updated is null ? NotFound() : Ok(updated);
+        var input = new UpdatePropertyDto(
+            request.Title,
+            request.PropertyType,
+            request.PropertySubtype,
+            request.Status,
+            request.TotalSqft,
+            request.LeasableSqft,
+            request.YearBuilt,
+            request.LotSizeAcres,
+            request.UnitCount,
+            request.AskingPrice,
+            request.CapRate,
+            request.Noi,
+            request.OccupancyRate,
+            request.DescriptionText);
+
+        var updated = await propertyService.UpdateAsync(id, input, ct);
+        return updated is null ? NotFound() : Ok(MapToResponse(updated));
     }
 
     // DELETE /listings/v1/properties/{id}
@@ -71,7 +129,7 @@ public class PropertiesController(PropertyService propertyService) : ControllerB
     public async Task<ActionResult<List<MediaResponse>>> ListMedia(string id, CancellationToken ct)
     {
         var media = await propertyService.GetMediaAsync(id, ct);
-        return media is null ? NotFound() : Ok(media);
+        return media is null ? NotFound() : Ok(media.Select(MapToResponse).ToList());
     }
 
     // POST /listings/v1/properties/{id}/media
@@ -79,10 +137,14 @@ public class PropertiesController(PropertyService propertyService) : ControllerB
     public async Task<ActionResult<MediaResponse>> AddMedia(
         string id, [FromBody] AddMediaRequest request, CancellationToken ct)
     {
-        var created = await propertyService.AddMediaAsync(id, request, ct);
+        var input = new CreateMediaDto(
+            request.MediaType, request.Url, request.Caption,
+            request.DisplayOrder, request.IsPrimary);
+
+        var created = await propertyService.AddMediaAsync(id, input, ct);
         return created is null
             ? NotFound()
-            : Created($"listings/v1/properties/{id}/media", created);
+            : Created($"listings/v1/properties/{id}/media", MapToResponse(created));
     }
 
     // GET /listings/v1/properties/{id}/features
@@ -90,7 +152,7 @@ public class PropertiesController(PropertyService propertyService) : ControllerB
     public async Task<ActionResult<List<FeatureResponse>>> ListFeatures(string id, CancellationToken ct)
     {
         var features = await propertyService.GetFeaturesAsync(id, ct);
-        return features is null ? NotFound() : Ok(features);
+        return features is null ? NotFound() : Ok(features.Select(MapToResponse).ToList());
     }
 
     // POST /listings/v1/properties/{id}/features
@@ -98,10 +160,13 @@ public class PropertiesController(PropertyService propertyService) : ControllerB
     public async Task<ActionResult<FeatureResponse>> AddFeature(
         string id, [FromBody] AddFeatureRequest request, CancellationToken ct)
     {
-        var created = await propertyService.AddFeatureAsync(id, request, ct);
+        var input = new CreateFeatureDto(
+            request.FeatureCategory, request.FeatureName, request.FeatureValue);
+
+        var created = await propertyService.AddFeatureAsync(id, input, ct);
         return created is null
             ? NotFound()
-            : Created($"listings/v1/properties/{id}/features", created);
+            : Created($"listings/v1/properties/{id}/features", MapToResponse(created));
     }
 
     // POST /listings/v1/properties/{id}/suggest-price
@@ -113,4 +178,25 @@ public class PropertiesController(PropertyService propertyService) : ControllerB
             ? Ok(new { message = "Price suggestion request submitted", propertyId = id })
             : NotFound();
     }
+
+    // ----- business model ↔ DTO mapping (presentation concern) -----
+
+    private static PropertyResponse MapToResponse(PropertyDto p) => new(
+        p.Id, p.Title, p.Slug, p.PropertyType, p.PropertySubtype, p.Status,
+        p.TotalSqft, p.LeasableSqft, p.YearBuilt, p.LotSizeAcres, p.UnitCount,
+        p.AskingPrice, p.CapRate, p.Noi, p.OccupancyRate,
+        p.MarketCapRateBenchmark, p.Year1NoiEstimate,
+        p.DescriptionText, p.AiSummary,
+        p.Address is null ? null : new AddressResponse(
+            p.Address.Street, p.Address.City, p.Address.State,
+            p.Address.Zip, p.Address.MetroArea,
+            p.Address.Latitude, p.Address.Longitude,
+            p.Address.Neighborhood),
+        p.ListedAt, p.UpdatedAt);
+
+    private static MediaResponse MapToResponse(MediaDto m) => new(
+        m.Id, m.MediaType, m.Url, m.Caption, m.DisplayOrder, m.IsPrimary);
+
+    private static FeatureResponse MapToResponse(FeatureDto f) => new(
+        f.Id, f.FeatureCategory, f.FeatureName, f.FeatureValue);
 }

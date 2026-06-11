@@ -5,9 +5,9 @@ EXPOSE 8080
 FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 WORKDIR /src
 COPY ["ListingsService.Api/ListingsService.Api.csproj", "ListingsService.Api/"]
-COPY ["ListingsService.Application/ListingsService.Application.csproj", "ListingsService.Application/"]
-COPY ["ListingsService.Domain/ListingsService.Domain.csproj", "ListingsService.Domain/"]
-COPY ["ListingsService.Infrastructure/ListingsService.Infrastructure.csproj", "ListingsService.Infrastructure/"]
+COPY ["ListingsService.Business/ListingsService.Business.csproj", "ListingsService.Business/"]
+COPY ["ListingsService.DataAccess/ListingsService.DataAccess.csproj", "ListingsService.DataAccess/"]
+COPY ["ListingsService.Models/ListingsService.Models.csproj", "ListingsService.Models/"]
 RUN dotnet restore "ListingsService.Api/ListingsService.Api.csproj"
 COPY . .
 RUN dotnet publish "ListingsService.Api/ListingsService.Api.csproj" -c Release -o /app/publish

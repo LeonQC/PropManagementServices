@@ -1,7 +1,7 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
-    <ProjectReference Include="..\ListingsService.Domain\ListingsService.Domain.csproj" />
+    <ProjectReference Include="..\ListingsService.DataAccess\ListingsService.DataAccess.csproj" />
   </ItemGroup>
 
   <PropertyGroup>

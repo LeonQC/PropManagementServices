@@ -1,9 +1,7 @@
-using ListingsService.Application.Interfaces;
-using ListingsService.Domain.Entities;
-using ListingsService.Infrastructure.Data;
+using ListingsService.Models;
 using Microsoft.EntityFrameworkCore;
 
-namespace ListingsService.Infrastructure.Repositories;
+namespace ListingsService.DataAccess;
 
 public class PropertyRepository(ListingsDbContext db) : IPropertyRepository
 {

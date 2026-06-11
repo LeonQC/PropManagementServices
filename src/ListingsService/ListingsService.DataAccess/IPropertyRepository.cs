@@ -1,6 +1,6 @@
-using ListingsService.Domain.Entities;
+using ListingsService.Models;
 
-namespace ListingsService.Application.Interfaces;
+namespace ListingsService.DataAccess;
 
 public interface IPropertyRepository
 {

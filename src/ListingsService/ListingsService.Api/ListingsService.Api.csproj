@@ -1,12 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
 
   <ItemGroup>
-    <ProjectReference Include="..\ListingsService.Application\ListingsService.Application.csproj" />
-    <ProjectReference Include="..\ListingsService.Infrastructure\ListingsService.Infrastructure.csproj" />
+    <ProjectReference Include="..\ListingsService.Business\ListingsService.Business.csproj" />
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.5" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="10.2.0" />
   </ItemGroup>
 
@@ -14,6 +12,9 @@
     <TargetFramework>net9.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <!-- Strict N-tier: Api can only compile against Business (its direct
+         reference). Models and DataAccess types are invisible here. -->
+    <DisableTransitiveProjectReferences>true</DisableTransitiveProjectReferences>
   </PropertyGroup>
 
 </Project>
