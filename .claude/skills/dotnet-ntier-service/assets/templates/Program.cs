@@ -1,10 +1,12 @@
-using ListingsService.Business;
+using {{Svc}}Service.Business;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
 
-builder.Services.AddBusiness(builder.Configuration);
+// Single entry into the layer stack: AddBusiness chains down to AddDataAccess.
+// The Api never registers a DbContext or repository directly.
+builder.Services.AddBusiness(builder.Configuration.GetConnectionString("{{Svc}}Db")!);
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();

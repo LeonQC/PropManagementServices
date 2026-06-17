@@ -1,10 +1,12 @@
 using ListingsService.Business.DTOs;
+using ListingsService.Business.Events;
 using ListingsService.DataAccess;
 using ListingsService.Models;
+using PropTrack.Messaging;
 
 namespace ListingsService.Business;
 
-public class PropertyService(IPropertyRepository propertyRepository)
+public class PropertyService(IPropertyRepository propertyRepository, IEventPublisher eventPublisher)
 {
     public async Task<(List<PropertyDto> Items, int TotalCount)> ListAsync(
         int page, int pageSize,
@@ -69,8 +71,9 @@ public class PropertyService(IPropertyRepository propertyRepository)
 
         var created = await propertyRepository.CreateAsync(property, ct);
 
-        // TODO: Publish property.created Kafka event
-        // payload: property_id, type, subtype, metro_area, asking_price, cap_rate
+        await eventPublisher.PublishAsync(Topics.PropertyCreated, created.Id, new PropertyCreated(
+            created.Id, created.PropertyType, created.PropertySubtype,
+            created.Address?.MetroArea, created.AskingPrice, created.CapRate), ct);
 
         return MapToDto(created);
     }
@@ -101,10 +104,34 @@ public class PropertyService(IPropertyRepository propertyRepository)
 
         await propertyRepository.UpdateAsync(property, ct);
 
-        // TODO: Publish property.updated Kafka event if asking_price or cap_rate changed
-        //   (oldAskingPrice != property.AskingPrice || oldCapRate != property.CapRate)
-        // TODO: Publish property.status_changed Kafka event if status changed
-        //   (oldStatus != property.Status)
+        // property.updated — only when asking price or cap rate actually changed.
+        var changedFields = new List<string>();
+        var oldValues = new Dictionary<string, object?>();
+        var newValues = new Dictionary<string, object?>();
+        if (oldAskingPrice != property.AskingPrice)
+        {
+            changedFields.Add("asking_price");
+            oldValues["asking_price"] = oldAskingPrice;
+            newValues["asking_price"] = property.AskingPrice;
+        }
+        if (oldCapRate != property.CapRate)
+        {
+            changedFields.Add("cap_rate");
+            oldValues["cap_rate"] = oldCapRate;
+            newValues["cap_rate"] = property.CapRate;
+        }
+        if (changedFields.Count > 0)
+        {
+            await eventPublisher.PublishAsync(Topics.PropertyUpdated, property.Id, new PropertyUpdated(
+                property.Id, [.. changedFields], oldValues, newValues), ct);
+        }
+
+        // property.status_changed — when the status field changed (manual edit, no deal).
+        if (oldStatus != property.Status)
+        {
+            await eventPublisher.PublishAsync(Topics.PropertyStatusChanged, property.Id,
+                new PropertyStatusChanged(property.Id, oldStatus, property.Status, null), ct);
+        }
 
         return MapToDto(property);
     }
@@ -114,9 +141,11 @@ public class PropertyService(IPropertyRepository propertyRepository)
         var property = await propertyRepository.GetByIdAsync(id, ct);
         if (property is null) return false;
 
+        var oldStatus = property.Status;
         await propertyRepository.DeleteAsync(id, ct);
 
-        // TODO: Publish property.status_changed Kafka event (listed -> off_market)
+        await eventPublisher.PublishAsync(Topics.PropertyStatusChanged, id,
+            new PropertyStatusChanged(id, oldStatus, "off_market", null), ct);
 
         return true;
     }
@@ -184,6 +213,47 @@ public class PropertyService(IPropertyRepository propertyRepository)
 
         // TODO: Integrate with AI service to generate price suggestion
         return true;
+    }
+
+    // ----- inbound event handlers (called by Kafka consumers) -----
+
+    /// <summary>deal.created — a deal was opened on this property: mark it under_contract.</summary>
+    public async Task ApplyDealCreatedAsync(string propertyId, string dealId, CancellationToken ct = default) =>
+        await TransitionStatusAsync(propertyId, "under_contract", dealId, ct);
+
+    /// <summary>
+    /// deal.outcome_recorded — the deal closed: a winning outcome acquires the
+    /// property, anything else returns it to the market as listed.
+    /// </summary>
+    public async Task ApplyDealOutcomeAsync(string propertyId, string dealId, string outcome, CancellationToken ct = default)
+    {
+        var newStatus = outcome is "won" or "closed_won" ? "acquired" : "listed";
+        await TransitionStatusAsync(propertyId, newStatus, dealId, ct);
+    }
+
+    /// <summary>ai.property_summary_ready — write the generated summary back to the record.</summary>
+    public async Task ApplyAiSummaryAsync(string propertyId, string summary, CancellationToken ct = default)
+    {
+        var property = await propertyRepository.GetByIdAsync(propertyId, ct);
+        if (property is null) return;
+
+        property.AiSummary = summary;
+        await propertyRepository.UpdateAsync(property, ct);
+    }
+
+    private async Task TransitionStatusAsync(string propertyId, string newStatus, string? dealId, CancellationToken ct)
+    {
+        var property = await propertyRepository.GetByIdAsync(propertyId, ct);
+        if (property is null) return;
+
+        var oldStatus = property.Status;
+        if (oldStatus == newStatus) return;
+
+        property.Status = newStatus;
+        await propertyRepository.UpdateAsync(property, ct);
+
+        await eventPublisher.PublishAsync(Topics.PropertyStatusChanged, propertyId,
+            new PropertyStatusChanged(propertyId, oldStatus, newStatus, dealId), ct);
     }
 
     // ----- entity ↔ business model mapping -----

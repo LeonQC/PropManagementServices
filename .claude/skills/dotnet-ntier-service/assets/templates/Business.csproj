@@ -1,8 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
-    <ProjectReference Include="..\ListingsService.DataAccess\ListingsService.DataAccess.csproj" />
-    <ProjectReference Include="..\..\Shared\PropTrack.Messaging\PropTrack.Messaging.csproj" />
+    <ProjectReference Include="..\{{Svc}}Service.DataAccess\{{Svc}}Service.DataAccess.csproj" />
   </ItemGroup>
 
   <PropertyGroup>

@@ -1,6 +1,82 @@
-@ListingsService.Api_HostAddress = http://localhost:5156
+@host = http://localhost:5100
+# A seeded property id to exercise the {id} routes. Swap for one from the list call.
+@propertyId = 228d468f-592e-480e-bdeb-2d338b16d3ea
 
-GET {{ListingsService.Api_HostAddress}}/weatherforecast/
+### List properties (paginated)
+GET {{host}}/listings/v1/properties?page=1&pageSize=5
 Accept: application/json
 
-###
+### List with filters
+GET {{host}}/listings/v1/properties?propertyType=Office&status=listed&minPrice=1000000&maxPrice=50000000
+Accept: application/json
+
+### Map view (GeoJSON FeatureCollection)
+GET {{host}}/listings/v1/properties/map
+Accept: application/json
+
+### Property detail
+GET {{host}}/listings/v1/properties/{{propertyId}}
+Accept: application/json
+
+### Create a property
+POST {{host}}/listings/v1/properties
+Content-Type: application/json
+
+{
+  "title": "Test Office Tower",
+  "propertyType": "Office",
+  "propertySubtype": "Class A",
+  "askingPrice": 5000000,
+  "capRate": 0.065,
+  "address": {
+    "street": "123 Main St",
+    "city": "Austin",
+    "state": "TX",
+    "zip": "78701",
+    "metroArea": "Austin Metro"
+  }
+}
+
+### Update a property (partial — only sends changed fields)
+PUT {{host}}/listings/v1/properties/{{propertyId}}
+Content-Type: application/json
+
+{
+  "askingPrice": 42000000
+}
+
+### Soft-delete a property (status -> off_market)
+DELETE {{host}}/listings/v1/properties/{{propertyId}}
+
+### List media for a property
+GET {{host}}/listings/v1/properties/{{propertyId}}/media
+Accept: application/json
+
+### Add media to a property
+POST {{host}}/listings/v1/properties/{{propertyId}}/media
+Content-Type: application/json
+
+{
+  "mediaType": "photo",
+  "url": "https://media.proptrack.com/example/photo_1.jpg",
+  "caption": "Exterior view",
+  "displayOrder": 1,
+  "isPrimary": true
+}
+
+### List features for a property
+GET {{host}}/listings/v1/properties/{{propertyId}}/features
+Accept: application/json
+
+### Add a feature to a property
+POST {{host}}/listings/v1/properties/{{propertyId}}/features
+Content-Type: application/json
+
+{
+  "featureCategory": "Amenities",
+  "featureName": "Parking spaces",
+  "featureValue": "120"
+}
+
+### Trigger AI price suggestion
+POST {{host}}/listings/v1/properties/{{propertyId}}/suggest-price
