@@ -12,10 +12,11 @@ public class PropertyService(IPropertyRepository propertyRepository, IEventPubli
         int page, int pageSize,
         string? propertyType, string? status, string? metroArea,
         double? minPrice, double? maxPrice,
+        string? sort = null, string? q = null,
         CancellationToken ct = default)
     {
         var (items, totalCount) = await propertyRepository.GetAllAsync(
-            page, pageSize, propertyType, status, metroArea, minPrice, maxPrice, ct);
+            page, pageSize, propertyType, status, metroArea, minPrice, maxPrice, sort, q, ct);
         return (items.Select(MapToDto).ToList(), totalCount);
     }
 

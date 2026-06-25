@@ -21,6 +21,8 @@ public class PropertyRepository(ListingsDbContext db) : IPropertyRepository
         string? metroArea = null,
         double? minPrice = null,
         double? maxPrice = null,
+        string? sort = null,
+        string? q = null,
         CancellationToken ct = default)
     {
         var query = db.Properties
@@ -43,7 +45,35 @@ public class PropertyRepository(ListingsDbContext db) : IPropertyRepository
         if (maxPrice.HasValue)
             query = query.Where(p => p.AskingPrice <= maxPrice.Value);
 
-        var ordered = query.OrderByDescending(p => p.ListedAt);
+        // Keyword search: case-insensitive ILIKE OR'd across Title + address fields,
+        // then ANDed with the filters above (search narrows the already-filtered set).
+        // EF Core translates EF.Functions.ILike to a parameterized Postgres ILIKE — no
+        // raw SQL / hand-concatenation. Guard the nullable Address before its fields.
+        // Design-doc target is Postgres full-text search via a tsvector column (multi-word
+        // matching + relevance ranking + a GIN index); AI natural-language search is a
+        // separate later milestone (M7). Both are out of scope for this pass.
+        if (!string.IsNullOrWhiteSpace(q))
+        {
+            var pattern = $"%{q}%";
+            query = query.Where(p =>
+                EF.Functions.ILike(p.Title, pattern) ||
+                (p.Address != null && (
+                    EF.Functions.ILike(p.Address.City!, pattern) ||
+                    EF.Functions.ILike(p.Address.MetroArea!, pattern) ||
+                    EF.Functions.ILike(p.Address.Neighborhood!, pattern))));
+        }
+
+        // Sort encodes field + direction in one value (maps to the frontend sort dropdown).
+        // Every branch ends with a deterministic ThenBy(p => p.Id) tiebreaker so rows with
+        // equal price/cap come back in a stable order across paginated requests. Default
+        // (omitted/blank/unknown) preserves the original newest-first behavior.
+        var ordered = sort switch
+        {
+            "price_desc" => query.OrderByDescending(p => p.AskingPrice).ThenBy(p => p.Id),
+            "price_asc" => query.OrderBy(p => p.AskingPrice).ThenBy(p => p.Id),
+            "cap_desc" => query.OrderByDescending(p => p.CapRate).ThenBy(p => p.Id),
+            _ => query.OrderByDescending(p => p.ListedAt).ThenBy(p => p.Id),
+        };
 
         var totalCount = await ordered.CountAsync(ct);
         var items = await ordered

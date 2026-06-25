@@ -9,7 +9,7 @@ namespace ListingsService.Api.Controllers;
 [Route("listings/v1/properties")]
 public class PropertiesController(PropertyService propertyService) : ControllerBase
 {
-    // GET /listings/v1/properties?page=1&pageSize=20&propertyType=Office&status=listed&metroArea=...&minPrice=...&maxPrice=...
+    // GET /listings/v1/properties?page=1&pageSize=20&propertyType=Office&status=listed&metroArea=...&minPrice=...&maxPrice=...&sort=price_desc&q=warehouse
     [HttpGet]
     public async Task<ActionResult<PaginatedResponse<PropertyResponse>>> List(
         [FromQuery] int page = 1,
@@ -19,10 +19,12 @@ public class PropertiesController(PropertyService propertyService) : ControllerB
         [FromQuery] string? metroArea = null,
         [FromQuery] double? minPrice = null,
         [FromQuery] double? maxPrice = null,
+        [FromQuery] string? sort = null,
+        [FromQuery] string? q = null,
         CancellationToken ct = default)
     {
         var (items, totalCount) = await propertyService.ListAsync(
-            page, pageSize, propertyType, status, metroArea, minPrice, maxPrice, ct);
+            page, pageSize, propertyType, status, metroArea, minPrice, maxPrice, sort, q, ct);
         return Ok(new PaginatedResponse<PropertyResponse>(
             items.Select(MapToResponse).ToList(),
             totalCount, page, pageSize));

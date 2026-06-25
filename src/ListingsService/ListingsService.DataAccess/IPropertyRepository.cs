@@ -12,6 +12,8 @@ public interface IPropertyRepository
         string? metroArea = null,
         double? minPrice = null,
         double? maxPrice = null,
+        string? sort = null,
+        string? q = null,
         CancellationToken ct = default);
     Task<Property> CreateAsync(Property property, CancellationToken ct = default);
     Task UpdateAsync(Property property, CancellationToken ct = default);
