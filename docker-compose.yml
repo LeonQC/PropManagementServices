@@ -9,7 +9,8 @@ services:
       - "5432:5432"
     volumes:
       - listings-db-data:/var/lib/postgresql/data
-      - ./db/init:/docker-entrypoint-initdb.d
+      # Schema is now owned by EF Core migrations and data is seeded by the API on
+      # startup (see DatabaseInitializer), so no Postgres init scripts are mounted.
 
   kafka:
     image: apache/kafka:3.8.0

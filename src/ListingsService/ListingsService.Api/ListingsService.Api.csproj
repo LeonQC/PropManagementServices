@@ -8,6 +8,11 @@
     <PackageReference Include="Swashbuckle.AspNetCore" Version="10.2.0" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Bundle the seed SQL with the app so the startup seeder can find it. -->
+    <Content Include="Seed\seed-data.sql" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
   <PropertyGroup>
     <TargetFramework>net9.0</TargetFramework>
     <Nullable>enable</Nullable>
