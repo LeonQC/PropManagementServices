@@ -106,11 +106,15 @@ public class PropertyRepository(ListingsDbContext db) : IPropertyRepository
 
     public async Task DeleteAsync(string id, CancellationToken ct = default)
     {
+        // Compute the timestamp into a local first: ExecuteUpdateAsync translates its
+        // lambda directly to SQL, and DateTime.ToString(...) isn't SQL-translatable.
+        // A captured local is sent as a parameter instead.
+        var now = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss");
         await db.Properties
             .Where(p => p.Id == id)
             .ExecuteUpdateAsync(s => s
                 .SetProperty(p => p.Status, "off_market")
-                .SetProperty(p => p.UpdatedAt, DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss")), ct);
+                .SetProperty(p => p.UpdatedAt, now), ct);
     }
 
     // Media
