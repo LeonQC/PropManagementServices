@@ -1,0 +1,32 @@
+# If the monorepo already has a docker-compose.yml, merge these two services
+# and the volume into it rather than creating a second file. Every service needs
+# unique host ports — check existing services so {{ApiHostPort}}/{{DbHostPort}}
+# don't collide.
+services:
+  {{svc}}-db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: {{project}}_{{svc}}
+      POSTGRES_USER: {{project}}
+      POSTGRES_PASSWORD: {{project}}
+    ports:
+      - "{{DbHostPort}}:5432"
+    volumes:
+      - {{svc}}-db-data:/var/lib/postgresql/data
+      - ./db/init:/docker-entrypoint-initdb.d
+
+  {{svc}}-service:
+    build:
+      context: ./src/{{Svc}}Service
+      dockerfile: {{Svc}}Service.Api/Dockerfile
+    ports:
+      - "{{ApiHostPort}}:8080"
+    environment:
+      # Double underscore maps to ConnectionStrings:{{Svc}}Db in config.
+      # Host is the db service name on the Docker network (not localhost).
+      ConnectionStrings__{{Svc}}Db: "Host={{svc}}-db;Port=5432;Database={{project}}_{{svc}};Username={{project}};Password={{project}}"
+    depends_on:
+      - {{svc}}-db
+
+volumes:
+  {{svc}}-db-data:
