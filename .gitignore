@@ -38,3 +38,6 @@ docker-compose.override.yml
 
 ## Secrets
 appsettings.*.local.json
+
+## Auth service local signing keys (dev only — prod injects from a secrets manager)
+src/AuthService/keys/
