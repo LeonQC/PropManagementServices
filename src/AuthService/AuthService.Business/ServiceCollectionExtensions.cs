@@ -27,9 +27,6 @@ public static class ServiceCollectionExtensions
             .AddRoles<IdentityRole<Guid>>()
             .AddEntityFrameworkStores<AuthDbContext>();
 
-        // bcrypt instead of Identity's default PBKDF2 (architecture §6.1).
-        services.AddScoped<IPasswordHasher<ApplicationUser>, BcryptPasswordHasher>();
-
         services.AddSingleton<JwtKeyService>();
         services.AddScoped<TokenService>();
         services.AddScoped<AccountService>();

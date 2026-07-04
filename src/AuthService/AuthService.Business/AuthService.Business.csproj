@@ -18,7 +18,6 @@
          RsaSecurityKey, JsonWebTokenHandler, Base64UrlEncoder) it brings transitively.
          These are not part of the ASP.NET shared framework ref pack. -->
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="9.0.5" />
-    <PackageReference Include="BCrypt.Net-Next" Version="4.0.3" />
     <PackageReference Include="FluentValidation" Version="11.11.0" />
     <PackageReference Include="FluentValidation.DependencyInjectionExtensions" Version="11.11.0" />
   </ItemGroup>
