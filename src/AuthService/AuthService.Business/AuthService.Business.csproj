@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\AuthService.DataAccess\AuthService.DataAccess.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The Business layer is the composition root for the auth stack: it wires
+         ASP.NET Identity + JWT bearer authentication, so it needs the ASP.NET
+         shared framework (AddAuthentication/AddJwtBearer, Identity.Core, the
+         Microsoft.IdentityModel.* token types). This is a deliberate deviation
+         from listings-service's plain-classlib Business layer. -->
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- JWT bearer auth + the Microsoft.IdentityModel.* token types (SigningCredentials,
+         RsaSecurityKey, JsonWebTokenHandler, Base64UrlEncoder) it brings transitively.
+         These are not part of the ASP.NET shared framework ref pack. -->
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="9.0.5" />
+    <PackageReference Include="FluentValidation" Version="11.11.0" />
+    <PackageReference Include="FluentValidation.DependencyInjectionExtensions" Version="11.11.0" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+</Project>

@@ -1,0 +1,84 @@
+@host = http://localhost:5300
+# Container maps to 5300; if you run the API locally with `dotnet run` it's http://localhost:5298.
+# Seeded bootstrap admin (see appsettings Seed section):
+@adminEmail = admin@proptrack.local
+@adminPassword = ChangeMe123!
+
+### Log in as admin. Named so later requests can reuse the issued token.
+# The refresh token comes back as an HttpOnly cookie; the HTTP client stores it
+# automatically and resends it on the /refresh and /logout calls below.
+# @name login
+POST {{host}}/auth/v1/login
+Content-Type: application/json
+
+{
+  "email": "{{adminEmail}}",
+  "password": "{{adminPassword}}"
+}
+
+### Pull the access token out of the login response for the protected calls.
+@accessToken = {{login.response.body.$.data.accessToken}}
+
+### Current user's profile
+GET {{host}}/auth/v1/me
+Authorization: Bearer {{accessToken}}
+
+### Update own profile (partial — only the fields you send are changed)
+PUT {{host}}/auth/v1/me
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "fullName": "Site Administrator",
+  "avatarUrl": "https://cdn.proptrack.com/avatars/admin.png"
+}
+
+### Register a new user (Admin only). Named so we can promote this user below.
+# A unique email ({{$timestamp}}) is used so this is repeatable — a fixed email
+# returns 409 Conflict on the second run (register rejects duplicates by design).
+# @name register
+POST {{host}}/auth/v1/register
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "email": "analyst+{{$timestamp}}@proptrack.local",
+  "password": "Analyst123!",
+  "fullName": "Ana Analyst",
+  "role": "Analyst"
+}
+
+### Grab the new user's id from the register response.
+@newUserId = {{register.response.body.$.data.id}}
+
+### List all users (Admin / Managing Director only)
+GET {{host}}/auth/v1/users
+Authorization: Bearer {{accessToken}}
+
+### Change that user's role (Admin only): Analyst -> VP
+PUT {{host}}/auth/v1/users/{{newUserId}}/role
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "role": "VP"
+}
+
+### Refresh — rotates tokens using the HttpOnly refresh cookie from login.
+# (No body needed; the cookie carries the refresh token. You can also pass
+#  { "refreshToken": "..." } in the body instead.)
+POST {{host}}/auth/v1/refresh
+Content-Type: application/json
+
+{}
+
+### Logout — revokes the refresh token (needs a bearer token)
+POST {{host}}/auth/v1/logout
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{}
+
+### JWKS — public key for verifying tokens (no auth; this is what other services fetch)
+GET {{host}}/auth/v1/.well-known/jwks
+Accept: application/json
