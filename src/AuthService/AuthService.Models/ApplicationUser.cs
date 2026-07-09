@@ -14,4 +14,8 @@ public class ApplicationUser : IdentityUser<Guid>
 
     /// <summary>ISO-8601 UTC creation timestamp.</summary>
     public string? CreatedAt { get; set; }
+
+    /// <summary>Soft-delete flag. Deactivated users can't log in and are excluded
+    /// from listings; the row is retained for audit-trail integrity (§5.1).</summary>
+    public bool IsActive { get; set; } = true;
 }

@@ -22,7 +22,12 @@ public class AuthDbContext(DbContextOptions<AuthDbContext> options)
         base.OnModelCreating(b);
 
         // Clean table names (UseSnakeCaseNamingConvention handles columns).
-        b.Entity<ApplicationUser>().ToTable("users");
+        b.Entity<ApplicationUser>(e =>
+        {
+            e.ToTable("users");
+            // Default true so existing rows stay active when this column is added.
+            e.Property(u => u.IsActive).HasDefaultValue(true);
+        });
         b.Entity<IdentityRole<Guid>>().ToTable("roles");
         b.Entity<IdentityUserRole<Guid>>().ToTable("user_roles");
         b.Entity<IdentityUserClaim<Guid>>().ToTable("user_claims");
