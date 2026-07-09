@@ -55,9 +55,10 @@ public class AccountService(
     public async Task<ServiceResult<TokenResultDto>> LoginAsync(LoginDto input, string? ip, CancellationToken ct = default)
     {
         var user = await users.FindByEmailAsync(input.Email);
-        if (user is null || !await users.CheckPasswordAsync(user, input.Password))
+        if (user is null || !user.IsActive || !await users.CheckPasswordAsync(user, input.Password))
         {
-            await Audit("login.failure", user?.Id, input.Email, ip, "invalid credentials", ct);
+            var reason = user is { IsActive: false } ? "account deactivated" : "invalid credentials";
+            await Audit("login.failure", user?.Id, input.Email, ip, reason, ct);
             return ServiceResult<TokenResultDto>.Fail(ErrorCodes.Unauthorized, "Invalid email or password.");
         }
 
@@ -129,11 +130,29 @@ public class AccountService(
 
     public async Task<ServiceResult<IReadOnlyList<UserDto>>> ListUsersAsync(CancellationToken ct = default)
     {
-        var all = await users.Users.OrderBy(u => u.Email).ToListAsync(ct);
+        // Soft-deleted (deactivated) users are excluded from default queries (§5.1).
+        var all = await users.Users.Where(u => u.IsActive).OrderBy(u => u.Email).ToListAsync(ct);
         var list = new List<UserDto>(all.Count);
         foreach (var u in all)
             list.Add(new UserDto(u.Id, u.Email!, u.FullName, await GetRoleAsync(u)));
         return ServiceResult<IReadOnlyList<UserDto>>.Ok(list);
+    }
+
+    /// <summary>Soft-delete: deactivate the user, revoke their refresh tokens, and
+    /// keep the row for audit integrity. Callers must block self-deactivation.</summary>
+    public async Task<ServiceResult<bool>> DeactivateAsync(Guid userId, string? ip, CancellationToken ct = default)
+    {
+        var user = await users.FindByIdAsync(userId.ToString());
+        if (user is null) return ServiceResult<bool>.Fail(ErrorCodes.NotFound, "User not found.");
+
+        if (!user.IsActive) return ServiceResult<bool>.Ok(true); // idempotent
+
+        user.IsActive = false;
+        await users.UpdateAsync(user);
+        await refreshTokens.RevokeAllForUserAsync(user.Id, UtcNow(), ct);
+
+        await Audit("user.deactivated", user.Id, user.Email, ip, null, ct);
+        return ServiceResult<bool>.Ok(true);
     }
 
     public async Task<ServiceResult<UserDto>> ChangeRoleAsync(Guid userId, ChangeRoleDto input, string? ip, CancellationToken ct = default)

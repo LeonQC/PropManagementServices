@@ -31,6 +31,18 @@ public class UsersController(AccountService account) : ApiControllerBase
         return Success(new UserResponse(u.Id, u.Email, u.FullName, u.Role));
     }
 
+    // Soft-delete (deactivate) a user. Admins can't deactivate themselves.
+    [HttpDelete("{id:guid}")]
+    [Authorize(Roles = AuthRoles.Admin)]
+    public async Task<IActionResult> Delete(Guid id, CancellationToken ct)
+    {
+        if (id == CurrentUserId)
+            return FromResult(ServiceResult<bool>.Fail(ErrorCodes.Validation, "You can't deactivate your own account."));
+
+        var result = await account.DeactivateAsync(id, ClientIp, ct);
+        return FromResult(result);
+    }
+
     private string? ClientIp => HttpContext.Connection.RemoteIpAddress?.ToString();
 
     private static ServiceResult<IReadOnlyList<UserResponse>> MapList(ServiceResult<IReadOnlyList<UserDto>> r) =>
