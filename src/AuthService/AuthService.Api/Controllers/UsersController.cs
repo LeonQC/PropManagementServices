@@ -20,6 +20,19 @@ public class UsersController(AccountService account) : ApiControllerBase
         return FromResult(MapList(result));
     }
 
+    // Minimal id→name directory for any authenticated user (deals UI renders
+    // owner/assignee names from this). No emails or roles — the full listing
+    // above stays Admin/MD-gated.
+    [HttpGet("directory")]
+    public async Task<IActionResult> Directory(CancellationToken ct)
+    {
+        var result = await account.ListDirectoryAsync(ct);
+        return FromResult(result.Succeeded
+            ? ServiceResult<IReadOnlyList<DirectoryEntryResponse>>.Ok(
+                result.Value!.Select(d => new DirectoryEntryResponse(d.Id, d.FullName)).ToList())
+            : ServiceResult<IReadOnlyList<DirectoryEntryResponse>>.Fail(result.Code!, result.Message!, result.Errors));
+    }
+
     [HttpPut("{id:guid}/role")]
     [Authorize(Roles = AuthRoles.Admin)]
     public async Task<IActionResult> ChangeRole(Guid id, [FromBody] ChangeRoleRequest req, CancellationToken ct)

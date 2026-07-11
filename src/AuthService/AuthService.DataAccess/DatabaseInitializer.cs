@@ -35,31 +35,80 @@ public static class DatabaseInitializer
 
         // Seed the bootstrap admin only on an empty user table.
         var userManager = sp.GetRequiredService<UserManager<ApplicationUser>>();
-        if (await db.Users.AnyAsync(ct))
+        if (!await db.Users.AnyAsync(ct))
+        {
+            var admin = new ApplicationUser
+            {
+                Id = Guid.NewGuid(),
+                UserName = adminEmail,
+                Email = adminEmail,
+                EmailConfirmed = true,
+                FullName = "PropTrack Admin",
+                CreatedAt = DateTime.UtcNow.ToString("O"),
+            };
+
+            var result = await userManager.CreateAsync(admin, adminPassword);
+            if (result.Succeeded)
+            {
+                await userManager.AddToRoleAsync(admin, Roles.Admin);
+                logger.LogInformation("Seeded bootstrap admin {Email}.", adminEmail);
+            }
+            else
+            {
+                logger.LogError("Failed to seed admin user: {Errors}",
+                    string.Join("; ", result.Errors.Select(e => e.Description)));
+            }
+        }
+        else
         {
             logger.LogInformation("Users already present — skipping admin seed.");
-            return;
         }
 
-        var admin = new ApplicationUser
-        {
-            Id = Guid.NewGuid(),
-            UserName = adminEmail,
-            Email = adminEmail,
-            EmailConfirmed = true,
-            FullName = "PropTrack Admin",
-            CreatedAt = DateTime.UtcNow.ToString("O"),
-        };
+        await SeedDemoUsersAsync(db, userManager, logger, ct);
+    }
 
-        var result = await userManager.CreateAsync(admin, adminPassword);
-        if (!result.Succeeded)
+    /// <summary>
+    /// Demo team members with fixed ids, seeded idempotently (per-id existence
+    /// check, so pre-existing databases pick them up on restart). The deals-service
+    /// seed data references these ids as deal owners / task assignees / comment
+    /// authors — keep the ids in sync with its Seed/seed-data.sql.
+    /// </summary>
+    private static async Task SeedDemoUsersAsync(
+        AuthDbContext db, UserManager<ApplicationUser> userManager, ILogger logger, CancellationToken ct)
+    {
+        (Guid Id, string Email, string FullName, string Role)[] demoUsers =
+        [
+            (Guid.Parse("11111111-1111-1111-1111-111111111111"), "ava.chen@proptrack.dev", "Ava Chen", Roles.Analyst),
+            (Guid.Parse("22222222-2222-2222-2222-222222222222"), "marcus.webb@proptrack.dev", "Marcus Webb", Roles.Associate),
+            (Guid.Parse("33333333-3333-3333-3333-333333333333"), "dana.ortiz@proptrack.dev", "Dana Ortiz", Roles.VP),
+            (Guid.Parse("44444444-4444-4444-4444-444444444444"), "sam.patel@proptrack.dev", "Sam Patel", Roles.ManagingDirector),
+        ];
+
+        foreach (var (id, email, fullName, role) in demoUsers)
         {
-            logger.LogError("Failed to seed admin user: {Errors}",
-                string.Join("; ", result.Errors.Select(e => e.Description)));
-            return;
+            if (await db.Users.AnyAsync(u => u.Id == id, ct)) continue;
+
+            var user = new ApplicationUser
+            {
+                Id = id,
+                UserName = email,
+                Email = email,
+                EmailConfirmed = true,
+                FullName = fullName,
+                CreatedAt = DateTime.UtcNow.ToString("O"),
+            };
+
+            var result = await userManager.CreateAsync(user, "Demo1234!");
+            if (result.Succeeded)
+            {
+                await userManager.AddToRoleAsync(user, role);
+                logger.LogInformation("Seeded demo user {Email} ({Role}).", email, role);
+            }
+            else
+            {
+                logger.LogError("Failed to seed demo user {Email}: {Errors}",
+                    email, string.Join("; ", result.Errors.Select(e => e.Description)));
+            }
         }
-
-        await userManager.AddToRoleAsync(admin, Roles.Admin);
-        logger.LogInformation("Seeded bootstrap admin {Email}.", adminEmail);
     }
 }

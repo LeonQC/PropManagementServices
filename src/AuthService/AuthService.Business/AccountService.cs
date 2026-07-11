@@ -138,6 +138,19 @@ public class AccountService(
         return ServiceResult<IReadOnlyList<UserDto>>.Ok(list);
     }
 
+    /// <summary>Lightweight user directory: id + display name only, for any
+    /// authenticated caller. Deliberately excludes emails and roles — full user
+    /// management stays behind the Admin/MD-gated ListUsersAsync.</summary>
+    public async Task<ServiceResult<IReadOnlyList<DirectoryEntryDto>>> ListDirectoryAsync(CancellationToken ct = default)
+    {
+        var list = await users.Users
+            .Where(u => u.IsActive)
+            .OrderBy(u => u.FullName)
+            .Select(u => new DirectoryEntryDto(u.Id, u.FullName))
+            .ToListAsync(ct);
+        return ServiceResult<IReadOnlyList<DirectoryEntryDto>>.Ok(list);
+    }
+
     /// <summary>Soft-delete: deactivate the user, revoke their refresh tokens, and
     /// keep the row for audit integrity. Callers must block self-deactivation.</summary>
     public async Task<ServiceResult<bool>> DeactivateAsync(Guid userId, string? ip, CancellationToken ct = default)
