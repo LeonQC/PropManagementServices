@@ -22,6 +22,9 @@ public class DealRepository(DealsDbContext db) : IDealRepository
     public Task<bool> ExistsAsync(string id, CancellationToken ct = default)
         => db.Deals.AnyAsync(d => d.Id == id, ct);
 
+    public Task<bool> HasActiveDealForPropertyAsync(string propertyId, CancellationToken ct = default)
+        => db.Deals.AnyAsync(d => d.PropertyId == propertyId && d.Stage != "Acquired" && d.Stage != "Dead", ct);
+
     public async Task<(List<DealWithTaskStats> Items, int TotalCount)> GetAllAsync(
         int page, int pageSize,
         string? stage = null,

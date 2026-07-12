@@ -19,7 +19,14 @@ public class DealsDbContext(DbContextOptions<DealsDbContext> options) : DbContex
 
             e.HasIndex(d => d.Stage);
             e.HasIndex(d => d.OwnerId);
-            e.HasIndex(d => d.PropertyId);
+
+            // One live acquisition per property: the service checks before insert,
+            // and this partial unique index closes the concurrent-create race.
+            // Doubles as the lookup index for property_id queries.
+            e.HasIndex(d => d.PropertyId)
+                .HasDatabaseName("ix_deals_property_id_active")
+                .IsUnique()
+                .HasFilter("stage NOT IN ('Acquired', 'Dead')");
 
             e.HasMany(d => d.History)
                 .WithOne()

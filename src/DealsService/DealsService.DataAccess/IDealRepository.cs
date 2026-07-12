@@ -15,6 +15,11 @@ public interface IDealRepository
     /// <summary>Cheap existence probe used by sub-resource services for 404s.</summary>
     Task<bool> ExistsAsync(string id, CancellationToken ct = default);
 
+    /// <summary>True when the property already has a deal in a non-terminal stage.
+    /// One live acquisition per property at a time — backed by a partial unique
+    /// index on deals(property_id) for the concurrent-create race.</summary>
+    Task<bool> HasActiveDealForPropertyAsync(string propertyId, CancellationToken ct = default);
+
     Task<(List<DealWithTaskStats> Items, int TotalCount)> GetAllAsync(
         int page, int pageSize,
         string? stage = null,

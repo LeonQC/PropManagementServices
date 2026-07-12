@@ -2,6 +2,7 @@
 using DealsService.DataAccess;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -10,9 +11,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace DealsService.DataAccess.Migrations
 {
     [DbContext(typeof(DealsDbContext))]
-    partial class DealsDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260712052441_ActiveDealPerPropertyIndex")]
+    partial class ActiveDealPerPropertyIndex
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

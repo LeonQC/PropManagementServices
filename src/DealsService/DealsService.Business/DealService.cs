@@ -37,6 +37,12 @@ public class DealService(IDealRepository repo, IEventPublisher eventPublisher)
         if (errors.Count > 0)
             return ServiceResult<DealDto>.Fail(ErrorCodes.Validation, "Invalid deal.", errors);
 
+        // One live acquisition per property at a time. The UI hides the entry
+        // points, but this is the authoritative check (Swagger/stale clients).
+        if (await repo.HasActiveDealForPropertyAsync(input.PropertyId, ct))
+            return ServiceResult<DealDto>.Fail(ErrorCodes.Conflict,
+                "This property already has an active deal.");
+
         var now = Now();
         var deal = new Deal
         {
@@ -70,7 +76,18 @@ public class DealService(IDealRepository repo, IEventPublisher eventPublisher)
 
         var templateTasks = StageTaskTemplates.Materialize(DealStages.InitialInterest, now);
 
-        var created = await repo.CreateAsync(deal, initialHistory, templateTasks, ct);
+        Deal created;
+        try
+        {
+            created = await repo.CreateAsync(deal, initialHistory, templateTasks, ct);
+        }
+        catch (Microsoft.EntityFrameworkCore.DbUpdateException)
+        {
+            // Two creates raced past the check above; the partial unique index
+            // on deals(property_id) rejected the second insert.
+            return ServiceResult<DealDto>.Fail(ErrorCodes.Conflict,
+                "This property already has an active deal.");
+        }
 
         await eventPublisher.PublishAsync(Topics.DealCreated, created.PropertyId,
             new DealCreated(created.PropertyId, created.Id), ct);
