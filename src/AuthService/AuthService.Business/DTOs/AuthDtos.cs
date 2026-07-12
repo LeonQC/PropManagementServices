@@ -20,6 +20,10 @@ public record UserProfileDto(Guid Id, string Email, string? FullName, string? Av
 
 public record UserDto(Guid Id, string Email, string? FullName, string Role);
 
+/// <summary>Minimal id→name mapping exposed to every authenticated user so other
+/// UIs (e.g. deals) can render owner/assignee names. No emails or roles.</summary>
+public record DirectoryEntryDto(Guid Id, string? FullName);
+
 // JWKS -----------------------------------------------------------------------
 
 public record JwkDto(string Kty, string Use, string Kid, string Alg, string N, string E);

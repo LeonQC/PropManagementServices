@@ -74,6 +74,35 @@ services:
     depends_on:
       - auth-db
 
+  deals-db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: proptrack_deals
+      POSTGRES_USER: proptrack
+      POSTGRES_PASSWORD: proptrack
+    ports:
+      # 5432 (listings-db) and 5433 (auth-db) are taken; deals-db gets 5434.
+      - "5434:5432"
+    volumes:
+      - deals-db-data:/var/lib/postgresql/data
+
+  deals-service:
+    build:
+      context: ./src
+      dockerfile: DealsService/DealsService.Api/Dockerfile
+    ports:
+      - "5200:8080"
+    environment:
+      ConnectionStrings__DealsDb: "Host=deals-db;Port=5432;Database=proptrack_deals;Username=proptrack;Password=proptrack"
+      Kafka__BootstrapServers: "kafka:9092"
+      # Bearer tokens are validated against auth-service's JWKS (in-network URL).
+      Jwt__JwksUrl: "http://auth-service:8080/auth/v1/.well-known/jwks.json"
+    depends_on:
+      - deals-db
+      - kafka
+      - auth-service
+
 volumes:
   listings-db-data:
   auth-db-data:
+  deals-db-data:

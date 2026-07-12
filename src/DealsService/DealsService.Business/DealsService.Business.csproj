@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\DealsService.DataAccess\DealsService.DataAccess.csproj" />
+    <ProjectReference Include="..\..\Shared\PropTrack.Messaging\PropTrack.Messaging.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- JWT bearer validation lives in the Business layer (auth-service pattern):
+         AddBusiness wires authentication so the Api stays a thin HTTP shell. -->
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="9.0.5" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+</Project>
