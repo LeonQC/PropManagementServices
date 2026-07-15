@@ -1,10 +1,15 @@
 using DealsService.Business.DTOs;
+using DealsService.Business.Events;
 using DealsService.DataAccess;
 using DealsService.Models;
+using PropTrack.Messaging;
 
 namespace DealsService.Business;
 
-public class DealDocumentService(IDealRepository dealRepo, IDealDocumentRepository documentRepo)
+public class DealDocumentService(
+    IDealRepository dealRepo,
+    IDealDocumentRepository documentRepo,
+    IEventPublisher eventPublisher)
 {
     public async Task<List<DocumentDto>?> GetByDealAsync(string dealId, CancellationToken ct = default)
     {
@@ -39,6 +44,13 @@ public class DealDocumentService(IDealRepository dealRepo, IDealDocumentReposito
         };
 
         var created = await documentRepo.CreateAsync(document, ct);
+
+        // Deal domain event: a document was attached to this deal. documents-service
+        // reacts by extracting PDF text and publishing document.processed.
+        await eventPublisher.PublishAsync(Topics.DealDocumentUploaded, created.DealId,
+            new DealDocumentUploaded(created.DealId, created.Id, created.FileName, created.FileType,
+                created.StorageUrl, created.UploadedById, created.UploadedAt), ct);
+
         return ServiceResult<DocumentDto>.Ok(MapToDto(created));
     }
 

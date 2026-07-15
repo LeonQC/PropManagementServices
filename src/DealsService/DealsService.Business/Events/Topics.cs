@@ -2,8 +2,8 @@ namespace DealsService.Business.Events;
 
 /// <summary>
 /// Kafka topic names for the deals domain (architecture §2.3). All seven spec'd
-/// topics are declared; only Created, StageChanged and OutcomeRecorded are
-/// published today — the rest have no consumers yet.
+/// topics are declared; Created, StageChanged, OutcomeRecorded and
+/// DocumentUploaded are published today — the rest have no consumers yet.
 /// </summary>
 public static class Topics
 {

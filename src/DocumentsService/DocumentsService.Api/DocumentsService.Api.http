@@ -1,0 +1,72 @@
+@DocumentsService_HostAddress = http://localhost:5400
+@DealsService_HostAddress = http://localhost:5200
+@AuthService_HostAddress = http://localhost:5300
+
+### Log in first — every documents endpoint requires a bearer token.
+# @name login
+POST {{AuthService_HostAddress}}/auth/v1/login
+Content-Type: application/json
+
+{
+  "email": "admin@proptrack.local",
+  "password": "ChangeMe123!"
+}
+
+###
+@token = {{login.response.body.data.accessToken}}
+
+### 1. Request a presigned upload URL (creates a pending record)
+# @name uploadUrl
+POST {{DocumentsService_HostAddress}}/documents/v1/upload-url
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "fileName": "Offering Memorandum.pdf",
+  "contentType": "application/pdf",
+  "sizeBytes": 12345
+}
+
+###
+@documentId = {{uploadUrl.response.body.data.documentId}}
+@putUrl = {{uploadUrl.response.body.data.uploadUrl}}
+
+### 2. PUT the file bytes straight to storage (no auth — the URL is presigned).
+# Adjust the file path; Content-Type must match what was presigned.
+PUT {{putUrl}}
+Content-Type: application/pdf
+
+< ./sample.pdf
+
+### 3. Confirm the upload (activates the record; no Kafka publish here)
+POST {{DocumentsService_HostAddress}}/documents/v1/confirm
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "documentId": "{{documentId}}"
+}
+
+### 4. Link the document to a deal — deals-service owns deal_documents and
+# publishes deal.document_uploaded; this service consumes it and extracts text.
+POST {{DealsService_HostAddress}}/deals/v1/deals/REPLACE_WITH_DEAL_ID/documents
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "fileName": "Offering Memorandum.pdf",
+  "fileType": "OfferingMemorandum",
+  "storageUrl": "/documents/v1/{{documentId}}"
+}
+
+### Presigned download URL (15-minute expiry)
+GET {{DocumentsService_HostAddress}}/documents/v1/{{documentId}}/download-url
+Authorization: Bearer {{token}}
+
+### Extracted PDF text (populated by the background worker after step 4)
+GET {{DocumentsService_HostAddress}}/documents/v1/{{documentId}}/text
+Authorization: Bearer {{token}}
+
+### Soft delete (record tombstoned, blob marked for deletion)
+DELETE {{DocumentsService_HostAddress}}/documents/v1/{{documentId}}
+Authorization: Bearer {{token}}
