@@ -24,3 +24,16 @@ public record DealOutcomeRecorded(
     string PropertyId,
     string DealId,
     string Outcome);
+
+/// <summary>A document was attached to a deal. Consumed by documents-service,
+/// which resolves its own record via StorageUrl (the UI writes the
+/// "/documents/v1/{documentId}" pointer there) and runs PDF text extraction.
+/// Must stay field-compatible with its DocumentsService.Business.Events twin.</summary>
+public record DealDocumentUploaded(
+    string DealId,
+    string DocumentId,
+    string FileName,
+    string FileType,
+    string? StorageUrl,
+    string UploadedById,
+    string UploadedAt);
