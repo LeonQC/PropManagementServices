@@ -1,0 +1,44 @@
+@IngestionService_HostAddress = http://localhost:5500
+@AuthService_HostAddress = http://localhost:5300
+
+### Log in first — the retrieval endpoints require a bearer token.
+# @name login
+POST {{AuthService_HostAddress}}/auth/v1/login
+Content-Type: application/json
+
+{
+  "email": "admin@proptrack.local",
+  "password": "ChangeMe123!"
+}
+
+###
+@token = {{login.response.body.data.accessToken}}
+
+### Semantic search — top-k chunks by cosine similarity (dealId/documentId optional filters)
+POST {{IngestionService_HostAddress}}/ingestion/v1/search
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "query": "were any environmental conditions identified?",
+  "dealId": "e06e3cce-2188-432b-9d9c-1ecaf62c6db2",
+  "topK": 5
+}
+
+### Search scoped to a single document
+POST {{IngestionService_HostAddress}}/ingestion/v1/search
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "query": "asking price and due diligence period",
+  "documentId": "REPLACE_WITH_DOCUMENT_ID",
+  "topK": 3
+}
+
+### Parsed markdown artifact for a document (what ai-service will summarise from)
+GET {{IngestionService_HostAddress}}/ingestion/v1/documents/REPLACE_WITH_DOCUMENT_ID/parsed
+Authorization: Bearer {{token}}
+
+### Health — DB + LiteLLM reachability (no auth)
+GET {{IngestionService_HostAddress}}/health
