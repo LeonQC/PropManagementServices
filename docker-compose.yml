@@ -170,7 +170,7 @@ services:
       # Supplied via untracked .env next to this file (OPENAI_API_KEY=sk-...).
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
     volumes:
-      - ./src/IngestionService/litellm/config.yaml:/etc//config.yaml:ro
+      - ./src/IngestionService/litellm/config.yaml:/etc/litellm/config.yaml:ro
 
   tei:
     # Optional zero-cost embeddings: docker compose --profile local-embeddings up -d tei
