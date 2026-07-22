@@ -49,3 +49,7 @@ src/AuthService/keys/
 
 # Local secrets for docker compose (OPENAI_API_KEY etc.)
 .env
+
+## Python build artifacts (ingestion-service)
+*.egg-info/
+__pycache__/
