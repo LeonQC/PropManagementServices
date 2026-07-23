@@ -85,14 +85,6 @@ public sealed class S3BlobStorage : IBlobStorage, IDisposable
         }
     }
 
-    public async Task<byte[]> DownloadAsync(string storageKey, CancellationToken ct = default)
-    {
-        using var response = await _serviceClient.GetObjectAsync(_options.Bucket, storageKey, ct);
-        using var buffer = new MemoryStream();
-        await response.ResponseStream.CopyToAsync(buffer, ct);
-        return buffer.ToArray();
-    }
-
     public async Task EnsureBucketAsync(CancellationToken ct = default)
     {
         // Retry with backoff: on a fresh compose-up MinIO accepts connections a

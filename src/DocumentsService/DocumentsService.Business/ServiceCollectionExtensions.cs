@@ -1,5 +1,4 @@
 using DocumentsService.Business.Events;
-using DocumentsService.Business.Extraction;
 using DocumentsService.Business.Security;
 using DocumentsService.Business.Storage;
 using DocumentsService.DataAccess;
@@ -24,10 +23,9 @@ public static class ServiceCollectionExtensions
 
         services.AddScoped<DocumentService>();
 
-        // Extraction pipeline: Kafka consumer feeds the queue, worker drains it.
-        services.AddSingleton<IExtractionQueue, ExtractionQueue>();
+        // Stamps deal context onto file records; text processing lives in the
+        // ingestion-service, which consumes the same event.
         services.AddHostedService<DealDocumentUploadedConsumer>();
-        services.AddHostedService<ExtractionWorker>();
 
         services.Configure<JwtValidationOptions>(config.GetSection("Jwt"));
         AddJwtBearerAuth(services);

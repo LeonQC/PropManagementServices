@@ -16,11 +16,3 @@ public record DealDocumentUploaded(
     string? StorageUrl,
     string UploadedById,
     string UploadedAt);
-
-/// <summary>Outbound: PDF text extraction finished (architecture §2.4 payload).</summary>
-public record DocumentProcessed(
-    string DealId,
-    string DocumentId,
-    string? DocumentType,
-    int ExtractedTextLength,
-    string StorageUrl);

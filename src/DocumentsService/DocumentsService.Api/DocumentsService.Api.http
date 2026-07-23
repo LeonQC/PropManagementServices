@@ -48,7 +48,8 @@ Content-Type: application/json
 }
 
 ### 4. Link the document to a deal — deals-service owns deal_documents and
-# publishes deal.document_uploaded; this service consumes it and extracts text.
+# publishes deal.document_uploaded; this service stamps deal context and the
+# ingestion-service parses/chunks/embeds the file.
 POST {{DealsService_HostAddress}}/deals/v1/deals/REPLACE_WITH_DEAL_ID/documents
 Authorization: Bearer {{token}}
 Content-Type: application/json
@@ -63,9 +64,8 @@ Content-Type: application/json
 GET {{DocumentsService_HostAddress}}/documents/v1/{{documentId}}/download-url
 Authorization: Bearer {{token}}
 
-### Extracted PDF text (populated by the background worker after step 4)
-GET {{DocumentsService_HostAddress}}/documents/v1/{{documentId}}/text
-Authorization: Bearer {{token}}
+### Extracted text / chunks now live in the ingestion-service — see
+### src/IngestionService/IngestionService.http (/search and /parsed).
 
 ### Soft delete (record tombstoned, blob marked for deletion)
 DELETE {{DocumentsService_HostAddress}}/documents/v1/{{documentId}}
