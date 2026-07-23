@@ -29,6 +29,11 @@ bld/
 .vscode/
 *.swp
 
+## Python
+.venv/
+__pycache__/
+*.pyc
+
 ## OS
 .DS_Store
 Thumbs.db
@@ -41,3 +46,10 @@ appsettings.*.local.json
 
 ## Auth service local signing keys (dev only — prod injects from a secrets manager)
 src/AuthService/keys/
+
+# Local secrets for docker compose (OPENAI_API_KEY etc.)
+.env
+
+## Python build artifacts (ingestion-service)
+*.egg-info/
+__pycache__/

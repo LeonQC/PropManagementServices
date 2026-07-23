@@ -1,0 +1,26 @@
+# LiteLLM Proxy — the single embedding router (architecture v1.1 §3.5).
+# The ingestion-service always calls the same OpenAI-compatible endpoint; which
+# backing model serves it is decided HERE, so switching API <-> local is a
+# config change plus a re-ingestion run, never a code change.
+
+model_list:
+  # Phase 1 (verified path): OpenAI, Matryoshka-truncated to 1024 dims by the
+  # client's `dimensions` parameter.
+  - model_name: embed-openai
+    litellm_params:
+      model: openai/text-embedding-3-small
+      api_key: os.environ/OPENAI_API_KEY
+
+  # Phase 2 (zero-cost path): HuggingFace TEI serving BAAI/bge-m3 (natively
+  # 1024-dim) via its OpenAI-compatible /v1/embeddings. Start with:
+  #   docker compose --profile local-embeddings up -d tei
+  - model_name: embed-local
+    litellm_params:
+      model: openai/bge-m3
+      api_base: http://tei:80/v1
+      api_key: none
+
+litellm_settings:
+  # TEI rejects OpenAI-only params like `dimensions`; drop instead of erroring
+  # so the client can send one request shape to either route.
+  drop_params: true
