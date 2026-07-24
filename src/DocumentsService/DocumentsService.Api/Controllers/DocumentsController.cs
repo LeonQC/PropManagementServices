@@ -37,14 +37,6 @@ public class DocumentsController(DocumentService service) : ApiControllerBase
         return FromResult(Map(result, MapToDownloadUrlResponse));
     }
 
-    /// <summary>Extracted PDF text (populated by the background worker).</summary>
-    [HttpGet("{id}/text")]
-    public async Task<IActionResult> GetText(string id, CancellationToken ct)
-    {
-        var result = await service.GetTextAsync(id, ct);
-        return FromResult(Map(result, MapToTextResponse));
-    }
-
     /// <summary>Soft delete: the record is tombstoned and the blob marked for deletion.</summary>
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(string id, CancellationToken ct)
@@ -68,7 +60,4 @@ public class DocumentsController(DocumentService service) : ApiControllerBase
 
     private static DownloadUrlResponse MapToDownloadUrlResponse(DownloadUrlDto d) =>
         new(d.DocumentId, d.FileName, d.DownloadUrl, d.ExpiresAt);
-
-    private static DocumentTextResponse MapToTextResponse(DocumentTextDto d) =>
-        new(d.DocumentId, d.Status, d.Text, d.Error, d.ExtractedAt, d.PageCount);
 }

@@ -25,11 +25,3 @@ public record DownloadUrlDto(
     string FileName,
     string DownloadUrl,
     string ExpiresAt);
-
-public record DocumentTextDto(
-    string DocumentId,
-    string Status,
-    string? Text,
-    string? Error,
-    string? ExtractedAt,
-    int? PageCount);

@@ -11,8 +11,6 @@
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="9.0.5" />
     <!-- S3-compatible blob storage: MinIO in local dev, AWS S3 in prod (config-only swap). -->
     <PackageReference Include="AWSSDK.S3" Version="4.0.100.3" />
-    <!-- PDF text extraction for the background worker. -->
-    <PackageReference Include="PdfPig" Version="0.1.15" />
   </ItemGroup>
 
   <PropertyGroup>

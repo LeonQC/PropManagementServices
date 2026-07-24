@@ -1,4 +1,3 @@
-using DocumentsService.Business.Extraction;
 using DocumentsService.DataAccess;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -8,9 +7,10 @@ namespace DocumentsService.Business.Events;
 
 /// <summary>
 /// Reacts to deals-service attaching a document to a deal (architecture §2.4):
-/// stamps the deal context onto our file record and enqueues PDF text extraction.
-/// Documents that never went through this service (metadata-only records whose
-/// storageUrl isn't our "/documents/v1/{id}" pointer) are skipped gracefully.
+/// stamps the deal context onto our file record. Text processing happens in the
+/// ingestion-service, which consumes the same event independently. Documents
+/// that never went through this service (metadata-only records whose storageUrl
+/// isn't our "/documents/v1/{id}" pointer) are skipped gracefully.
 /// </summary>
 public sealed class DealDocumentUploadedConsumer(
     KafkaSettings settings,
@@ -43,14 +43,8 @@ public sealed class DealDocumentUploadedConsumer(
         record.DealId = message.DealId;
         record.DocumentType = message.FileType;
         await documents.UpdateAsync(record, ct);
-
-        if (DocumentService.IsPdf(record))
-        {
-            var queue = services.GetRequiredService<IExtractionQueue>();
-            await queue.EnqueueAsync(record.Id, ct);
-            _logger.LogInformation("Queued text extraction for document {DocumentId} (deal {DealId}).",
-                record.Id, message.DealId);
-        }
+        _logger.LogInformation("Stamped deal {DealId} context onto document {DocumentId}.",
+            message.DealId, record.Id);
     }
 
     private static string? ParseDocumentId(string? storageUrl)

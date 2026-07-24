@@ -23,11 +23,3 @@ public record DownloadUrlResponse(
     string FileName,
     string DownloadUrl,
     string ExpiresAt);
-
-public record DocumentTextResponse(
-    string DocumentId,
-    string Status,
-    string? Text,
-    string? Error,
-    string? ExtractedAt,
-    int? PageCount);

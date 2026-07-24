@@ -8,7 +8,6 @@ namespace DocumentsService.Business;
 
 public class DocumentService(
     IDocumentRepository documents,
-    IDocumentTextRepository texts,
     IBlobStorage storage)
 {
     // Generous dev-time cap; real limits belong to the storage tier's policy.
@@ -71,14 +70,6 @@ public class DocumentService(
         record.ConfirmedAt = Now();
         await documents.UpdateAsync(record, ct);
 
-        // Seed the text row now so /text has a definite answer from day one.
-        // Extraction itself runs later, when the deal.document_uploaded event lands.
-        await texts.UpsertAsync(new DocumentText
-        {
-            DocumentId = record.Id,
-            Status = IsPdf(record) ? TextExtractionStatuses.Pending : TextExtractionStatuses.SkippedNotPdf,
-        }, ct);
-
         return ServiceResult<DocumentDto>.Ok(MapToDto(record));
     }
 
@@ -95,18 +86,6 @@ public class DocumentService(
             new DownloadUrlDto(record.Id, record.FileName, url, expiresAt.ToString("O")));
     }
 
-    public async Task<ServiceResult<DocumentTextDto>> GetTextAsync(string documentId, CancellationToken ct = default)
-    {
-        var record = await documents.GetByIdAsync(documentId, ct);
-        if (record is null || record.Status == DocumentStatuses.Deleted)
-            return ServiceResult<DocumentTextDto>.Fail(ErrorCodes.NotFound, "Document not found.");
-
-        var text = await texts.GetByDocumentIdAsync(documentId, ct);
-        return ServiceResult<DocumentTextDto>.Ok(text is null
-            ? new DocumentTextDto(documentId, TextExtractionStatuses.Pending, null, null, null, null)
-            : new DocumentTextDto(documentId, text.Status, text.Text, text.Error, text.ExtractedAt, text.PageCount));
-    }
-
     public async Task<ServiceResult<DocumentDto>> DeleteAsync(string documentId, CancellationToken ct = default)
     {
         var record = await documents.GetByIdAsync(documentId, ct);
@@ -120,10 +99,6 @@ public class DocumentService(
         await documents.UpdateAsync(record, ct);
         return ServiceResult<DocumentDto>.Ok(MapToDto(record));
     }
-
-    public static bool IsPdf(DocumentRecord record) =>
-        record.ContentType.Equals("application/pdf", StringComparison.OrdinalIgnoreCase)
-        || record.FileName.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase);
 
     private static string SanitizeFileName(string fileName)
     {

@@ -20,6 +20,4 @@ public class DocumentRecord
     public required string CreatedAt { get; set; }
     public string? ConfirmedAt { get; set; }
     public string? DeletedAt { get; set; }
-
-    public DocumentText? Text { get; set; }
 }

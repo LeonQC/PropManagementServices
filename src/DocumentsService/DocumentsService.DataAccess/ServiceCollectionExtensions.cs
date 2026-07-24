@@ -12,7 +12,6 @@ public static class ServiceCollectionExtensions
                    .UseSnakeCaseNamingConvention());
 
         services.AddScoped<IDocumentRepository, DocumentRepository>();
-        services.AddScoped<IDocumentTextRepository, DocumentTextRepository>();
 
         return services;
     }
