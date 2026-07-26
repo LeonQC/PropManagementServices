@@ -21,6 +21,10 @@ public class Property
     public double? Year1NoiEstimate { get; set; }
     public string? DescriptionText { get; set; }
     public string? AiSummary { get; set; }
+    // Denormalized address text (city + metro + neighborhood) copied from Address at
+    // creation, so the full-text search_vector — a generated column that can't reach the
+    // joined addresses table — can index address fields alongside title and description.
+    public string? AddressSearch { get; set; }
     public string? ListedAt { get; set; }
     public string? UpdatedAt { get; set; }
 
