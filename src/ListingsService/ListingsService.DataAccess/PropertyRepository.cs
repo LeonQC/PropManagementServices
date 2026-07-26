@@ -1,5 +1,7 @@
+using System.Text.RegularExpressions;
 using ListingsService.Models;
 using Microsoft.EntityFrameworkCore;
+using NpgsqlTypes;
 
 namespace ListingsService.DataAccess;
 
@@ -45,33 +47,33 @@ public class PropertyRepository(ListingsDbContext db) : IPropertyRepository
         if (maxPrice.HasValue)
             query = query.Where(p => p.AskingPrice <= maxPrice.Value);
 
-        // Keyword search: case-insensitive ILIKE OR'd across Title + address fields,
-        // then ANDed with the filters above (search narrows the already-filtered set).
-        // EF Core translates EF.Functions.ILike to a parameterized Postgres ILIKE — no
-        // raw SQL / hand-concatenation. Guard the nullable Address before its fields.
-        // Design-doc target is Postgres full-text search via a tsvector column (multi-word
-        // matching + relevance ranking + a GIN index); AI natural-language search is a
-        // separate later milestone (M7). Both are out of scope for this pass.
-        if (!string.IsNullOrWhiteSpace(q))
-        {
-            var pattern = $"%{q}%";
+        // Full-text search over the GIN-indexed generated tsvector (title^A, description^B,
+        // address^C — see ListingsDbContext), ANDed with the filters above. BuildTsQuery
+        // sanitizes the input to lexemes and makes the last token a prefix (term:*) so the
+        // debounced box keeps matching as the user types; the resulting string is passed to
+        // to_tsquery as a parameter (no tsquery-syntax injection). The vector is a shadow
+        // property, read via EF.Property. AI natural-language / semantic search is a separate
+        // later milestone (M7), out of scope here.
+        var tsQuery = BuildTsQuery(q);
+        if (tsQuery != null)
             query = query.Where(p =>
-                EF.Functions.ILike(p.Title, pattern) ||
-                (p.Address != null && (
-                    EF.Functions.ILike(p.Address.City!, pattern) ||
-                    EF.Functions.ILike(p.Address.MetroArea!, pattern) ||
-                    EF.Functions.ILike(p.Address.Neighborhood!, pattern))));
-        }
+                EF.Property<NpgsqlTsVector>(p, "SearchVector")
+                    .Matches(EF.Functions.ToTsQuery("english", tsQuery)));
 
         // Sort encodes field + direction in one value (maps to the frontend sort dropdown).
-        // Every branch ends with a deterministic ThenBy(p => p.Id) tiebreaker so rows with
-        // equal price/cap come back in a stable order across paginated requests. Default
-        // (omitted/blank/unknown) preserves the original newest-first behavior.
-        var ordered = sort switch
+        // Every branch ends with a deterministic ThenBy(p => p.Id) tiebreaker so equal-key
+        // rows come back in a stable order across paginated requests. "relevance" ranks by
+        // ts_rank and only applies with a keyword present; default (omitted/blank/unknown)
+        // preserves the original newest-first behavior.
+        var ordered = (sort, tsQuery) switch
         {
-            "price_desc" => query.OrderByDescending(p => p.AskingPrice).ThenBy(p => p.Id),
-            "price_asc" => query.OrderBy(p => p.AskingPrice).ThenBy(p => p.Id),
-            "cap_desc" => query.OrderByDescending(p => p.CapRate).ThenBy(p => p.Id),
+            ("price_desc", _) => query.OrderByDescending(p => p.AskingPrice).ThenBy(p => p.Id),
+            ("price_asc", _) => query.OrderBy(p => p.AskingPrice).ThenBy(p => p.Id),
+            ("cap_desc", _) => query.OrderByDescending(p => p.CapRate).ThenBy(p => p.Id),
+            ("relevance", not null) => query
+                .OrderByDescending(p => EF.Property<NpgsqlTsVector>(p, "SearchVector")
+                    .Rank(EF.Functions.ToTsQuery("english", tsQuery!)))
+                .ThenBy(p => p.Id),
             _ => query.OrderByDescending(p => p.ListedAt).ThenBy(p => p.Id),
         };
 
@@ -82,6 +84,24 @@ public class PropertyRepository(ListingsDbContext db) : IPropertyRepository
             .ToListAsync(ct);
 
         return (items, totalCount);
+    }
+
+    /// <summary>
+    /// Turns a raw keyword string into a Postgres tsquery: sanitized to alphanumeric
+    /// lexemes, AND'd together, with the final token made a prefix (term:*) for typeahead.
+    /// Returns null when there's nothing searchable (so callers skip the filter).
+    /// </summary>
+    private static string? BuildTsQuery(string? q)
+    {
+        if (string.IsNullOrWhiteSpace(q)) return null;
+
+        var terms = Regex.Split(q.Trim().ToLowerInvariant(), "[^a-z0-9]+")
+            .Where(t => t.Length > 0)
+            .ToList();
+        if (terms.Count == 0) return null;
+
+        terms[^1] += ":*";                 // last token as a prefix, for as-you-type matching
+        return string.Join(" & ", terms);  // AND semantics across tokens
     }
 
     public async Task<Property> CreateAsync(Property property, CancellationToken ct = default)

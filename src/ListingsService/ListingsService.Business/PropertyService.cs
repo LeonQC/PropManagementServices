@@ -53,6 +53,10 @@ public class PropertyService(IPropertyRepository propertyRepository, IEventPubli
             Noi = input.Noi,
             OccupancyRate = input.OccupancyRate,
             DescriptionText = input.DescriptionText,
+            // Denormalized copy so the full-text search_vector can index address (a generated
+            // column can't reach the joined addresses table). Address isn't editable after
+            // creation, so this never needs re-syncing.
+            AddressSearch = AddressSearchText(input.Address),
             ListedAt = now,
             UpdatedAt = now,
             Address = new Address
@@ -277,6 +281,15 @@ public class PropertyService(IPropertyRepository propertyRepository, IEventPubli
 
     private static FeatureDto MapToDto(PropertyFeature f) => new(
         f.Id, f.FeatureCategory, f.FeatureName, f.FeatureValue);
+
+    // Space-joined city/metro/neighborhood for the denormalized AddressSearch column
+    // (feeds the full-text search_vector). Null when there's no address text to index.
+    private static string? AddressSearchText(CreateAddressDto a)
+    {
+        var text = string.Join(" ", new[] { a.City, a.MetroArea, a.Neighborhood }
+            .Where(s => !string.IsNullOrWhiteSpace(s)));
+        return string.IsNullOrWhiteSpace(text) ? null : text;
+    }
 
     private static string GenerateSlug(string title) =>
         title.ToLowerInvariant()
