@@ -15,6 +15,10 @@ public abstract class ApiControllerBase : ControllerBase
     /// <summary>The authenticated user's id from the "sub" claim.</summary>
     protected string ActorId => User.FindFirstValue("sub") ?? "unknown";
 
+    /// <summary>True when the caller may act on deals they do not own (Admin / Managing Director).</summary>
+    protected bool IsElevated =>
+        User.IsInRole(AuthRoles.Admin) || User.IsInRole(AuthRoles.ManagingDirector);
+
     protected IActionResult Success<T>(T data, int status = StatusCodes.Status200OK) =>
         StatusCode(status, new SuccessEnvelope<T>(data, new Meta(DateTime.UtcNow.ToString("O"), RequestId)));
 
@@ -27,6 +31,7 @@ public abstract class ApiControllerBase : ControllerBase
         {
             ErrorCodes.Validation => StatusCodes.Status400BadRequest,
             ErrorCodes.Unauthorized => StatusCodes.Status401Unauthorized,
+            ErrorCodes.Forbidden => StatusCodes.Status403Forbidden,
             ErrorCodes.NotFound => StatusCodes.Status404NotFound,
             ErrorCodes.Conflict => StatusCodes.Status409Conflict,
             ErrorCodes.InvalidTransition => StatusCodes.Status409Conflict,

@@ -17,4 +17,7 @@ public static class AuthRoles
     /// <summary>Roles allowed to kill a deal (authorization matrix §5.3: Associate and up).</summary>
     public const string KillDeal =
         $"{Associate},{VP},{Principal},{ManagingDirector},{Admin}";
+
+    /// <summary>Roles that bypass the deal-owner check on destructive actions and may transfer ownership.</summary>
+    public const string DealAdmin = $"{ManagingDirector},{Admin}";
 }

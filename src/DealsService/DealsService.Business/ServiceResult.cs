@@ -36,6 +36,7 @@ public static class ErrorCodes
 {
     public const string Validation = "VALIDATION_ERROR";               // 400
     public const string Unauthorized = "INVALID_CREDENTIALS";          // 401
+    public const string Forbidden = "FORBIDDEN";                       // 403
     public const string NotFound = "NOT_FOUND";                        // 404
     public const string Conflict = "CONFLICT";                         // 409
     public const string InvalidTransition = "DEAL_STAGE_INVALID_TRANSITION"; // 409

@@ -18,6 +18,7 @@ public class DealStageHistory
     /// <summary>Whole days spent in FromStage; null on the creation row.</summary>
     public int? DaysInStage { get; set; }
 
-    /// <summary>Dead reason when ToStage is Dead.</summary>
+    /// <summary>Dead reason when ToStage is Dead; OWNER_TRANSFER sentinel for
+    /// ownership transfers (same-stage rows, see OwnershipTransfer).</summary>
     public string? Reason { get; set; }
 }
