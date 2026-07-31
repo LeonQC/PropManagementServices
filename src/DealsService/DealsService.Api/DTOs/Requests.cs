@@ -16,7 +16,6 @@ public record CreateDealRequest(
 public record UpdateDealRequest(
     string? Name,
     string? Priority,
-    string? OwnerId,
     double? OfferPrice,
     double? ProjectedCapRate,
     double? TargetIrr,
@@ -27,6 +26,8 @@ public record UpdateDealRequest(
 public record AdvanceDealRequest(string? ExpectedCurrentStage);
 
 public record KillDealRequest(string Reason, string? ExpectedCurrentStage);
+
+public record TransferOwnerRequest(string NewOwnerId);
 
 public record CreateTaskRequest(string Title, string? AssigneeId, string? DueDate);
 

@@ -110,7 +110,6 @@ public class DealService(IDealRepository repo, IEventPublisher eventPublisher)
         var deal = row.Deal;
         if (input.Name is not null) deal.Name = input.Name;
         if (input.Priority is not null) deal.Priority = input.Priority;
-        if (input.OwnerId is not null) deal.OwnerId = input.OwnerId;
         if (input.OfferPrice is not null) deal.OfferPrice = input.OfferPrice;
         if (input.ProjectedCapRate is not null) deal.ProjectedCapRate = input.ProjectedCapRate;
         if (input.TargetIrr is not null) deal.TargetIrr = input.TargetIrr;
@@ -174,7 +173,7 @@ public class DealService(IDealRepository repo, IEventPublisher eventPublisher)
     }
 
     public async Task<ServiceResult<DealDto>> KillAsync(string id, string reason,
-        string? expectedCurrentStage, string actorId, CancellationToken ct = default)
+        string? expectedCurrentStage, string actorId, bool isElevated, CancellationToken ct = default)
     {
         if (!DeadReasons.All.Contains(reason))
             return ServiceResult<DealDto>.Fail(ErrorCodes.Validation, "Invalid kill reason.",
@@ -183,6 +182,9 @@ public class DealService(IDealRepository repo, IEventPublisher eventPublisher)
         var row = await repo.GetByIdAsync(id, ct);
         if (row is null)
             return ServiceResult<DealDto>.Fail(ErrorCodes.NotFound, "Deal not found.");
+
+        if (!CanActOnDeal(row.Deal, actorId, isElevated))
+            return ForbiddenResult();
 
         var deal = row.Deal;
         if (expectedCurrentStage is not null && deal.Stage != expectedCurrentStage)
@@ -224,6 +226,52 @@ public class DealService(IDealRepository repo, IEventPublisher eventPublisher)
         return ServiceResult<DealDto>.Ok(MapToDto(row));
     }
 
+    /// <summary>
+    /// Reassigns the deal owner. Elevated callers only (the controller gates via
+    /// [Authorize(Roles = AuthRoles.DealAdmin)]; re-checked here). Writes a same-stage
+    /// history row with the OWNER_TRANSFER reason sentinel. newOwnerId is validated
+    /// for shape only — the auth-service owns the user directory and services do not
+    /// call each other, so existence is not verified.
+    /// </summary>
+    public async Task<ServiceResult<DealDto>> TransferOwnerAsync(string id, string newOwnerId,
+        string actorId, bool isElevated, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(newOwnerId) || !Guid.TryParse(newOwnerId, out _))
+            return ServiceResult<DealDto>.Fail(ErrorCodes.Validation, "Invalid transfer.",
+                [new FieldError("newOwnerId", "newOwnerId must be a user id (GUID).")]);
+
+        var row = await repo.GetByIdAsync(id, ct);
+        if (row is null)
+            return ServiceResult<DealDto>.Fail(ErrorCodes.NotFound, "Deal not found.");
+
+        if (!isElevated)
+            return ServiceResult<DealDto>.Fail(ErrorCodes.Forbidden,
+                "Only an Admin or Managing Director can transfer deal ownership.");
+
+        var deal = row.Deal;
+        if (deal.OwnerId == newOwnerId)
+            return ServiceResult<DealDto>.Ok(MapToDto(row));
+
+        var now = Now();
+        var previousOwnerId = deal.OwnerId;
+        deal.OwnerId = newOwnerId;
+        deal.UpdatedAt = now;
+
+        var historyRow = new DealStageHistory
+        {
+            Id = "",
+            DealId = deal.Id,
+            FromStage = deal.Stage,
+            ToStage = deal.Stage,
+            ChangedById = actorId,
+            ChangedAt = now,
+            Reason = OwnershipTransfer.Reason(previousOwnerId, newOwnerId),
+        };
+
+        await repo.TransitionAsync(deal, historyRow, [], ct);
+        return ServiceResult<DealDto>.Ok(MapToDto(row));
+    }
+
     public async Task<List<StageHistoryDto>?> GetHistoryAsync(string dealId, CancellationToken ct = default)
     {
         if (!await repo.ExistsAsync(dealId, ct)) return null;
@@ -251,6 +299,15 @@ public class DealService(IDealRepository repo, IEventPublisher eventPublisher)
             active.Sum(s => s.TotalValue),
             stages);
     }
+
+    /// <summary>Owner check (authorization matrix): the deal owner, or an elevated
+    /// caller (Admin / Managing Director), may perform destructive actions.</summary>
+    private static bool CanActOnDeal(Deal deal, string actorId, bool isElevated) =>
+        isElevated || deal.OwnerId == actorId;
+
+    private static ServiceResult<DealDto> ForbiddenResult() =>
+        ServiceResult<DealDto>.Fail(ErrorCodes.Forbidden,
+            "Only the deal owner (or an Admin/Managing Director) can perform this action.");
 
     private static string Now() => DateTime.UtcNow.ToString("O");
 

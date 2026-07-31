@@ -49,7 +49,7 @@ public class DealsController(DealService service) : ApiControllerBase
     public async Task<IActionResult> Update(string id, [FromBody] UpdateDealRequest request, CancellationToken ct)
     {
         var result = await service.UpdateAsync(id, new UpdateDealDto(
-            request.Name, request.Priority, request.OwnerId, request.OfferPrice,
+            request.Name, request.Priority, request.OfferPrice,
             request.ProjectedCapRate, request.TargetIrr, request.EquityMultiple,
             request.ProjectedCloseDate), ct);
         return FromResult(Map(result));
@@ -66,7 +66,15 @@ public class DealsController(DealService service) : ApiControllerBase
     [Authorize(Roles = AuthRoles.KillDeal)]
     public async Task<IActionResult> Kill(string id, [FromBody] KillDealRequest request, CancellationToken ct)
     {
-        var result = await service.KillAsync(id, request.Reason, request.ExpectedCurrentStage, ActorId, ct);
+        var result = await service.KillAsync(id, request.Reason, request.ExpectedCurrentStage, ActorId, IsElevated, ct);
+        return FromResult(Map(result));
+    }
+
+    [HttpPost("{id}/transfer-owner")]
+    [Authorize(Roles = AuthRoles.DealAdmin)]
+    public async Task<IActionResult> TransferOwner(string id, [FromBody] TransferOwnerRequest request, CancellationToken ct)
+    {
+        var result = await service.TransferOwnerAsync(id, request.NewOwnerId, ActorId, IsElevated, ct);
         return FromResult(Map(result));
     }
 

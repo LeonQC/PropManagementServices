@@ -13,12 +13,12 @@ public record CreateDealDto(
     double? EquityMultiple,
     string? ProjectedCloseDate);
 
-/// <summary>Partial update — only non-null fields are applied. Stage and DeadReason
-/// deliberately absent: transitions go through Advance/Kill only.</summary>
+/// <summary>Partial update — only non-null fields are applied. Stage, DeadReason and
+/// OwnerId deliberately absent: transitions go through Advance/Kill, ownership
+/// through TransferOwner only.</summary>
 public record UpdateDealDto(
     string? Name,
     string? Priority,
-    string? OwnerId,
     double? OfferPrice,
     double? ProjectedCapRate,
     double? TargetIrr,
