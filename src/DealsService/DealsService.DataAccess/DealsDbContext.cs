@@ -1,5 +1,6 @@
 using DealsService.Models;
 using Microsoft.EntityFrameworkCore;
+using NpgsqlTypes;
 
 namespace DealsService.DataAccess;
 
@@ -16,6 +17,23 @@ public class DealsDbContext(DbContextOptions<DealsDbContext> options) : DbContex
         modelBuilder.Entity<Deal>(e =>
         {
             e.Property(d => d.RiskFlags).HasColumnType("jsonb");
+
+            // Full-text search, same shape as listings-service (ListingsDbContext):
+            // a weighted, GIN-indexed STORED generated tsvector, held as a shadow
+            // property (no CLR field on the POCO) and read via EF.Property. Weights
+            // rank the deal name (A) above the snapshotted property name (B). Both
+            // columns live on the deal row, so no denormalization helper is needed
+            // here — a generated column may only reference its own row.
+            e.Property<NpgsqlTsVector>("SearchVector")
+                .HasColumnName("search_vector")
+                .HasComputedColumnSql(
+                    "setweight(to_tsvector('english', coalesce(name, '')), 'A') || " +
+                    "setweight(to_tsvector('english', coalesce(property_name, '')), 'B')",
+                    stored: true);
+
+            e.HasIndex("SearchVector")
+                .HasMethod("gin")
+                .HasDatabaseName("ix_deals_search_vector");
 
             e.HasIndex(d => d.Stage);
             e.HasIndex(d => d.OwnerId);

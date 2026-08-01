@@ -12,6 +12,13 @@ public class Deal
     public string? PropertyType { get; set; }
     public string? MetroArea { get; set; }
 
+    // Two more snapshotted metrics, on the deal for the same reason as the fields
+    // above: the health flags (design doc §6.6) compare against them on every read,
+    // and services do not call each other synchronously. Fractions, not percents —
+    // 0.936 is 93.6% occupancy, 0.0609 a 6.09% benchmark cap rate.
+    public double? OccupancyRate { get; set; }
+    public double? MarketCapRateBenchmark { get; set; }
+
     public required string Stage { get; set; }
     public required string Priority { get; set; }
     public required string OwnerId { get; set; }

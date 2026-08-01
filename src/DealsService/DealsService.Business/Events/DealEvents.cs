@@ -18,6 +18,28 @@ public record DealStageChanged(
     string? Reason,
     int? DaysInPriorStage);
 
+/// <summary>
+/// Deal fields changed through the update endpoint (architecture §2.3). ChangedFields
+/// carries the camelCase names that actually moved, so a consumer can decide whether
+/// the change is worth acting on — §3.1 recalculates the score only when offerPrice or
+/// projectedCapRate changed. Published only when something really changed, so an
+/// idempotent PUT doesn't emit a no-op event.
+/// </summary>
+public record DealUpdated(
+    string DealId,
+    string PropertyId,
+    IReadOnlyList<string> ChangedFields,
+    string UpdatedAt);
+
+/// <summary>A checklist task moved to Done. Time-based flags are computed on read, but
+/// task completion is a real state change, so it gets an event.</summary>
+public record DealTaskCompleted(
+    string DealId,
+    string TaskId,
+    string Stage,
+    string CompletedById,
+    string CompletedAt);
+
 /// <summary>Terminal outcome. Listings maps "won"/"closed_won" to acquired and
 /// anything else back to listed.</summary>
 public record DealOutcomeRecorded(

@@ -2,11 +2,48 @@ using DealsService.Models;
 
 namespace DealsService.DataAccess;
 
-/// <summary>A deal plus the task rollups the board cards render.</summary>
-public record DealWithTaskStats(Deal Deal, int TaskCount, int DoneTaskCount, bool HasOverdueTasks);
+/// <summary>One deterministic health signal on a deal (design doc §6.6). Severity is
+/// "warning" or "critical". Computed on read — never persisted. Deal.RiskFlags is
+/// reserved for the later LLM-derived judgment flags.</summary>
+public record HealthFlag(string Type, string Severity, string Message);
+
+/// <summary>A deal plus the task rollups the board cards render, and the health
+/// flags evaluated for it on this read.</summary>
+public record DealWithTaskStats(
+    Deal Deal,
+    int TaskCount,
+    int DoneTaskCount,
+    bool HasOverdueTasks,
+    IReadOnlyList<HealthFlag> HealthFlags);
 
 /// <summary>Per-stage aggregate for the pipeline summary endpoint.</summary>
 public record StageAggregate(string Stage, int Count, double TotalValue);
+
+/// <summary>Mean historical dwell time in one stage for one property type, plus the
+/// number of completed transitions it was averaged over. Feeds the stale-stage flag.</summary>
+public record StageDwellAverage(string Stage, string? PropertyType, double AverageDays, int SampleCount);
+
+/// <summary>
+/// The deal list query. Every member is optional; nulls are skipped so the filters
+/// compose. <paramref name="Q"/> is free text run through the GIN-indexed tsvector,
+/// <paramref name="StaleDays"/> the minimum whole days a deal must have sat in its
+/// current stage.
+/// </summary>
+public record DealQuery(
+    string? Stage = null,
+    string? OwnerId = null,
+    string? Priority = null,
+    string? PropertyType = null,
+    string? MetroArea = null,
+    string? CloseDateBefore = null,
+    string? CloseDateAfter = null,
+    double? OfferPriceMin = null,
+    double? OfferPriceMax = null,
+    double? CapRateMin = null,
+    double? CapRateMax = null,
+    bool? HasOverdueTasks = null,
+    int? StaleDays = null,
+    string? Q = null);
 
 public interface IDealRepository
 {
@@ -21,11 +58,7 @@ public interface IDealRepository
     Task<bool> HasActiveDealForPropertyAsync(string propertyId, CancellationToken ct = default);
 
     Task<(List<DealWithTaskStats> Items, int TotalCount)> GetAllAsync(
-        int page, int pageSize,
-        string? stage = null,
-        string? ownerId = null,
-        string? priority = null,
-        CancellationToken ct = default);
+        int page, int pageSize, DealQuery filters, CancellationToken ct = default);
 
     /// <summary>Creates the deal together with its initial history row and template
     /// tasks in a single SaveChanges, so a deal never exists half-provisioned.</summary>

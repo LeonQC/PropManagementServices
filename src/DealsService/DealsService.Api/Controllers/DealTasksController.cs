@@ -33,7 +33,8 @@ public class DealTasksController(DealTaskService service) : ApiControllerBase
         [FromBody] UpdateTaskRequest request, CancellationToken ct)
     {
         var result = await service.UpdateAsync(dealId, taskId,
-            new UpdateTaskDto(request.Title, request.Status, request.AssigneeId, request.DueDate), ct);
+            new UpdateTaskDto(request.Title, request.Status, request.AssigneeId, request.DueDate),
+            ActorId, ct);
         return FromResult(Map(result));
     }
 

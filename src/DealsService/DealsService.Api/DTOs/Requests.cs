@@ -5,6 +5,8 @@ public record CreateDealRequest(
     string PropertyName,
     string? PropertyType,
     string? MetroArea,
+    double? OccupancyRate,
+    double? MarketCapRateBenchmark,
     string? Name,
     string? Priority,
     double? OfferPrice,

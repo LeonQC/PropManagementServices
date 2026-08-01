@@ -1,11 +1,14 @@
 using DealsService.Business.Domain;
 using DealsService.Business.DTOs;
+using DealsService.Business.Events;
 using DealsService.DataAccess;
 using DealsService.Models;
+using PropTrack.Messaging;
 
 namespace DealsService.Business;
 
-public class DealTaskService(IDealRepository dealRepo, IDealTaskRepository taskRepo)
+public class DealTaskService(
+    IDealRepository dealRepo, IDealTaskRepository taskRepo, IEventPublisher eventPublisher)
 {
     public async Task<List<TaskDto>?> GetByDealAsync(string dealId, CancellationToken ct = default)
     {
@@ -44,7 +47,7 @@ public class DealTaskService(IDealRepository dealRepo, IDealTaskRepository taskR
     }
 
     public async Task<ServiceResult<TaskDto>> UpdateAsync(string dealId, string taskId, UpdateTaskDto input,
-        CancellationToken ct = default)
+        string actorId, CancellationToken ct = default)
     {
         var task = await taskRepo.GetByIdAsync(dealId, taskId, ct);
         if (task is null)
@@ -67,13 +70,21 @@ public class DealTaskService(IDealRepository dealRepo, IDealTaskRepository taskR
         if (input.DueDate is not null)
             task.DueDate = input.DueDate.Length == 0 ? null : input.DueDate;
 
+        var justCompleted = false;
         if (input.Status is not null && input.Status != task.Status)
         {
             task.Status = input.Status;
-            task.CompletedAt = input.Status == TaskStatuses.Done ? DateTime.UtcNow.ToString("O") : null;
+            justCompleted = input.Status == TaskStatuses.Done;
+            task.CompletedAt = justCompleted ? DateTime.UtcNow.ToString("O") : null;
         }
 
         await taskRepo.UpdateAsync(task, ct);
+
+        // Only the Open → Done edge publishes; re-saving an already-done task doesn't.
+        if (justCompleted)
+            await eventPublisher.PublishAsync(Topics.DealTaskCompleted, dealId,
+                new DealTaskCompleted(dealId, task.Id, task.Stage, actorId, task.CompletedAt!), ct);
+
         return ServiceResult<TaskDto>.Ok(MapToDto(task));
     }
 
