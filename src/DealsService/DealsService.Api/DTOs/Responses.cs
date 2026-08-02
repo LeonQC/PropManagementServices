@@ -1,5 +1,10 @@
 namespace DealsService.Api.DTOs;
 
+/// <summary>A deterministic health signal on a deal (design doc §6.6). Type is one of
+/// stale_stage, overdue_tasks, expiring_loi, cap_rate_compression, low_occupancy;
+/// severity is "warning" or "critical". Computed per request, never persisted.</summary>
+public record HealthFlagResponse(string Type, string Severity, string Message);
+
 public record DealResponse(
     string Id,
     string Name,
@@ -7,6 +12,8 @@ public record DealResponse(
     string PropertyName,
     string? PropertyType,
     string? MetroArea,
+    double? OccupancyRate,
+    double? MarketCapRateBenchmark,
     string Stage,
     string Priority,
     string OwnerId,
@@ -24,7 +31,8 @@ public record DealResponse(
     string? UpdatedAt,
     int TaskCount,
     int DoneTaskCount,
-    bool HasOverdueTasks);
+    bool HasOverdueTasks,
+    IReadOnlyList<HealthFlagResponse> HealthFlags);
 
 public record StageHistoryResponse(
     string Id,

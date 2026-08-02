@@ -2,6 +2,7 @@
 using DealsService.DataAccess;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using NpgsqlTypes;
@@ -11,9 +12,11 @@ using NpgsqlTypes;
 namespace DealsService.DataAccess.Migrations
 {
     [DbContext(typeof(DealsDbContext))]
-    partial class DealsDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260731183308_DealSearchVector")]
+    partial class DealSearchVector
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -49,10 +52,6 @@ namespace DealsService.DataAccess.Migrations
                         .HasColumnType("double precision")
                         .HasColumnName("equity_multiple");
 
-                    b.Property<double?>("MarketCapRateBenchmark")
-                        .HasColumnType("double precision")
-                        .HasColumnName("market_cap_rate_benchmark");
-
                     b.Property<string>("MetroArea")
                         .HasColumnType("text")
                         .HasColumnName("metro_area");
@@ -61,10 +60,6 @@ namespace DealsService.DataAccess.Migrations
                         .IsRequired()
                         .HasColumnType("text")
                         .HasColumnName("name");
-
-                    b.Property<double?>("OccupancyRate")
-                        .HasColumnType("double precision")
-                        .HasColumnName("occupancy_rate");
 
                     b.Property<double?>("OfferPrice")
                         .HasColumnType("double precision")

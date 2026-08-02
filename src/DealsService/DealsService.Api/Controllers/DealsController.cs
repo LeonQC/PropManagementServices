@@ -12,18 +12,38 @@ namespace DealsService.Api.Controllers;
 [Route("deals/v1/deals")]
 public class DealsController(DealService service) : ApiControllerBase
 {
+    /// <summary>
+    /// Lists deals. Every filter is optional and they AND together. Dates are
+    /// "yyyy-MM-dd"; offer prices are dollars and cap rates fractions (0.065 = 6.5%),
+    /// matching how the values are stored. staleDays is the minimum whole days a deal
+    /// has sat in its current stage, and q is free-text search over the deal name and
+    /// its snapshotted property name.
+    /// </summary>
     [HttpGet]
     public async Task<IActionResult> GetAll(
         [FromQuery] string? stage,
         [FromQuery] string? ownerId,
         [FromQuery] string? priority,
+        [FromQuery] string? propertyType,
+        [FromQuery] string? metroArea,
+        [FromQuery] string? closeDateBefore,
+        [FromQuery] string? closeDateAfter,
+        [FromQuery] double? offerPriceMin,
+        [FromQuery] double? offerPriceMax,
+        [FromQuery] double? capRateMin,
+        [FromQuery] double? capRateMax,
+        [FromQuery] bool? hasOverdueTasks,
+        [FromQuery] int? staleDays,
+        [FromQuery] string? q,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 50,
         CancellationToken ct = default)
     {
         page = Math.Max(1, page);
         pageSize = Math.Clamp(pageSize, 1, 200);
-        var (items, totalCount) = await service.GetAllAsync(page, pageSize, stage, ownerId, priority, ct);
+        var (items, totalCount) = await service.GetAllAsync(page, pageSize, new DealFilterDto(
+            stage, ownerId, priority, propertyType, metroArea, closeDateBefore, closeDateAfter,
+            offerPriceMin, offerPriceMax, capRateMin, capRateMax, hasOverdueTasks, staleDays, q), ct);
         return Success(new PaginatedResponse<DealResponse>(
             items.Select(MapToResponse).ToList(), totalCount, page, pageSize));
     }
@@ -40,6 +60,7 @@ public class DealsController(DealService service) : ApiControllerBase
     {
         var result = await service.CreateAsync(new CreateDealDto(
             request.PropertyId, request.PropertyName, request.PropertyType, request.MetroArea,
+            request.OccupancyRate, request.MarketCapRateBenchmark,
             request.Name, request.Priority, request.OfferPrice, request.ProjectedCapRate,
             request.TargetIrr, request.EquityMultiple, request.ProjectedCloseDate), ActorId, ct);
         return FromResult(Map(result), StatusCodes.Status201Created);
@@ -94,9 +115,11 @@ public class DealsController(DealService service) : ApiControllerBase
 
     private static DealResponse MapToResponse(DealDto d) => new(
         d.Id, d.Name, d.PropertyId, d.PropertyName, d.PropertyType, d.MetroArea,
+        d.OccupancyRate, d.MarketCapRateBenchmark,
         d.Stage, d.Priority, d.OwnerId, d.DeadReason,
         d.OfferPrice, d.ProjectedCapRate, d.TargetIrr, d.EquityMultiple, d.ProjectedCloseDate,
         d.AiScore, d.AiScoreRationale, d.RiskFlags,
         d.StageEnteredAt, d.CreatedAt, d.UpdatedAt,
-        d.TaskCount, d.DoneTaskCount, d.HasOverdueTasks);
+        d.TaskCount, d.DoneTaskCount, d.HasOverdueTasks,
+        d.HealthFlags.Select(f => new HealthFlagResponse(f.Type, f.Severity, f.Message)).ToList());
 }

@@ -10,10 +10,13 @@ namespace DealsService.Business;
 public class DealService(IDealRepository repo, IEventPublisher eventPublisher)
 {
     public async Task<(List<DealDto> Items, int TotalCount)> GetAllAsync(
-        int page, int pageSize, string? stage, string? ownerId, string? priority,
-        CancellationToken ct = default)
+        int page, int pageSize, DealFilterDto filters, CancellationToken ct = default)
     {
-        var (items, totalCount) = await repo.GetAllAsync(page, pageSize, stage, ownerId, priority, ct);
+        var (items, totalCount) = await repo.GetAllAsync(page, pageSize, new DealQuery(
+            filters.Stage, filters.OwnerId, filters.Priority, filters.PropertyType, filters.MetroArea,
+            filters.CloseDateBefore, filters.CloseDateAfter, filters.OfferPriceMin, filters.OfferPriceMax,
+            filters.CapRateMin, filters.CapRateMax, filters.HasOverdueTasks, filters.StaleDays,
+            filters.Q), ct);
         return (items.Select(MapToDto).ToList(), totalCount);
     }
 
@@ -52,6 +55,8 @@ public class DealService(IDealRepository repo, IEventPublisher eventPublisher)
             PropertyName = input.PropertyName,
             PropertyType = input.PropertyType,
             MetroArea = input.MetroArea,
+            OccupancyRate = input.OccupancyRate,
+            MarketCapRateBenchmark = input.MarketCapRateBenchmark,
             Stage = DealStages.InitialInterest,
             Priority = priority,
             OwnerId = actorId,
@@ -92,8 +97,11 @@ public class DealService(IDealRepository repo, IEventPublisher eventPublisher)
         await eventPublisher.PublishAsync(Topics.DealCreated, created.PropertyId,
             new DealCreated(created.PropertyId, created.Id), ct);
 
-        return ServiceResult<DealDto>.Ok(MapToDto(
-            new DealWithTaskStats(created, templateTasks.Count, 0, false)));
+        // A brand-new deal has no dwell history and no overdue tasks, so its flag set
+        // is whatever the snapshotted metrics alone imply.
+        return ServiceResult<DealDto>.Ok(MapToDto(new DealWithTaskStats(
+            created, templateTasks.Count, 0, false,
+            DealHealth.Evaluate(created, false, [], DateTime.UtcNow))));
     }
 
     public async Task<ServiceResult<DealDto>> UpdateAsync(string id, UpdateDealDto input,
@@ -107,18 +115,38 @@ public class DealService(IDealRepository repo, IEventPublisher eventPublisher)
             return ServiceResult<DealDto>.Fail(ErrorCodes.Validation, "Invalid deal.",
                 [new FieldError("priority", $"priority must be one of: {string.Join(", ", DealPriorities.All)}.")]);
 
+        // Merge only the fields the caller sent, and record which ones actually moved so
+        // deal.updated can tell a real edit from an idempotent PUT.
         var deal = row.Deal;
-        if (input.Name is not null) deal.Name = input.Name;
-        if (input.Priority is not null) deal.Priority = input.Priority;
-        if (input.OfferPrice is not null) deal.OfferPrice = input.OfferPrice;
-        if (input.ProjectedCapRate is not null) deal.ProjectedCapRate = input.ProjectedCapRate;
-        if (input.TargetIrr is not null) deal.TargetIrr = input.TargetIrr;
-        if (input.EquityMultiple is not null) deal.EquityMultiple = input.EquityMultiple;
-        if (input.ProjectedCloseDate is not null) deal.ProjectedCloseDate = input.ProjectedCloseDate;
-        deal.UpdatedAt = Now();
+        var changed = new List<string>();
+        if (input.Name is not null && input.Name != deal.Name)
+        { deal.Name = input.Name; changed.Add("name"); }
+        if (input.Priority is not null && input.Priority != deal.Priority)
+        { deal.Priority = input.Priority; changed.Add("priority"); }
+        if (input.OfferPrice is not null && input.OfferPrice != deal.OfferPrice)
+        { deal.OfferPrice = input.OfferPrice; changed.Add("offerPrice"); }
+        if (input.ProjectedCapRate is not null && input.ProjectedCapRate != deal.ProjectedCapRate)
+        { deal.ProjectedCapRate = input.ProjectedCapRate; changed.Add("projectedCapRate"); }
+        if (input.TargetIrr is not null && input.TargetIrr != deal.TargetIrr)
+        { deal.TargetIrr = input.TargetIrr; changed.Add("targetIrr"); }
+        if (input.EquityMultiple is not null && input.EquityMultiple != deal.EquityMultiple)
+        { deal.EquityMultiple = input.EquityMultiple; changed.Add("equityMultiple"); }
+        if (input.ProjectedCloseDate is not null && input.ProjectedCloseDate != deal.ProjectedCloseDate)
+        { deal.ProjectedCloseDate = input.ProjectedCloseDate; changed.Add("projectedCloseDate"); }
 
+        if (changed.Count == 0)
+            return ServiceResult<DealDto>.Ok(MapToDto(row));
+
+        deal.UpdatedAt = Now();
         await repo.UpdateAsync(deal, ct);
-        return ServiceResult<DealDto>.Ok(MapToDto(row));
+
+        await eventPublisher.PublishAsync(Topics.DealUpdated, deal.Id,
+            new DealUpdated(deal.Id, deal.PropertyId, changed, deal.UpdatedAt!), ct);
+
+        // Re-read: an edited offer price or cap rate can flip a health flag, and the
+        // caller renders the response directly.
+        var refreshed = await repo.GetByIdAsync(id, ct);
+        return ServiceResult<DealDto>.Ok(MapToDto(refreshed ?? row));
     }
 
     public async Task<ServiceResult<DealDto>> AdvanceAsync(string id, string? expectedCurrentStage,
@@ -324,10 +352,12 @@ public class DealService(IDealRepository repo, IEventPublisher eventPublisher)
         var d = row.Deal;
         return new DealDto(
             d.Id, d.Name, d.PropertyId, d.PropertyName, d.PropertyType, d.MetroArea,
+            d.OccupancyRate, d.MarketCapRateBenchmark,
             d.Stage, d.Priority, d.OwnerId, d.DeadReason,
             d.OfferPrice, d.ProjectedCapRate, d.TargetIrr, d.EquityMultiple, d.ProjectedCloseDate,
             d.AiScore, d.AiScoreRationale, d.RiskFlags,
             d.StageEnteredAt, d.CreatedAt, d.UpdatedAt,
-            row.TaskCount, row.DoneTaskCount, row.HasOverdueTasks);
+            row.TaskCount, row.DoneTaskCount, row.HasOverdueTasks,
+            row.HealthFlags.Select(f => new HealthFlagDto(f.Type, f.Severity, f.Message)).ToList());
     }
 }
