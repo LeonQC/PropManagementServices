@@ -15,6 +15,9 @@ public interface IPropertyRepository
         string? sort = null,
         string? q = null,
         CancellationToken ct = default);
+    /// <summary>All properties with children, unfiltered — for snapshot backfill/reindex.</summary>
+    Task<(List<Property> Items, int TotalCount)> GetAllForReindexAsync(
+        int page, int pageSize, CancellationToken ct = default);
     Task<Property> CreateAsync(Property property, CancellationToken ct = default);
     Task UpdateAsync(Property property, CancellationToken ct = default);
     Task DeleteAsync(string id, CancellationToken ct = default);

@@ -80,6 +80,8 @@ public class PropertyService(IPropertyRepository propertyRepository, IEventPubli
             created.Id, created.PropertyType, created.PropertySubtype,
             created.Address?.MetroArea, created.AskingPrice, created.CapRate), ct);
 
+        await PublishSnapshotAsync(created, deleted: false, ct);
+
         return MapToDto(created);
     }
 
@@ -138,6 +140,10 @@ public class PropertyService(IPropertyRepository propertyRepository, IEventPubli
                 new PropertyStatusChanged(property.Id, oldStatus, property.Status, null), ct);
         }
 
+        // Unconditional: the events above are gated on specific fields, but the search index
+        // needs every change — a title or description edit fires neither of them.
+        await PublishSnapshotAsync(property, deleted: property.Status == "off_market", ct);
+
         return MapToDto(property);
     }
 
@@ -151,6 +157,12 @@ public class PropertyService(IPropertyRepository propertyRepository, IEventPubli
 
         await eventPublisher.PublishAsync(Topics.PropertyStatusChanged, id,
             new PropertyStatusChanged(id, oldStatus, "off_market", null), ct);
+
+        // DeleteAsync writes via ExecuteUpdate, which bypasses the change tracker, so mirror
+        // its effects onto the loaded entity before projecting it.
+        property.Status = "off_market";
+        property.Version++;
+        await PublishSnapshotAsync(property, deleted: true, ct);
 
         return true;
     }
@@ -181,6 +193,12 @@ public class PropertyService(IPropertyRepository propertyRepository, IEventPubli
         };
 
         var created = await propertyRepository.AddMediaAsync(media, ct);
+
+        // The child is now tracked and fixed up onto property.Media; UpdateAsync bumps the
+        // parent's version so the snapshot carries a newer external version than the last one.
+        await propertyRepository.UpdateAsync(property, ct);
+        await PublishSnapshotAsync(property, deleted: property.Status == "off_market", ct);
+
         return MapToDto(created);
     }
 
@@ -208,6 +226,11 @@ public class PropertyService(IPropertyRepository propertyRepository, IEventPubli
         };
 
         var created = await propertyRepository.AddFeatureAsync(feature, ct);
+
+        // Same as media: bump the parent version, then project the updated aggregate.
+        await propertyRepository.UpdateAsync(property, ct);
+        await PublishSnapshotAsync(property, deleted: property.Status == "off_market", ct);
+
         return MapToDto(created);
     }
 
@@ -244,6 +267,10 @@ public class PropertyService(IPropertyRepository propertyRepository, IEventPubli
 
         property.AiSummary = summary;
         await propertyRepository.UpdateAsync(property, ct);
+
+        // No business event here by design, but ai_summary is searchable text, so the index
+        // still has to hear about it.
+        await PublishSnapshotAsync(property, deleted: property.Status == "off_market", ct);
     }
 
     private async Task TransitionStatusAsync(string propertyId, string newStatus, string? dealId, CancellationToken ct)
@@ -259,6 +286,64 @@ public class PropertyService(IPropertyRepository propertyRepository, IEventPubli
 
         await eventPublisher.PublishAsync(Topics.PropertyStatusChanged, propertyId,
             new PropertyStatusChanged(propertyId, oldStatus, newStatus, dealId), ct);
+
+        await PublishSnapshotAsync(property, deleted: newStatus == "off_market", ct);
+    }
+
+    // ----- search snapshot (event-carried state transfer) -----
+
+    /// <summary>
+    /// Publishes the full searchable projection to Topics.PropertySnapshot. Called from every
+    /// mutation path, unconditionally — deliberately NOT sharing the price/cap-rate gate that
+    /// PropertyUpdated applies, because a title or description edit must still reach the
+    /// search index. Requires <paramref name="p"/> to have Address/Media/Features loaded
+    /// (GetByIdAsync includes them).
+    /// </summary>
+    private Task PublishSnapshotAsync(Property p, bool deleted, CancellationToken ct) =>
+        eventPublisher.PublishAsync(Topics.PropertySnapshot, p.Id, new PropertySnapshot(
+            p.Id, p.Version, p.Title, p.Slug, p.PropertyType, p.PropertySubtype, p.Status,
+            p.TotalSqft, p.LeasableSqft, p.YearBuilt, p.LotSizeAcres, p.UnitCount,
+            p.AskingPrice, p.CapRate, p.Noi, p.OccupancyRate,
+            p.MarketCapRateBenchmark, p.Year1NoiEstimate,
+            p.DescriptionText, p.AiSummary,
+            p.Address is null ? null : new SnapshotAddress(
+                p.Address.Street, p.Address.City, p.Address.State, p.Address.Zip,
+                p.Address.MetroArea, p.Address.Latitude, p.Address.Longitude,
+                p.Address.Neighborhood),
+            [.. p.Features.Select(f => new SnapshotFeature(
+                f.FeatureCategory, f.FeatureName, f.FeatureValue))],
+            p.Media.Where(m => m.IsPrimary).OrderBy(m => m.DisplayOrder)
+                   .Select(m => m.Url).FirstOrDefault(),
+            p.ListedAt, p.UpdatedAt, deleted), ct);
+
+    /// <summary>
+    /// Republishes a snapshot for every property, so a fresh index can be built without the
+    /// consumer ever calling back into this service. Needed once for rows that predate the
+    /// snapshot topic (the seeded data); after that, reindexing is a pure Kafka replay of the
+    /// compacted topic. Soft-deleted rows are included, flagged deleted.
+    /// </summary>
+    public async Task<int> RepublishAllAsync(CancellationToken ct = default)
+    {
+        const int pageSize = 200;
+        var page = 1;
+        var published = 0;
+
+        while (true)
+        {
+            var (items, totalCount) = await propertyRepository.GetAllForReindexAsync(page, pageSize, ct);
+            if (items.Count == 0) break;
+
+            foreach (var property in items)
+            {
+                await PublishSnapshotAsync(property, property.Status == "off_market", ct);
+                published++;
+            }
+
+            if (published >= totalCount) break;
+            page++;
+        }
+
+        return published;
     }
 
     // ----- entity ↔ business model mapping -----

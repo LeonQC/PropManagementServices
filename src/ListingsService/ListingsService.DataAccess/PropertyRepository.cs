@@ -112,6 +112,7 @@ public class PropertyRepository(ListingsDbContext db) : IPropertyRepository
             property.Address.Id = Guid.NewGuid().ToString();
             property.Address.PropertyId = property.Id;
         }
+        property.Version = 1;
         db.Properties.Add(property);
         await db.SaveChangesAsync(ct);
         return property;
@@ -120,6 +121,7 @@ public class PropertyRepository(ListingsDbContext db) : IPropertyRepository
     public async Task UpdateAsync(Property property, CancellationToken ct = default)
     {
         property.UpdatedAt = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss");
+        property.Version++;   // external version for the search index — see Property.Version
         db.Properties.Update(property);
         await db.SaveChangesAsync(ct);
     }
@@ -134,7 +136,35 @@ public class PropertyRepository(ListingsDbContext db) : IPropertyRepository
             .Where(p => p.Id == id)
             .ExecuteUpdateAsync(s => s
                 .SetProperty(p => p.Status, "off_market")
-                .SetProperty(p => p.UpdatedAt, now), ct);
+                .SetProperty(p => p.UpdatedAt, now)
+                // Bump in SQL: ExecuteUpdate bypasses the change tracker, so the caller's
+                // in-memory entity is stale and can't do this itself.
+                .SetProperty(p => p.Version, p => p.Version + 1), ct);
+    }
+
+    /// <summary>
+    /// Every property with its children, for republishing snapshots (backfill/reindex).
+    /// Deliberately unlike GetAllAsync: no off_market filter (soft-deleted rows must still
+    /// reach the index, flagged deleted) and Media/Features are included, since the snapshot
+    /// projection carries them.
+    /// </summary>
+    public async Task<(List<Property> Items, int TotalCount)> GetAllForReindexAsync(
+        int page, int pageSize, CancellationToken ct = default)
+    {
+        var query = db.Properties
+            .Include(p => p.Address)
+            .Include(p => p.Media.OrderBy(m => m.DisplayOrder))
+            .Include(p => p.Features)
+            .OrderBy(p => p.Id)          // stable key order so paging can't skip rows
+            .AsQueryable();
+
+        var totalCount = await query.CountAsync(ct);
+        var items = await query
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(ct);
+
+        return (items, totalCount);
     }
 
     // Media

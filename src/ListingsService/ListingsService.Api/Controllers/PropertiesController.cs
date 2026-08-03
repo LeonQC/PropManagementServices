@@ -171,6 +171,17 @@ public class PropertiesController(PropertyService propertyService) : ControllerB
             : Created($"listings/v1/properties/{id}/features", MapToResponse(created));
     }
 
+    // POST /listings/v1/properties/republish
+    // Re-emits a property.snapshot for every property so a search index can be built from
+    // Kafka alone. Needed once for rows that predate the snapshot topic (the seeded data);
+    // after that a reindex is a pure replay of the compacted topic.
+    [HttpPost("republish")]
+    public async Task<IActionResult> Republish(CancellationToken ct)
+    {
+        var count = await propertyService.RepublishAllAsync(ct);
+        return Ok(new { message = "Republished property snapshots", count });
+    }
+
     // POST /listings/v1/properties/{id}/suggest-price
     [HttpPost("{id}/suggest-price")]
     public async Task<IActionResult> SuggestPrice(string id, CancellationToken ct)

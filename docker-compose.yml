@@ -207,6 +207,37 @@ services:
       - litellm
       - auth-service
 
+  opensearch:
+    # Search engine backing search-service: the cross-entity index (properties today,
+    # deals next). Postgres FTS can't span services, hence a separate store.
+    image: opensearchproject/opensearch:2
+    environment:
+      discovery.type: single-node
+      # Local dev only. From 2.12 OpenSearch refuses to start unless you either disable
+      # the security plugin or set OPENSEARCH_INITIAL_ADMIN_PASSWORD. Disabling keeps the
+      # cluster on plain http://opensearch:9200 with no TLS or admin user to manage.
+      DISABLE_SECURITY_PLUGIN: "true"
+      # Cap the JVM heap: this stack is large and Docker's VM is ~7.6 GiB. Without this
+      # OpenSearch sizes the heap off total RAM and crowds out the other services.
+      OPENSEARCH_JAVA_OPTS: "-Xms512m -Xmx512m"
+    ports:
+      - "9200:9200"
+    volumes:
+      - opensearch-data:/usr/share/opensearch/data
+
+  opensearch-dashboards:
+    # Web console for hand-writing queries (Dev Tools). Behind a profile so it doesn't
+    # cost ~0.5-1 GiB on every `up`: docker compose --profile tools up -d opensearch-dashboards
+    image: opensearchproject/opensearch-dashboards:2
+    profiles: ["tools"]
+    ports:
+      - "5601:5601"
+    environment:
+      OPENSEARCH_HOSTS: '["http://opensearch:9200"]'
+      DISABLE_SECURITY_DASHBOARDS_PLUGIN: "true"
+    depends_on:
+      - opensearch
+
 volumes:
   listings-db-data:
   auth-db-data:
@@ -215,3 +246,4 @@ volumes:
   minio-data:
   rag-db-data:
   tei-cache:
+  opensearch-data:
