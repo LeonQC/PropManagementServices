@@ -14,6 +14,7 @@ public static class ServiceCollectionExtensions
         services.AddKafkaMessaging(config);
 
         services.AddScoped<PropertyIndexingService>();
+        services.AddScoped<PropertySearchService>();
 
         // Inbound event consumers (background services).
         services.AddHostedService<PropertySnapshotConsumer>();

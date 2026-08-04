@@ -1,0 +1,139 @@
+@host = http://localhost:5600
+# The Postgres-backed fallback path. Same params, same response shape — run the two
+# side by side to diff them (see "Parity checks" below).
+@listingsHost = http://localhost:5100
+# The index itself, for when you need to see what the service is actually querying.
+@opensearch = http://localhost:9200
+# A seeded property id. Swap for one from a list call.
+@propertyId = 228d468f-592e-480e-bdeb-2d338b16d3ea
+
+### Health — index reachability + live document count
+GET {{host}}/search/v1/health
+Accept: application/json
+
+# ─────────────────────────────────────────────────────────────────────────────
+# The grid query. Identical contract to GET /listings/v1/properties.
+# ─────────────────────────────────────────────────────────────────────────────
+
+### List properties (paginated, default sort = newest first)
+GET {{host}}/search/v1/properties?page=1&pageSize=5
+Accept: application/json
+
+### Page 2 — pagination is stable (every sort carries an id tiebreaker)
+GET {{host}}/search/v1/properties?page=2&pageSize=5
+Accept: application/json
+
+### Sort: price high → low
+GET {{host}}/search/v1/properties?page=1&pageSize=5&sort=price_desc
+Accept: application/json
+
+### Sort: price low → high
+GET {{host}}/search/v1/properties?page=1&pageSize=5&sort=price_asc
+Accept: application/json
+
+### Sort: cap rate high → low
+GET {{host}}/search/v1/properties?page=1&pageSize=5&sort=cap_desc
+Accept: application/json
+
+### Filter: property type
+GET {{host}}/search/v1/properties?page=1&pageSize=5&propertyType=Industrial
+Accept: application/json
+
+### Filter: status
+GET {{host}}/search/v1/properties?page=1&pageSize=5&status=listed
+Accept: application/json
+
+### Filter: metro area
+GET {{host}}/search/v1/properties?page=1&pageSize=5&metroArea=Portland%20Metro
+Accept: application/json
+
+### Filter: price range
+GET {{host}}/search/v1/properties?page=1&pageSize=5&minPrice=5000000&maxPrice=25000000
+Accept: application/json
+
+### Everything composed — filters + keyword + sort
+GET {{host}}/search/v1/properties?page=1&pageSize=5&propertyType=Industrial&status=listed&sort=relevance&q=park
+Accept: application/json
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Keyword search — what OpenSearch does that the Postgres tsvector could not.
+# Run each against {{listingsHost}} too; the difference is the point.
+# ─────────────────────────────────────────────────────────────────────────────
+
+### Exact term — 8 hits, same as Postgres
+GET {{host}}/search/v1/properties?page=1&pageSize=10&q=warehouse
+Accept: application/json
+
+### TYPO tolerance — "warehse" still finds warehouses (Postgres returned 0)
+GET {{host}}/search/v1/properties?page=1&pageSize=10&q=warehse
+Accept: application/json
+
+### PREFIX / search-as-you-type — a half-typed word matches title AND description
+GET {{host}}/search/v1/properties?page=1&pageSize=10&q=wareh
+Accept: application/json
+
+### LOOSE MULTI-WORD — no longer all-or-nothing (Postgres AND'd every term: 2 hits)
+GET {{host}}/search/v1/properties?page=1&pageSize=10&q=industrial%20park%20portland
+Accept: application/json
+
+### Short queries still require every term ("2<70%"), so this stays tight
+GET {{host}}/search/v1/properties?page=1&pageSize=10&q=cold%20storage
+Accept: application/json
+
+### Matches text that lives only in the description
+GET {{host}}/search/v1/properties?page=1&pageSize=10&q=tenant
+Accept: application/json
+
+### RELEVANCE sort — ranks by BM25 score; only meaningful with a keyword.
+# Expect Portland on top: the query terms are spread across title + city, and documents
+# containing all of them outrank a great match on title alone.
+GET {{host}}/search/v1/properties?page=1&pageSize=5&sort=relevance&q=industrial%20park%20portland
+Accept: application/json
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Parity checks — the same request against both backends.
+# Structured queries must match exactly; keyword queries are expected to differ.
+# ─────────────────────────────────────────────────────────────────────────────
+
+### OpenSearch path
+GET {{host}}/search/v1/properties?page=1&pageSize=10&propertyType=Office&status=listed&sort=cap_desc
+Accept: application/json
+
+### Postgres path — same params, must return the same items in the same order
+GET {{listingsHost}}/listings/v1/properties?page=1&pageSize=10&propertyType=Office&status=listed&sort=cap_desc
+Accept: application/json
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Index plumbing. The service owns these; hit them directly when a result looks wrong.
+# ─────────────────────────────────────────────────────────────────────────────
+
+### Republish every property snapshot from listings-service (rebuilds the feed).
+# Only needed for rows that predate the snapshot topic — after that, reindexing is a pure
+# Kafka replay. Safe to re-run: external versioning rejects unchanged documents.
+POST {{listingsHost}}/listings/v1/properties/republish
+
+### Cluster health
+GET {{opensearch}}/_cluster/health
+
+### Root document count. NOTE: /_cat/indices reports a much larger number because it also
+# counts the nested `features` sub-documents — this is the one that matches the grid total.
+GET {{opensearch}}/properties/_count
+
+### The alias and the index it points at (reads go through the alias so the index can be
+# rebuilt and swapped underneath them)
+GET {{opensearch}}/_alias/properties
+
+### Field mapping — check analyzers and types when matching behaves unexpectedly
+GET {{opensearch}}/properties_v1/_mapping
+
+### A single indexed document, as the consumer wrote it
+GET {{opensearch}}/properties/_doc/{{propertyId}}
+
+### See how text is tokenised — the fastest way to explain "why didn't this match?"
+POST {{opensearch}}/properties_v1/_analyze
+Content-Type: application/json
+
+{
+  "analyzer": "proptrack_text",
+  "text": "Warehouses in Portland's Pearl District"
+}

@@ -23,4 +23,21 @@ public interface IPropertyIndex
 
     /// <summary>Live document count, for health/verification.</summary>
     Task<long> CountAsync(CancellationToken ct = default);
+
+    /// <summary>
+    /// The listings-grid query. Signature deliberately mirrors
+    /// ListingsService's IPropertyRepository.GetAllAsync so the two paths stay swappable and
+    /// diff-testable. Soft-deleted properties are never in the index, so there's no
+    /// off_market exclusion to apply here.
+    /// </summary>
+    Task<(List<PropertyDocument> Items, long TotalCount)> SearchAsync(
+        int page, int pageSize,
+        string? propertyType = null,
+        string? status = null,
+        string? metroArea = null,
+        double? minPrice = null,
+        double? maxPrice = null,
+        string? sort = null,
+        string? q = null,
+        CancellationToken ct = default);
 }

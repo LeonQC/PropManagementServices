@@ -44,7 +44,17 @@
           }
         }
       },
-      "body": { "type": "text", "analyzer": "proptrack_text" },
+      "body": {
+        "type": "text",
+        "analyzer": "proptrack_text",
+        "fields": {
+          "autocomplete": {
+            "type": "text",
+            "analyzer": "proptrack_autocomplete_index",
+            "search_analyzer": "proptrack_autocomplete_search"
+          }
+        }
+      },
       "descriptionText": { "type": "text", "analyzer": "proptrack_text" },
       "aiSummary": { "type": "text", "analyzer": "proptrack_text" },
 
