@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\SearchService.Models\SearchService.Models.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- This service's store is OpenSearch, not Postgres, so the DataAccess layer carries a
+         search client instead of EF Core. OpenSearch.Net is the low-level client: queries are
+         sent as JSON, keeping the C# 1:1 with what you'd run in the Dashboards Dev Tools
+         console (and avoiding a fluent-DSL learning curve on top of an OpenSearch one). -->
+    <PackageReference Include="OpenSearch.Net" Version="1.8.0" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" Version="9.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Binder" Version="9.0.0" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="9.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="9.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The index mapping ships with the assembly so startup can create the index from it. -->
+    <EmbeddedResource Include="Indexing\properties-index.json" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+</Project>

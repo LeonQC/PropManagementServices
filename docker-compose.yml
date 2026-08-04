@@ -207,6 +207,23 @@ services:
       - litellm
       - auth-service
 
+  search-service:
+    # Owns the OpenSearch indices and (from Phase 3) the search API. Has no database of its
+    # own — OpenSearch is its store, rebuilt by replaying the compacted property.snapshot
+    # topic, so it never calls back into listings-service.
+    build:
+      context: ./src
+      dockerfile: SearchService/SearchService.Api/Dockerfile
+    ports:
+      - "5600:8080"
+    environment:
+      OpenSearch__Url: "http://opensearch:9200"
+      Kafka__BootstrapServers: "kafka:9092"
+      Kafka__ConsumerGroupId: "search-service"
+    depends_on:
+      - opensearch
+      - kafka
+
   opensearch:
     # Search engine backing search-service: the cross-entity index (properties today,
     # deals next). Postgres FTS can't span services, hence a separate store.

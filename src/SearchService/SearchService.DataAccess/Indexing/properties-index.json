@@ -1,0 +1,123 @@
+{
+  "settings": {
+    "number_of_shards": 1,
+    "number_of_replicas": 0,
+    "analysis": {
+      "filter": {
+        "english_stemmer": { "type": "stemmer", "language": "english" },
+        "english_stop": { "type": "stop", "stopwords": "_english_" },
+        "autocomplete_edge": { "type": "edge_ngram", "min_gram": 2, "max_gram": 20 }
+      },
+      "analyzer": {
+        "proptrack_text": {
+          "type": "custom",
+          "tokenizer": "standard",
+          "filter": ["lowercase", "asciifolding", "english_stop", "english_stemmer"]
+        },
+        "proptrack_autocomplete_index": {
+          "type": "custom",
+          "tokenizer": "standard",
+          "filter": ["lowercase", "asciifolding", "autocomplete_edge"]
+        },
+        "proptrack_autocomplete_search": {
+          "type": "custom",
+          "tokenizer": "standard",
+          "filter": ["lowercase", "asciifolding"]
+        }
+      }
+    }
+  },
+  "mappings": {
+    "properties": {
+      "entityType": { "type": "keyword" },
+      "entityId": { "type": "keyword" },
+
+      "title": {
+        "type": "text",
+        "analyzer": "proptrack_text",
+        "fields": {
+          "keyword": { "type": "keyword" },
+          "autocomplete": {
+            "type": "text",
+            "analyzer": "proptrack_autocomplete_index",
+            "search_analyzer": "proptrack_autocomplete_search"
+          }
+        }
+      },
+      "body": { "type": "text", "analyzer": "proptrack_text" },
+      "descriptionText": { "type": "text", "analyzer": "proptrack_text" },
+      "aiSummary": { "type": "text", "analyzer": "proptrack_text" },
+
+      "slug": { "type": "keyword" },
+      "propertyType": { "type": "keyword" },
+      "propertySubtype": {
+        "type": "keyword",
+        "fields": { "text": { "type": "text", "analyzer": "proptrack_text" } }
+      },
+      "status": { "type": "keyword" },
+
+      "address": {
+        "properties": {
+          "street": { "type": "text", "analyzer": "proptrack_text" },
+          "city": {
+            "type": "keyword",
+            "fields": {
+              "text": { "type": "text", "analyzer": "proptrack_text" },
+              "autocomplete": {
+                "type": "text",
+                "analyzer": "proptrack_autocomplete_index",
+                "search_analyzer": "proptrack_autocomplete_search"
+              }
+            }
+          },
+          "state": { "type": "keyword" },
+          "zip": { "type": "keyword" },
+          "metroArea": {
+            "type": "keyword",
+            "fields": { "text": { "type": "text", "analyzer": "proptrack_text" } }
+          },
+          "neighborhood": {
+            "type": "keyword",
+            "fields": { "text": { "type": "text", "analyzer": "proptrack_text" } }
+          },
+          "location": { "type": "geo_point" }
+        }
+      },
+
+      "askingPrice": { "type": "double" },
+      "capRate": { "type": "double" },
+      "noi": { "type": "double" },
+      "occupancyRate": { "type": "double" },
+      "marketCapRateBenchmark": { "type": "double" },
+      "year1NoiEstimate": { "type": "double" },
+      "totalSqft": { "type": "double" },
+      "leasableSqft": { "type": "double" },
+      "lotSizeAcres": { "type": "double" },
+      "yearBuilt": { "type": "integer" },
+      "unitCount": { "type": "integer" },
+
+      "features": {
+        "type": "nested",
+        "properties": {
+          "category": { "type": "keyword" },
+          "name": { "type": "keyword" },
+          "value": { "type": "keyword" }
+        }
+      },
+
+      "primaryImageUrl": { "type": "keyword", "index": false },
+
+      "listedAt": {
+        "type": "date",
+        "format": "yyyy-MM-dd HH:mm:ss||strict_date_optional_time||epoch_millis"
+      },
+      "updatedAt": {
+        "type": "date",
+        "format": "yyyy-MM-dd HH:mm:ss||strict_date_optional_time||epoch_millis"
+      },
+
+      "version": { "type": "long" },
+      "deleted": { "type": "boolean" }
+    }
+  }
+}
