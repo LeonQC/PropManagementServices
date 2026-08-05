@@ -15,6 +15,7 @@ public static class ServiceCollectionExtensions
         var settings = config.GetSection(KafkaSettings.SectionName).Get<KafkaSettings>() ?? new KafkaSettings();
         services.AddSingleton(settings);
         services.AddSingleton<IEventPublisher, KafkaEventPublisher>();
+        services.AddSingleton<TopicProvisioner>();
         return services;
     }
 }

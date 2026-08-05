@@ -28,6 +28,14 @@ public class Property
     public string? ListedAt { get; set; }
     public string? UpdatedAt { get; set; }
 
+    /// <summary>
+    /// Monotonic write counter, bumped on every mutation. Used as the external version when
+    /// this property is indexed into OpenSearch, so a stale write (e.g. a backfill republish
+    /// that read an older row) is rejected instead of overwriting newer state. UpdatedAt can't
+    /// serve this purpose — it's a string with 1-second resolution.
+    /// </summary>
+    public long Version { get; set; }
+
     public Address? Address { get; set; }
     public List<PropertyMedia> Media { get; set; } = [];
     public List<PropertyFeature> Features { get; set; } = [];

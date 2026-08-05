@@ -80,3 +80,9 @@ Content-Type: application/json
 
 ### Trigger AI price suggestion
 POST {{host}}/listings/v1/properties/{{propertyId}}/suggest-price
+
+### Republish a property.snapshot for every property (search index backfill).
+# Only needed for rows that predate the snapshot topic; afterwards a reindex is a pure
+# replay of the compacted topic. Safe to re-run — unchanged documents are rejected by
+# external versioning rather than rewritten.
+POST {{host}}/listings/v1/properties/republish

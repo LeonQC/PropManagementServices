@@ -16,6 +16,9 @@ var app = builder.Build();
 var seedPath = Path.Combine(app.Environment.ContentRootPath, "Seed", "seed-data.sql");
 await app.Services.InitializeDatabaseAsync(seedPath);
 
+// Declare compacted topics before any publish can auto-create them with the wrong policy.
+await app.Services.EnsureMessagingTopicsAsync();
+
 app.UseSwagger();
 app.UseSwaggerUI();
 
