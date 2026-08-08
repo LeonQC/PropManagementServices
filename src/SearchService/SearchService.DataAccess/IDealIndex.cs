@@ -24,4 +24,28 @@ public interface IDealIndex
 
     /// <summary>Live document count, for health/verification.</summary>
     Task<long> CountAsync(CancellationToken ct = default);
+
+    /// <summary>
+    /// The deals-list query. Parameters deliberately mirror DealsService's
+    /// IDealRepository.GetAllAsync / DealQuery so the two paths stay swappable and
+    /// diff-testable — including the absence of a sort parameter: deals order by newest
+    /// first, or by relevance when a keyword is present, and nothing else.
+    /// </summary>
+    Task<(List<DealDocument> Items, long TotalCount)> SearchAsync(
+        int page, int pageSize,
+        string? stage = null,
+        string? ownerId = null,
+        string? priority = null,
+        string? propertyType = null,
+        string? metroArea = null,
+        string? closeDateBefore = null,
+        string? closeDateAfter = null,
+        double? offerPriceMin = null,
+        double? offerPriceMax = null,
+        double? capRateMin = null,
+        double? capRateMax = null,
+        bool? hasOverdueTasks = null,
+        int? staleDays = null,
+        string? q = null,
+        CancellationToken ct = default);
 }

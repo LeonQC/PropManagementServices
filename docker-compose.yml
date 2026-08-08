@@ -209,8 +209,8 @@ services:
 
   search-service:
     # Owns the OpenSearch indices and (from Phase 3) the search API. Has no database of its
-    # own — OpenSearch is its store, rebuilt by replaying the compacted property.snapshot
-    # topic, so it never calls back into listings-service.
+    # own — OpenSearch is its store, rebuilt by replaying the compacted property.snapshot and
+    # deal.snapshot topics, so it never calls back into listings- or deals-service.
     build:
       context: ./src
       dockerfile: SearchService/SearchService.Api/Dockerfile
@@ -219,10 +219,15 @@ services:
     environment:
       OpenSearch__Url: "http://opensearch:9200"
       Kafka__BootstrapServers: "kafka:9092"
+      # Properties only. Deals consume under their own group (search-service-deals) so either
+      # index can be replayed from the start without rewinding the other.
       Kafka__ConsumerGroupId: "search-service"
+      # Deals are authorized data, so the deals endpoints validate auth-service tokens.
+      Jwt__JwksUrl: "http://auth-service:8080/auth/v1/.well-known/jwks.json"
     depends_on:
       - opensearch
       - kafka
+      - auth-service
 
   opensearch:
     # Search engine backing search-service: the cross-entity index (properties today,

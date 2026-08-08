@@ -7,6 +7,15 @@
 # A seeded property id. Swap for one from a list call.
 @propertyId = 228d468f-592e-480e-bdeb-2d338b16d3ea
 
+# The Postgres-backed deals path, for the same side-by-side diffing.
+@dealsHost = http://localhost:5200
+# A deal id. Swap for one from a list call.
+@dealId = 2fa1bf70-9257-4b82-98b1-a2195121b2b1
+# Deals are authorized data. Paste an access token from POST {{authHost}}/auth/v1/login —
+# both hosts accept the same one, since both validate against auth-service's JWKS.
+@authHost = http://localhost:5300
+@token = paste-an-access-token-here
+
 ### Health — index reachability + live document count
 GET {{host}}/search/v1/health
 Accept: application/json
@@ -136,4 +145,134 @@ Content-Type: application/json
 {
   "analyzer": "proptrack_text",
   "text": "Warehouses in Portland's Pearl District"
+}
+
+# ═════════════════════════════════════════════════════════════════════════════
+# DEALS
+#
+# Identical contract to GET /deals/v1/deals — same query params, same {data, meta}
+# envelope — so switching is a base-path change. Two differences from properties:
+# these require a bearer token, and there is no `sort` param (deals order newest-first,
+# or by relevance once a keyword is present).
+# ═════════════════════════════════════════════════════════════════════════════
+
+### Log in to get a token for the calls below. Copy data.accessToken into @token.
+# @name login
+POST {{authHost}}/auth/v1/login
+Content-Type: application/json
+
+{
+  "email": "admin@proptrack.local",
+  "password": "ChangeMe123!"
+}
+
+### List deals (paginated, newest first)
+GET {{host}}/search/v1/deals?page=1&pageSize=5
+Authorization: Bearer {{token}}
+Accept: application/json
+
+### Without a token — 401. Properties stay anonymous; deals don't.
+GET {{host}}/search/v1/deals?pageSize=1
+Accept: application/json
+
+# ── Structured filters. Every one of these must return the same totalCount and the
+#    same ordering as the {{dealsHost}} twin below it.
+
+### By stage
+GET {{host}}/search/v1/deals?stage=NdaLoi&pageSize=200
+Authorization: Bearer {{token}}
+
+### By owner (an optional filter, not a scoping rule — the list is not per-user)
+GET {{host}}/search/v1/deals?ownerId=11111111-2222-3333-4444-555555555555&pageSize=200
+Authorization: Bearer {{token}}
+
+### Price and cap-rate ranges
+GET {{host}}/search/v1/deals?offerPriceMin=5000000&offerPriceMax=40000000&capRateMin=0.05&pageSize=200
+Authorization: Bearer {{token}}
+
+### Close-date window (bounds are exclusive, matching the Postgres CompareTo)
+GET {{host}}/search/v1/deals?closeDateAfter=2026-03-01&closeDateBefore=2026-11-01&pageSize=200
+Authorization: Bearer {{token}}
+
+### Overdue tasks — a range over the indexed earliest open due date, evaluated against
+# today. Nothing is reindexed when a task tips over; the query asks the question fresh.
+GET {{host}}/search/v1/deals?hasOverdueTasks=true&pageSize=200
+Authorization: Bearer {{token}}
+
+### ...and its complement. These two must partition the whole set.
+GET {{host}}/search/v1/deals?hasOverdueTasks=false&pageSize=200
+Authorization: Bearer {{token}}
+
+### Stale deals — at least N days in the current stage. Same deal: a date range, not a
+# precomputed flag, so the answer moves with the clock.
+GET {{host}}/search/v1/deals?staleDays=30&pageSize=200
+Authorization: Bearer {{token}}
+
+# ── Keyword search. These are *expected* to differ from Postgres — that's the point.
+#    The deals tsvector covers name and property name only; the index also carries the
+#    text of each deal's recent comments and documents, and tolerates typos.
+
+### Comment text. Postgres: 0 hits. OpenSearch: finds the deal whose discussion says it.
+GET {{host}}/search/v1/deals?q=cold storage&pageSize=200
+Authorization: Bearer {{token}}
+
+### Typo tolerance (fuzziness: AUTO). Postgres: 0 hits.
+GET {{host}}/search/v1/deals?q=warehse&pageSize=200
+Authorization: Bearer {{token}}
+
+### Document file names. Postgres: 0 hits.
+GET {{host}}/search/v1/deals?q=rent-roll&pageSize=200
+Authorization: Bearer {{token}}
+
+### A name both backends match — the agreement case, for contrast with the three above.
+GET {{host}}/search/v1/deals?q=Nashville&pageSize=200
+Authorization: Bearer {{token}}
+
+# ── Parity checks. Run each pair and diff totalCount + the id ordering.
+
+### Postgres twin of the stage filter
+GET {{dealsHost}}/deals/v1/deals?stage=NdaLoi&pageSize=200
+Authorization: Bearer {{token}}
+
+### Postgres twin of the overdue filter
+GET {{dealsHost}}/deals/v1/deals?hasOverdueTasks=true&pageSize=200
+Authorization: Bearer {{token}}
+
+### Postgres twin of the stale filter
+GET {{dealsHost}}/deals/v1/deals?staleDays=30&pageSize=200
+Authorization: Bearer {{token}}
+
+# ── Deal index plumbing
+
+### Republish every deal snapshot (backfill / drift repair). Safe to re-run: external
+# versioning rejects unchanged documents rather than rewriting them — watch _seq_no.
+POST {{dealsHost}}/deals/v1/deals/republish
+Authorization: Bearer {{token}}
+
+### Document count. Compare against `SELECT count(*) FROM deals;`
+GET {{opensearch}}/deals/_count
+
+### The alias and the index behind it
+GET {{opensearch}}/_alias/deals
+
+### Field mapping — the date `format` entries are the ones worth checking first when a
+# sort or range behaves oddly. Deals store ISO-8601 round-trip ("O", 7 fractional
+# digits), unlike properties' "yyyy-MM-dd HH:mm:ss".
+GET {{opensearch}}/deals_v1/_mapping
+
+### A single indexed deal, as the consumer wrote it. `body` is the flattened text —
+# name, property, metro, plus comment and document text.
+GET {{opensearch}}/deals/_doc/{{dealId}}
+
+### Version + seq_no, to watch external versioning reject a redundant republish.
+# Run it, republish, run it again: both must be unchanged.
+POST {{opensearch}}/deals/_search
+Content-Type: application/json
+
+{
+  "size": 5,
+  "version": true,
+  "seq_no_primary_term": true,
+  "_source": false,
+  "sort": [{ "entityId": "asc" }]
 }

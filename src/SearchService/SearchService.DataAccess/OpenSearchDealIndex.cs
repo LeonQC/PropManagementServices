@@ -1,5 +1,6 @@
 using System.Reflection;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using Microsoft.Extensions.Logging;
 using OpenSearch.Net;
 using SearchService.Models;
@@ -118,6 +119,187 @@ public sealed class OpenSearchDealIndex(
 
         using var doc = JsonDocument.Parse(res.Body);
         return doc.RootElement.GetProperty("count").GetInt64();
+    }
+
+    /// <summary>Fields the keyword query searches, with their boosts. The deals tsvector this
+    /// replaces weighted name^A and property_name^B and covered nothing else; comment and
+    /// document text reach search for the first time here, through `body`.</summary>
+    private static readonly string[] SearchFields =
+    [
+        "title^3", "title.autocomplete^2", "propertyName.text^2", "metroArea.text",
+        "body",
+        // Prefix matching over the flattened text, so a half-typed word still matches.
+        // Unboosted: a prefix hit should never outrank a real word match.
+        "body.autocomplete",
+    ];
+
+    public async Task<(List<DealDocument> Items, long TotalCount)> SearchAsync(
+        int page, int pageSize,
+        string? stage = null,
+        string? ownerId = null,
+        string? priority = null,
+        string? propertyType = null,
+        string? metroArea = null,
+        string? closeDateBefore = null,
+        string? closeDateAfter = null,
+        double? offerPriceMin = null,
+        double? offerPriceMax = null,
+        double? capRateMin = null,
+        double? capRateMax = null,
+        bool? hasOverdueTasks = null,
+        int? staleDays = null,
+        string? q = null,
+        CancellationToken ct = default)
+    {
+        var keyword = string.IsNullOrWhiteSpace(q) ? null : q.Trim();
+        var now = DateTime.UtcNow;
+
+        var must = new JsonArray();
+        var should = new JsonArray();
+        var filter = new JsonArray();
+        var mustNot = new JsonArray();
+
+        if (keyword is null)
+        {
+            must.Add(new JsonObject { ["match_all"] = new JsonObject() });
+        }
+        else
+        {
+            must.Add(new JsonObject
+            {
+                ["multi_match"] = new JsonObject
+                {
+                    ["query"] = keyword,
+                    ["fields"] = new JsonArray([.. SearchFields.Select(f => (JsonNode)f)]),
+                    ["type"] = "best_fields",
+                    ["fuzziness"] = "AUTO",
+                    // "up to 2 terms, require them all; beyond that, 70%". A flat 70% rounds
+                    // down to 1 term for a two-word query, matching anything with either word.
+                    ["minimum_should_match"] = "2<70%",
+                },
+            });
+
+            // best_fields scores a document by its single best field, so a property-name match
+            // adds nothing on top of a name match. This rewards documents whose flattened text
+            // contains ALL the terms. It only reorders: recall is unchanged because the clause
+            // is `should`, not `must`.
+            should.Add(new JsonObject
+            {
+                ["match"] = new JsonObject
+                {
+                    ["body"] = new JsonObject
+                    {
+                        ["query"] = keyword,
+                        ["operator"] = "and",
+                        ["boost"] = 4,
+                    },
+                },
+            });
+        }
+
+        if (!string.IsNullOrEmpty(stage)) filter.Add(Term("stage", stage));
+        if (!string.IsNullOrEmpty(ownerId)) filter.Add(Term("ownerId", ownerId));
+        if (!string.IsNullOrEmpty(priority)) filter.Add(Term("priority", priority));
+        if (!string.IsNullOrEmpty(propertyType)) filter.Add(Term("propertyType", propertyType));
+        if (!string.IsNullOrEmpty(metroArea)) filter.Add(Term("metroArea", metroArea));
+
+        // Postgres compares strings with CompareTo(...) < 0 / > 0 — strictly, and only on
+        // non-null values. `lt`/`gt` match that, and a range never matches a document missing
+        // the field, so the null guard comes for free.
+        if (!string.IsNullOrEmpty(closeDateBefore))
+            filter.Add(Range("projectedCloseDate", "lt", closeDateBefore));
+        if (!string.IsNullOrEmpty(closeDateAfter))
+            filter.Add(Range("projectedCloseDate", "gt", closeDateAfter));
+
+        if (offerPriceMin.HasValue || offerPriceMax.HasValue)
+            filter.Add(NumericRange("offerPrice", offerPriceMin, offerPriceMax));
+        if (capRateMin.HasValue || capRateMax.HasValue)
+            filter.Add(NumericRange("projectedCapRate", capRateMin, capRateMax));
+
+        // Overdue = the deal has an open task due before today. Postgres asks that of the
+        // child rows; here it's a range over the earliest open due date the snapshot carried,
+        // which is the same question asked of the same data.
+        if (hasOverdueTasks is bool overdue)
+        {
+            var clause = Range("earliestOpenTaskDueDate", "lt", now.ToString("yyyy-MM-dd"));
+            // must_not also admits documents with no such date at all — deals with no tasks,
+            // or none carrying a due date — exactly as `!Tasks.Any(...)` does.
+            (overdue ? filter : mustNot).Add(clause);
+        }
+
+        // staleDays=N → entered the current stage at least N days ago. The cutoff is computed
+        // here rather than handed to OpenSearch as `now-Nd`: date math rounds on the server
+        // side, and this has to match the Postgres expression instant for instant.
+        if (staleDays is int days && days > 0)
+            filter.Add(Range("stageEnteredAt", "lt", now.AddDays(-days).ToString("O")));
+
+        var body = new JsonObject
+        {
+            ["from"] = Math.Max(0, (page - 1) * pageSize),
+            ["size"] = pageSize,
+            // Without this OpenSearch stops counting at 10,000 and totalCount goes wrong
+            // (and pagination with it) once the corpus grows.
+            ["track_total_hits"] = true,
+            ["query"] = new JsonObject
+            {
+                ["bool"] = new JsonObject
+                {
+                    ["must"] = must,
+                    ["should"] = should,
+                    ["filter"] = filter,
+                    ["must_not"] = mustNot,
+                },
+            },
+            ["sort"] = BuildSort(keyword),
+        };
+
+        var res = await client.DoRequestAsync<StringResponse>(
+            OpenSearch.Net.HttpMethod.POST, $"/{settings.DealsAlias}/_search", ct,
+            PostData.String(body.ToJsonString()));
+
+        if (!res.Success)
+            throw new InvalidOperationException($"Search failed ({res.HttpStatusCode}): {res.Body}");
+
+        using var doc = JsonDocument.Parse(res.Body);
+        var hits = doc.RootElement.GetProperty("hits");
+        var total = hits.GetProperty("total").GetProperty("value").GetInt64();
+
+        var items = hits.GetProperty("hits").EnumerateArray()
+            .Select(h => h.GetProperty("_source").Deserialize<DealDocument>(JsonOptions)!)
+            .ToList();
+
+        return (items, total);
+    }
+
+    private static JsonObject Term(string field, string value) =>
+        new() { ["term"] = new JsonObject { [field] = value } };
+
+    private static JsonObject Range(string field, string op, string value) =>
+        new() { ["range"] = new JsonObject { [field] = new JsonObject { [op] = value } } };
+
+    private static JsonObject NumericRange(string field, double? gte, double? lte)
+    {
+        var range = new JsonObject();
+        if (gte.HasValue) range["gte"] = gte.Value;
+        if (lte.HasValue) range["lte"] = lte.Value;
+        return new JsonObject { ["range"] = new JsonObject { [field] = range } };
+    }
+
+    /// <summary>
+    /// The deals list has no sort parameter — ordering is implicit, and this mirrors it:
+    /// newest first for a plain browse, relevance once a keyword narrows the set. Both end in
+    /// entityId so equal-key rows keep a stable order across pages; without it, items can
+    /// repeat or vanish while paging.
+    /// </summary>
+    private static JsonArray BuildSort(string? keyword)
+    {
+        JsonNode primary = keyword is null
+            // Postgres puts NULLs first on DESC; missing values always sort last here. createdAt
+            // is non-nullable, so this only matters if a document ever arrives without it.
+            ? new JsonObject { ["createdAt"] = new JsonObject { ["order"] = "desc", ["missing"] = "_last" } }
+            : new JsonObject { ["_score"] = new JsonObject { ["order"] = "desc" } };
+
+        return [primary, new JsonObject { ["entityId"] = new JsonObject { ["order"] = "asc" } }];
     }
 
     private static string ReadEmbeddedMapping()

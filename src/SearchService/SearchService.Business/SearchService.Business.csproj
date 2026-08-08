@@ -5,6 +5,12 @@
     <ProjectReference Include="..\..\Shared\PropTrack.Messaging\PropTrack.Messaging.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Deals are authorized data, so the deals endpoints validate auth-service bearer
+         tokens. Same package and version as the other token-validating services. -->
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="9.0.5" />
+  </ItemGroup>
+
   <PropertyGroup>
     <TargetFramework>net9.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
