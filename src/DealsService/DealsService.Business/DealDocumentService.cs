@@ -9,7 +9,8 @@ namespace DealsService.Business;
 public class DealDocumentService(
     IDealRepository dealRepo,
     IDealDocumentRepository documentRepo,
-    IEventPublisher eventPublisher)
+    IEventPublisher eventPublisher,
+    DealSnapshotPublisher snapshots)
 {
     public async Task<List<DocumentDto>?> GetByDealAsync(string dealId, CancellationToken ct = default)
     {
@@ -50,6 +51,10 @@ public class DealDocumentService(
         await eventPublisher.PublishAsync(Topics.DealDocumentUploaded, created.DealId,
             new DealDocumentUploaded(created.DealId, created.Id, created.FileName, created.FileType,
                 created.StorageUrl, created.UploadedById, created.UploadedAt), ct);
+
+        // File names (and later the AI summaries documents-service writes back) are part of
+        // the deal's searchable text.
+        await snapshots.BumpReloadAndPublishAsync(dealId, ct);
 
         return ServiceResult<DocumentDto>.Ok(MapToDto(created));
     }

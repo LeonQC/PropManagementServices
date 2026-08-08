@@ -99,6 +99,16 @@ public class DealsController(DealService service) : ApiControllerBase
         return FromResult(Map(result));
     }
 
+    /// <summary>Republishes every deal's snapshot onto deal.snapshot, for backfilling the
+    /// search index or repairing drift. Safe to re-run: unchanged documents lose the
+    /// external-version comparison and are rejected rather than rewritten.</summary>
+    [HttpPost("republish")]
+    public async Task<IActionResult> Republish(CancellationToken ct)
+    {
+        var count = await service.RepublishAllAsync(ct);
+        return Success(new { message = "Republished deal snapshots", count });
+    }
+
     [HttpGet("{id}/history")]
     public async Task<IActionResult> GetHistory(string id, CancellationToken ct)
     {

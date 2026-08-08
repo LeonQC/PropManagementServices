@@ -7,7 +7,7 @@ using PropTrack.Messaging;
 
 namespace DealsService.Business;
 
-public class DealService(IDealRepository repo, IEventPublisher eventPublisher)
+public class DealService(IDealRepository repo, IEventPublisher eventPublisher, DealSnapshotPublisher snapshots)
 {
     public async Task<(List<DealDto> Items, int TotalCount)> GetAllAsync(
         int page, int pageSize, DealFilterDto filters, CancellationToken ct = default)
@@ -97,6 +97,10 @@ public class DealService(IDealRepository repo, IEventPublisher eventPublisher)
         await eventPublisher.PublishAsync(Topics.DealCreated, created.PropertyId,
             new DealCreated(created.PropertyId, created.Id), ct);
 
+        // Re-read rather than project from `created`: the template tasks were inserted
+        // alongside it, and the snapshot carries their rollups.
+        await snapshots.ReloadAndPublishAsync(created.Id, ct);
+
         // A brand-new deal has no dwell history and no overdue tasks, so its flag set
         // is whatever the snapshotted metrics alone imply.
         return ServiceResult<DealDto>.Ok(MapToDto(new DealWithTaskStats(
@@ -142,6 +146,11 @@ public class DealService(IDealRepository repo, IEventPublisher eventPublisher)
 
         await eventPublisher.PublishAsync(Topics.DealUpdated, deal.Id,
             new DealUpdated(deal.Id, deal.PropertyId, changed, deal.UpdatedAt!), ct);
+
+        // Unlike deal.updated above, the snapshot isn't gated on which fields moved — but it
+        // still sits below the no-op early return, because an idempotent PUT changes nothing
+        // and doesn't bump the version.
+        await snapshots.ReloadAndPublishAsync(id, ct);
 
         // Re-read: an edited offer price or cap rate can flip a health flag, and the
         // caller renders the response directly.
@@ -194,6 +203,8 @@ public class DealService(IDealRepository repo, IEventPublisher eventPublisher)
         if (next == DealStages.Acquired)
             await eventPublisher.PublishAsync(Topics.DealOutcomeRecorded, deal.PropertyId,
                 new DealOutcomeRecorded(deal.PropertyId, deal.Id, "won"), ct);
+
+        await snapshots.ReloadAndPublishAsync(id, ct);
 
         // Re-read so task rollups include the freshly templated tasks.
         var refreshed = await repo.GetByIdAsync(id, ct);
@@ -251,6 +262,8 @@ public class DealService(IDealRepository repo, IEventPublisher eventPublisher)
         await eventPublisher.PublishAsync(Topics.DealOutcomeRecorded, deal.PropertyId,
             new DealOutcomeRecorded(deal.PropertyId, deal.Id, "lost"), ct);
 
+        await snapshots.ReloadAndPublishAsync(id, ct);
+
         return ServiceResult<DealDto>.Ok(MapToDto(row));
     }
 
@@ -297,7 +310,41 @@ public class DealService(IDealRepository repo, IEventPublisher eventPublisher)
         };
 
         await repo.TransitionAsync(deal, historyRow, [], ct);
+
+        // The only mutation with no business event of its own — but ownerId is an indexed,
+        // filterable field, so without this the index silently keeps the old owner.
+        await snapshots.ReloadAndPublishAsync(id, ct);
+
         return ServiceResult<DealDto>.Ok(MapToDto(row));
+    }
+
+    /// <summary>
+    /// Republishes every deal's snapshot, for backfilling a new index or repairing drift.
+    /// Pages so a large pipeline doesn't load in one go, and returns how many it emitted so
+    /// the caller can compare against the row count.
+    /// </summary>
+    public async Task<int> RepublishAllAsync(CancellationToken ct = default)
+    {
+        const int pageSize = 200;
+        var page = 1;
+        var published = 0;
+
+        while (true)
+        {
+            var (items, totalCount) = await repo.GetAllForReindexAsync(page, pageSize, ct);
+            if (items.Count == 0) break;
+
+            foreach (var row in items)
+            {
+                await snapshots.PublishAsync(row, ct);
+                published++;
+            }
+
+            if (published >= totalCount) break;
+            page++;
+        }
+
+        return published;
     }
 
     public async Task<List<StageHistoryDto>?> GetHistoryAsync(string dealId, CancellationToken ct = default)

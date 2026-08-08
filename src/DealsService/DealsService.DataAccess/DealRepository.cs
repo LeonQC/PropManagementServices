@@ -132,6 +132,85 @@ public class DealRepository(DealsDbContext db) : IDealRepository
         return (items, totalCount);
     }
 
+    // ----- snapshot projection (deal.snapshot / search index) -----
+
+    /// <summary>The raw shape of the snapshot query, before the child text is joined and the
+    /// dwell baseline is matched in. Kept private: callers only ever see DealSnapshotRow.</summary>
+    private record SnapshotProjection(
+        Deal Deal,
+        int TaskCount,
+        int DoneTaskCount,
+        string? EarliestOpenTaskDueDate,
+        List<string> CommentBodies,
+        List<string> DocumentNames,
+        List<string?> DocumentSummaries);
+
+    /// <summary>How many comments and documents' text reaches the snapshot. A deal's message
+    /// has to stay a sane size on a compacted topic, and the newest entries are the ones worth
+    /// searching — an unbounded join would let one chatty deal blow past the broker's
+    /// max.message.bytes and stall the topic.</summary>
+    private const int SnapshotChildTextLimit = 50;
+
+    private static IQueryable<SnapshotProjection> SnapshotQuery(IQueryable<Deal> deals) =>
+        deals.Select(d => new SnapshotProjection(
+            d,
+            d.Tasks.Count,
+            d.Tasks.Count(t => t.Status == "Done"),
+            // The earliest still-open due date. Compared against today at query time rather
+            // than resolved to a boolean here — see DealSnapshotRow.
+            d.Tasks.Where(t => t.Status != "Done" && t.DueDate != null)
+                .Min(t => t.DueDate),
+            d.Comments.OrderByDescending(c => c.CreatedAt).Take(SnapshotChildTextLimit)
+                .Select(c => c.Body).ToList(),
+            d.Documents.OrderByDescending(x => x.UploadedAt).Take(SnapshotChildTextLimit)
+                .Select(x => x.FileName).ToList(),
+            d.Documents.OrderByDescending(x => x.UploadedAt).Take(SnapshotChildTextLimit)
+                .Select(x => x.AiSummary).ToList()));
+
+    private static DealSnapshotRow ToSnapshotRow(
+        SnapshotProjection p, IReadOnlyList<StageDwellAverage> dwellAverages)
+    {
+        var dwell = dwellAverages.FirstOrDefault(a =>
+            a.Stage == p.Deal.Stage && a.PropertyType == p.Deal.PropertyType);
+
+        return new DealSnapshotRow(
+            p.Deal, p.TaskCount, p.DoneTaskCount, p.EarliestOpenTaskDueDate,
+            JoinText(p.CommentBodies),
+            JoinText([.. p.DocumentNames, .. p.DocumentSummaries]),
+            dwell?.AverageDays,
+            dwell?.SampleCount ?? 0);
+    }
+
+    private static string? JoinText(IEnumerable<string?> parts)
+    {
+        var text = string.Join(' ', parts.Where(v => !string.IsNullOrWhiteSpace(v)));
+        return text.Length == 0 ? null : text;
+    }
+
+    public async Task<DealSnapshotRow?> GetForSnapshotAsync(string dealId, CancellationToken ct = default)
+    {
+        var projection = await SnapshotQuery(db.Deals.Where(d => d.Id == dealId))
+            .FirstOrDefaultAsync(ct);
+        if (projection is null) return null;
+
+        var dwellAverages = await GetStageDwellAveragesAsync(ct);
+        return ToSnapshotRow(projection, dwellAverages);
+    }
+
+    public async Task<(List<DealSnapshotRow> Items, int TotalCount)> GetAllForReindexAsync(
+        int page, int pageSize, CancellationToken ct = default)
+    {
+        var ordered = db.Deals.OrderBy(d => d.Id);   // stable key order so paging can't skip rows
+
+        var totalCount = await ordered.CountAsync(ct);
+        var projections = await SnapshotQuery(ordered.Skip((page - 1) * pageSize).Take(pageSize))
+            .ToListAsync(ct);
+
+        // One aggregate for the whole page, not one per deal.
+        var dwellAverages = await GetStageDwellAveragesAsync(ct);
+        return ([.. projections.Select(p => ToSnapshotRow(p, dwellAverages))], totalCount);
+    }
+
     /// <summary>
     /// Mean days spent in each stage, split by the property type of the deal that passed
     /// through it — the baseline the stale-stage flag compares against. Reads the
@@ -180,6 +259,7 @@ public class DealRepository(DealsDbContext db) : IDealRepository
         CancellationToken ct = default)
     {
         deal.Id = Guid.NewGuid().ToString();
+        deal.Version = 1;   // external version for the search index — see Deal.Version
         initialHistory.Id = Guid.NewGuid().ToString();
         initialHistory.DealId = deal.Id;
         foreach (var task in templateTasks)
@@ -196,11 +276,30 @@ public class DealRepository(DealsDbContext db) : IDealRepository
     }
 
     public Task UpdateAsync(Deal deal, CancellationToken ct = default)
-        => db.SaveChangesAsync(ct);
+    {
+        deal.Version++;
+        return db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>
+    /// Bumps the version of a deal nobody has loaded, for writes that change the deal's
+    /// searchable projection without touching the deal row itself — a new task, comment or
+    /// document. Returns the new version, or null when the deal is gone.
+    /// </summary>
+    public async Task<long?> BumpVersionAsync(string dealId, CancellationToken ct = default)
+    {
+        var deal = await db.Deals.FirstOrDefaultAsync(d => d.Id == dealId, ct);
+        if (deal is null) return null;
+
+        deal.Version++;
+        await db.SaveChangesAsync(ct);
+        return deal.Version;
+    }
 
     public async Task TransitionAsync(Deal deal, DealStageHistory historyRow, List<DealTask> newTasks,
         CancellationToken ct = default)
     {
+        deal.Version++;
         historyRow.Id = Guid.NewGuid().ToString();
         historyRow.DealId = deal.Id;
         foreach (var task in newTasks)

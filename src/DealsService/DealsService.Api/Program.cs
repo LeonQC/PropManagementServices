@@ -38,6 +38,7 @@ var app = builder.Build();
 // The seed file ships in the image under Seed/ (see the .csproj content item).
 var seedPath = Path.Combine(app.Environment.ContentRootPath, "Seed", "seed-data.sql");
 await app.Services.InitializeDatabaseAsync(seedPath);
+await app.Services.EnsureMessagingTopicsAsync();
 
 app.UseSwagger();
 app.UseSwaggerUI();
