@@ -1,0 +1,116 @@
+{
+  "settings": {
+    "number_of_shards": 1,
+    "number_of_replicas": 0,
+    "analysis": {
+      "filter": {
+        "english_stemmer": { "type": "stemmer", "language": "english" },
+        "english_stop": { "type": "stop", "stopwords": "_english_" },
+        "autocomplete_edge": { "type": "edge_ngram", "min_gram": 2, "max_gram": 20 }
+      },
+      "analyzer": {
+        "proptrack_text": {
+          "type": "custom",
+          "tokenizer": "standard",
+          "filter": ["lowercase", "asciifolding", "english_stop", "english_stemmer"]
+        },
+        "proptrack_autocomplete_index": {
+          "type": "custom",
+          "tokenizer": "standard",
+          "filter": ["lowercase", "asciifolding", "autocomplete_edge"]
+        },
+        "proptrack_autocomplete_search": {
+          "type": "custom",
+          "tokenizer": "standard",
+          "filter": ["lowercase", "asciifolding"]
+        }
+      }
+    }
+  },
+  "mappings": {
+    "properties": {
+      "entityType": { "type": "keyword" },
+      "entityId": { "type": "keyword" },
+
+      "title": {
+        "type": "text",
+        "analyzer": "proptrack_text",
+        "fields": {
+          "keyword": { "type": "keyword" },
+          "autocomplete": {
+            "type": "text",
+            "analyzer": "proptrack_autocomplete_index",
+            "search_analyzer": "proptrack_autocomplete_search"
+          }
+        }
+      },
+      "body": {
+        "type": "text",
+        "analyzer": "proptrack_text",
+        "fields": {
+          "autocomplete": {
+            "type": "text",
+            "analyzer": "proptrack_autocomplete_index",
+            "search_analyzer": "proptrack_autocomplete_search"
+          }
+        }
+      },
+
+      "name": { "type": "text", "analyzer": "proptrack_text" },
+      "propertyId": { "type": "keyword" },
+      "propertyName": {
+        "type": "keyword",
+        "fields": { "text": { "type": "text", "analyzer": "proptrack_text" } }
+      },
+      "propertyType": { "type": "keyword" },
+      "metroArea": {
+        "type": "keyword",
+        "fields": { "text": { "type": "text", "analyzer": "proptrack_text" } }
+      },
+
+      "stage": { "type": "keyword" },
+      "priority": { "type": "keyword" },
+      "ownerId": { "type": "keyword" },
+      "deadReason": { "type": "keyword" },
+      "aiScoreRationale": { "type": "text", "analyzer": "proptrack_text" },
+      "riskFlags": { "type": "keyword", "index": false },
+
+      "occupancyRate": { "type": "double" },
+      "marketCapRateBenchmark": { "type": "double" },
+      "offerPrice": { "type": "double" },
+      "projectedCapRate": { "type": "double" },
+      "targetIrr": { "type": "double" },
+      "equityMultiple": { "type": "double" },
+      "aiScore": { "type": "double" },
+      "stageDwellAverageDays": { "type": "double" },
+
+      "taskCount": { "type": "integer" },
+      "doneTaskCount": { "type": "integer" },
+      "stageDwellSampleCount": { "type": "integer" },
+
+      "stageEnteredAt": {
+        "type": "date",
+        "format": "strict_date_optional_time_nanos||strict_date_optional_time||epoch_millis"
+      },
+      "createdAt": {
+        "type": "date",
+        "format": "strict_date_optional_time_nanos||strict_date_optional_time||epoch_millis"
+      },
+      "updatedAt": {
+        "type": "date",
+        "format": "strict_date_optional_time_nanos||strict_date_optional_time||epoch_millis"
+      },
+
+      "projectedCloseDate": {
+        "type": "date",
+        "format": "yyyy-MM-dd||strict_date_optional_time"
+      },
+      "earliestOpenTaskDueDate": {
+        "type": "date",
+        "format": "yyyy-MM-dd||strict_date_optional_time"
+      },
+
+      "version": { "type": "long" }
+    }
+  }
+}

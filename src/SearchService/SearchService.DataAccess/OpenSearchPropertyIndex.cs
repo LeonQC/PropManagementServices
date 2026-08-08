@@ -48,21 +48,21 @@ public sealed class OpenSearchPropertyIndex(
         // you'd make in Dev Tools (HEAD /_alias/x, POST /_aliases), and the alias body is the
         // atomic-swap format we'll reuse when reindexing into properties_v2.
         var aliasExists = await client.DoRequestAsync<StringResponse>(
-            OpenSearch.Net.HttpMethod.HEAD, $"/_alias/{settings.Alias}", ct, null);
+            OpenSearch.Net.HttpMethod.HEAD, $"/_alias/{settings.PropertiesAlias}", ct, null);
 
         if (aliasExists.HttpStatusCode == 200) return;
 
         var body = $$"""
-        { "actions": [ { "add": { "index": "{{settings.PropertiesIndex}}", "alias": "{{settings.Alias}}" } } ] }
+        { "actions": [ { "add": { "index": "{{settings.PropertiesIndex}}", "alias": "{{settings.PropertiesAlias}}" } } ] }
         """;
 
         var res = await client.DoRequestAsync<StringResponse>(
             OpenSearch.Net.HttpMethod.POST, "/_aliases", ct, PostData.String(body));
 
         if (!res.Success)
-            throw new InvalidOperationException($"Could not create alias {settings.Alias}: {res.Body}");
+            throw new InvalidOperationException($"Could not create alias {settings.PropertiesAlias}: {res.Body}");
 
-        logger.LogInformation("Pointed alias {Alias} at {Index}.", settings.Alias, settings.PropertiesIndex);
+        logger.LogInformation("Pointed alias {Alias} at {Index}.", settings.PropertiesAlias, settings.PropertiesIndex);
     }
 
     public async Task<bool> IndexAsync(PropertyDocument document, long version, CancellationToken ct = default)
@@ -117,7 +117,7 @@ public sealed class OpenSearchPropertyIndex(
         // Note this counts root documents only — `_cat/indices` reports a much larger number
         // because it also counts the nested `features` sub-documents.
         var res = await client.DoRequestAsync<StringResponse>(
-            OpenSearch.Net.HttpMethod.GET, $"/{settings.Alias}/_count", ct, null);
+            OpenSearch.Net.HttpMethod.GET, $"/{settings.PropertiesAlias}/_count", ct, null);
 
         if (!res.Success) return -1;
 
@@ -233,7 +233,7 @@ public sealed class OpenSearchPropertyIndex(
         };
 
         var res = await client.DoRequestAsync<StringResponse>(
-            OpenSearch.Net.HttpMethod.POST, $"/{settings.Alias}/_search", ct,
+            OpenSearch.Net.HttpMethod.POST, $"/{settings.PropertiesAlias}/_search", ct,
             PostData.String(body.ToJsonString()));
 
         if (!res.Success)

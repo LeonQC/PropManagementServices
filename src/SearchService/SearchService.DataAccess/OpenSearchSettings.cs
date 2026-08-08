@@ -16,5 +16,12 @@ public class OpenSearchSettings
     /// Read alias. Queries target this rather than the physical index so the index can be
     /// rebuilt and swapped underneath them without downtime or a code change.
     /// </summary>
-    public string Alias { get; set; } = "properties";
+    public string PropertiesAlias { get; set; } = "properties";
+
+    /// <summary>Physical deals index — same write-here/read-through-the-alias split as
+    /// <see cref="PropertiesIndex"/>.</summary>
+    public string DealsIndex { get; set; } = "deals_v1";
+
+    /// <summary>Read alias for deals.</summary>
+    public string DealsAlias { get; set; } = "deals";
 }

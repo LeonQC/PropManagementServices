@@ -17,8 +17,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- The index mapping ships with the assembly so startup can create the index from it. -->
+    <!-- The index mappings ship with the assembly so startup can create the indices from them. -->
     <EmbeddedResource Include="Indexing\properties-index.json" />
+    <EmbeddedResource Include="Indexing\deals-index.json" />
   </ItemGroup>
 
   <PropertyGroup>

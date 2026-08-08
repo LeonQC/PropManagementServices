@@ -18,17 +18,27 @@ public abstract class KafkaConsumerService<T> : BackgroundService
 
     private readonly KafkaSettings _settings;
     private readonly string _topic;
+    private readonly string _groupId;
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger _logger;
 
+    /// <param name="groupId">
+    /// Overrides the service-wide <see cref="KafkaSettings.ConsumerGroupId"/>. Pass one when a
+    /// service hosts several consumers: members of a single group with different subscriptions
+    /// rebalance against each other for no reason, and — more practically — offsets are
+    /// committed per group, so replaying one topic from the beginning would rewind the others
+    /// too. Defaults to the service-wide group.
+    /// </param>
     protected KafkaConsumerService(
         KafkaSettings settings,
         string topic,
         IServiceScopeFactory scopeFactory,
-        ILogger logger)
+        ILogger logger,
+        string? groupId = null)
     {
         _settings = settings;
         _topic = topic;
+        _groupId = groupId ?? settings.ConsumerGroupId;
         _scopeFactory = scopeFactory;
         _logger = logger;
     }
@@ -51,14 +61,14 @@ public abstract class KafkaConsumerService<T> : BackgroundService
         var config = new ConsumerConfig
         {
             BootstrapServers = _settings.BootstrapServers,
-            GroupId = _settings.ConsumerGroupId,
+            GroupId = _groupId,
             AutoOffsetReset = AutoOffsetReset.Earliest,
             EnableAutoCommit = true
         };
 
         using var consumer = new ConsumerBuilder<string, string>(config).Build();
         consumer.Subscribe(_topic);
-        _logger.LogInformation("Subscribed to {Topic} as group {Group}", _topic, _settings.ConsumerGroupId);
+        _logger.LogInformation("Subscribed to {Topic} as group {Group}", _topic, _groupId);
 
         try
         {

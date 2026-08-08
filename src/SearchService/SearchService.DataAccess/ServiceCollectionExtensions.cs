@@ -26,6 +26,7 @@ public static class ServiceCollectionExtensions
         });
 
         services.AddSingleton<IPropertyIndex, OpenSearchPropertyIndex>();
+        services.AddSingleton<IDealIndex, OpenSearchDealIndex>();
 
         return services;
     }
