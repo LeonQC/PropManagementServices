@@ -82,3 +82,12 @@ public record DealResponse(
     int DoneTaskCount,
     bool HasOverdueTasks,
     IReadOnlyList<HealthFlagResponse> HealthFlags);
+
+/// <summary>One cross-entity result from GET /search/v1/all. EntityType is "property" or
+/// "deal"; follow it plus Id to that entity's own endpoint for the full record.</summary>
+public record SearchHitResponse(
+    string EntityType,
+    string Id,
+    string Title,
+    string? Snippet,
+    double Score);

@@ -276,3 +276,39 @@ Content-Type: application/json
   "_source": false,
   "sort": [{ "entityId": "asc" }]
 }
+
+# ═════════════════════════════════════════════════════════════════════════════
+# CROSS-ENTITY
+#
+# One query over the proptrack_search group alias, spanning properties_v1 and
+# deals_v1. Both mappings declare title and body identically — same types, same
+# analyzers — which is what makes ranking across them meaningful.
+#
+# Authenticated, because the results can include deals.
+# ═════════════════════════════════════════════════════════════════════════════
+
+### Search everything, ranked by score
+GET {{host}}/search/v1/all?q=portland&pageSize=10
+Authorization: Bearer {{token}}
+Accept: application/json
+
+### Narrow to one type
+GET {{host}}/search/v1/all?q=portland&entityType=deal&pageSize=10
+Authorization: Bearer {{token}}
+
+### A term that lives in a deal's comments and in property descriptions — one query
+# now returns both, which is the whole point of the shared envelope.
+GET {{host}}/search/v1/all?q=cold storage&pageSize=10
+Authorization: Bearer {{token}}
+
+### No keyword — browse the whole corpus (every document scores the same)
+GET {{host}}/search/v1/all?pageSize=5
+Authorization: Bearer {{token}}
+
+### Group alias membership — must list BOTH indices. The check that keeps it that way is
+# per-index (HEAD /{index}/_alias/{alias}); the unscoped form answers 200 once either
+# index has joined, so the second would silently never be added.
+GET {{opensearch}}/_alias/proptrack_search
+
+### Combined document count across the alias (properties + deals)
+GET {{opensearch}}/proptrack_search/_count

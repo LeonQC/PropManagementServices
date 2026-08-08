@@ -24,4 +24,11 @@ public class OpenSearchSettings
 
     /// <summary>Read alias for deals.</summary>
     public string DealsAlias { get; set; } = "deals";
+
+    /// <summary>
+    /// Group alias spanning every entity index. Both indices join it at startup, so one query
+    /// can rank properties and deals together over the fields they share
+    /// (entityType/entityId/title/body) without the caller naming indices.
+    /// </summary>
+    public string GroupAlias { get; set; } = "proptrack_search";
 }

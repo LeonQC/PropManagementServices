@@ -21,6 +21,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<PropertySearchService>();
         services.AddScoped<DealIndexingService>();
         services.AddScoped<DealSearchService>();
+        services.AddScoped<CrossEntitySearchService>();
 
         // Inbound event consumers (background services), one per topic and per consumer group.
         services.AddHostedService<PropertySnapshotConsumer>();

@@ -46,22 +46,8 @@ public sealed class OpenSearchDealIndex(
 
     private async Task EnsureAliasAsync(CancellationToken ct)
     {
-        var aliasExists = await client.DoRequestAsync<StringResponse>(
-            OpenSearch.Net.HttpMethod.HEAD, $"/_alias/{settings.DealsAlias}", ct, null);
-
-        if (aliasExists.HttpStatusCode == 200) return;
-
-        var body = $$"""
-        { "actions": [ { "add": { "index": "{{settings.DealsIndex}}", "alias": "{{settings.DealsAlias}}" } } ] }
-        """;
-
-        var res = await client.DoRequestAsync<StringResponse>(
-            OpenSearch.Net.HttpMethod.POST, "/_aliases", ct, PostData.String(body));
-
-        if (!res.Success)
-            throw new InvalidOperationException($"Could not create alias {settings.DealsAlias}: {res.Body}");
-
-        logger.LogInformation("Pointed alias {Alias} at {Index}.", settings.DealsAlias, settings.DealsIndex);
+        await AliasHelper.EnsureAliasAsync(client, settings.DealsIndex, settings.DealsAlias, logger, ct);
+        await AliasHelper.EnsureAliasAsync(client, settings.DealsIndex, settings.GroupAlias, logger, ct);
     }
 
     public async Task<bool> IndexAsync(DealDocument document, long version, CancellationToken ct = default)

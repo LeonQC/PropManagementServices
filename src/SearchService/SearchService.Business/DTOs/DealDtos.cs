@@ -37,3 +37,12 @@ public record DealDto(
     int DoneTaskCount,
     bool HasOverdueTasks,
     IReadOnlyList<HealthFlagDto> HealthFlags);
+
+/// <summary>One cross-entity result. The shared envelope only — a caller wanting the whole
+/// entity follows EntityType + EntityId to that entity's own endpoint.</summary>
+public record SearchHitDto(
+    string EntityType,
+    string EntityId,
+    string Title,
+    string? Snippet,
+    double Score);
