@@ -4,7 +4,8 @@ using DealsService.Models;
 
 namespace DealsService.Business;
 
-public class DealCommentService(IDealRepository dealRepo, IDealCommentRepository commentRepo)
+public class DealCommentService(
+    IDealRepository dealRepo, IDealCommentRepository commentRepo, DealSnapshotPublisher snapshots)
 {
     public async Task<List<CommentDto>?> GetByDealAsync(string dealId, CancellationToken ct = default)
     {
@@ -35,6 +36,11 @@ public class DealCommentService(IDealRepository dealRepo, IDealCommentRepository
         };
 
         var created = await commentRepo.CreateAsync(comment, ct);
+
+        // Comment bodies are part of the deal's searchable text — this is the only reason
+        // this service publishes anything at all (deal.comment_added is still unpublished).
+        await snapshots.BumpReloadAndPublishAsync(dealId, ct);
+
         return ServiceResult<CommentDto>.Ok(MapToDto(created));
     }
 

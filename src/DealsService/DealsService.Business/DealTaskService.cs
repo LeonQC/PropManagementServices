@@ -8,7 +8,8 @@ using PropTrack.Messaging;
 namespace DealsService.Business;
 
 public class DealTaskService(
-    IDealRepository dealRepo, IDealTaskRepository taskRepo, IEventPublisher eventPublisher)
+    IDealRepository dealRepo, IDealTaskRepository taskRepo, IEventPublisher eventPublisher,
+    DealSnapshotPublisher snapshots)
 {
     public async Task<List<TaskDto>?> GetByDealAsync(string dealId, CancellationToken ct = default)
     {
@@ -43,6 +44,11 @@ public class DealTaskService(
         };
 
         var created = await taskRepo.CreateAsync(task, ct);
+
+        // The deal row is untouched, but its task rollups and earliest open due date just
+        // moved — so the version has to be bumped here for the snapshot to be accepted.
+        await snapshots.BumpReloadAndPublishAsync(dealId, ct);
+
         return ServiceResult<TaskDto>.Ok(MapToDto(created));
     }
 
@@ -84,6 +90,10 @@ public class DealTaskService(
         if (justCompleted)
             await eventPublisher.PublishAsync(Topics.DealTaskCompleted, dealId,
                 new DealTaskCompleted(dealId, task.Id, task.Stage, actorId, task.CompletedAt!), ct);
+
+        // Unconditional, unlike the event above: a due-date edit has no business event but
+        // does move the deal's earliest open due date, and so its overdue status.
+        await snapshots.BumpReloadAndPublishAsync(dealId, ct);
 
         return ServiceResult<TaskDto>.Ok(MapToDto(task));
     }

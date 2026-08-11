@@ -14,7 +14,7 @@ public static class IndexStartup
         this IServiceProvider services, CancellationToken ct = default)
     {
         using var scope = services.CreateScope();
-        var index = scope.ServiceProvider.GetRequiredService<IPropertyIndex>();
-        await index.EnsureCreatedAsync(ct);
+        await scope.ServiceProvider.GetRequiredService<IPropertyIndex>().EnsureCreatedAsync(ct);
+        await scope.ServiceProvider.GetRequiredService<IDealIndex>().EnsureCreatedAsync(ct);
     }
 }

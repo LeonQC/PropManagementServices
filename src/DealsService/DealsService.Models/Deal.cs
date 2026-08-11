@@ -42,6 +42,16 @@ public class Deal
     public required string CreatedAt { get; set; }
     public string? UpdatedAt { get; set; }
 
+    /// <summary>
+    /// Monotonic write counter, bumped on every mutation that changes what the search index
+    /// should hold — including task, comment and document writes, which don't otherwise touch
+    /// this row. Used as the external version when the deal is indexed into OpenSearch, so a
+    /// stale write (e.g. a backfill republish that read an older row) is rejected instead of
+    /// overwriting newer state. UpdatedAt can't serve this purpose — it's a string, and it is
+    /// left untouched by the child-entity writes.
+    /// </summary>
+    public long Version { get; set; }
+
     public List<DealStageHistory> History { get; set; } = [];
     public List<DealTask> Tasks { get; set; } = [];
     public List<DealComment> Comments { get; set; } = [];

@@ -16,6 +16,7 @@ public static class ServiceCollectionExtensions
         services.AddDataAccess(config.GetConnectionString("DealsDb")!);
         services.AddKafkaMessaging(config);
 
+        services.AddScoped<DealSnapshotPublisher>();
         services.AddScoped<DealService>();
         services.AddScoped<DealTaskService>();
         services.AddScoped<DealCommentService>();
