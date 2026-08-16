@@ -186,8 +186,9 @@ services:
       context: ./src
       dockerfile: IngestionService/Dockerfile
     ports:
-      # Dev-only mapping: this is an INTERNAL API (called by ai-service with a
-      # service token) — not proxied by the UI or exposed via the gateway.
+      # Dev-only mapping: this is an INTERNAL API (called by ai-service, forwarding
+      # the end user's own bearer token — there is no service account) — not proxied
+      # by the UI or exposed via the gateway.
       - "5500:8080"
     environment:
       DATABASE_URL: "postgresql://proptrack:proptrack@rag-db:5432/proptrack_rag"
@@ -229,6 +230,51 @@ services:
       - kafka
       - auth-service
 
+  ai-db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: proptrack_ai
+      POSTGRES_USER: proptrack
+      POSTGRES_PASSWORD: proptrack
+    ports:
+      # 5432-5435 are taken (listings/auth/deals/documents) and 5437 is rag-db;
+      # ai-db takes the gap at 5436.
+      - "5436:5432"
+    volumes:
+      - ai-db-data:/var/lib/postgresql/data
+
+  ai-service:
+    # Claude-backed features (design doc §6.4). Phase 1 is Deal Q&A: retrieval from
+    # ingestion-service, one Claude call, an answer with page citations.
+    #
+    # It holds no service account. Every call to ingestion-service forwards the
+    # caller's own bearer token, so a question can never reach a document the user
+    # couldn't already fetch — see IngestionSearchClient. The Kafka worker half
+    # described in architecture §2.6 arrives with scoring in Phase 3.
+    build:
+      context: ./src
+      dockerfile: AiService/AiService.Api/Dockerfile
+    ports:
+      # 5600 is search-service and 5601 is OpenSearch Dashboards; ai-service takes 5700.
+      - "5700:8080"
+    environment:
+      ConnectionStrings__AiDb: "Host=ai-db;Port=5432;Database=proptrack_ai;Username=proptrack;Password=proptrack"
+      # Bearer tokens are validated against auth-service's JWKS (in-network URL).
+      Jwt__JwksUrl: "http://auth-service:8080/auth/v1/.well-known/jwks.json"
+      Ingestion__BaseUrl: "http://ingestion-service:8080"
+      # Used to resolve document ids to file names, so answers can attribute a
+      # figure to the document it came from.
+      Deals__BaseUrl: "http://deals-service:8080"
+      # Supplied via the untracked .env next to this file (see .env.example).
+      # Never bake the key into the image or commit it.
+      Anthropic__ApiKey: ${ANTHROPIC_API_KEY:-}
+      Anthropic__Model: "claude-sonnet-5"
+    depends_on:
+      - ai-db
+      - auth-service
+      - ingestion-service
+      - deals-service
+
   opensearch:
     # Search engine backing search-service: the cross-entity index (properties today,
     # deals next). Postgres FTS can't span services, hence a separate store.
@@ -265,6 +311,7 @@ volumes:
   auth-db-data:
   deals-db-data:
   documents-db-data:
+  ai-db-data:
   minio-data:
   rag-db-data:
   tei-cache:
