@@ -59,3 +59,8 @@ __pycache__/
 ## everything below it is a run artifact that goes stale as the corpus changes.
 seed-manifest.json
 scripts/eval-results*.json
+
+## Deal Q&A generation eval — cached answers and judged scores (scripts/eval_ragas.py).
+## Same reasoning: regeneratable, and the answer cache goes stale on every corpus change.
+scripts/eval-answers.json
+scripts/eval-ragas-results*.json

@@ -1,0 +1,24 @@
+# Dependencies for scripts/eval_ragas.py ONLY.
+#
+# eval_retrieval.py is deliberately stdlib-only and must stay that way: it is the
+# trusted baseline the RAGAS numbers get checked against, so it has to be runnable
+# with no install step. Install these into a separate venv:
+#
+#   python3 -m venv scripts/.venv
+#   scripts/.venv/bin/pip install -r scripts/requirements-eval.txt
+#   scripts/.venv/bin/python scripts/eval_ragas.py --limit 5
+#
+# Versions are pinned because RAGAS changed its API substantially between 0.1 and
+# 0.2 (metrics renamed, dataset schema replaced). eval_ragas.py is written against
+# the 0.2 API; unpinning it will break imports, not just behaviour.
+ragas==0.2.15
+langchain-openai==0.2.14
+
+# Not pulled in by ragas itself, but the NonLLM* context metrics fail at
+# construction without it — they score by edit distance, and rapidfuzz is the
+# backend. Omitting it makes the free tier of the harness unusable.
+rapidfuzz>=3.9.0
+
+# build_eval_set.py needs this to read the corpus. It is a build-time script whose
+# output (eval-questions.json) is committed, so it runs rarely.
+pypdf>=5.0.0
