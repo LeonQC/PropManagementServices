@@ -201,6 +201,23 @@ services:
       EMBEDDING_MODEL: "embed-openai" # switch to embed-local for the TEI path (then re-ingest)
       EMBEDDING_DIMENSIONS: "1024"
       JWKS_URL: "http://auth-service:8080/auth/v1/.well-known/jwks.json"
+      # Docling runs its layout model through torch, and torch tries to JIT-compile
+      # kernels via TorchInductor on first use. That needs a C++ compiler, and this
+      # image has no g++ — so every PDF conversion dies with
+      #   InvalidCxxCompiler: No working C++ compiler found ... (None, 'g++')
+      # and the run is recorded as failed with zero chunks written.
+      #
+      # It stayed hidden because Inductor caches compiled kernels inside the
+      # container's writable layer: once a container had warmed that cache the
+      # failure stopped reproducing, and it came back the moment the container was
+      # recreated. Ingesting the whole corpus after a `docker compose up -d` is
+      # exactly the case that hits a cold cache.
+      #
+      # Disabling dynamo forces eager execution, which is the right trade here:
+      # these are short documents parsed once, so compiled-kernel speed is worth
+      # far less than the pipeline working from a cold start. The alternative is
+      # adding g++ to the image, which is a much larger build for no real gain.
+      TORCHDYNAMO_DISABLE: "1"
     depends_on:
       - rag-db
       - kafka

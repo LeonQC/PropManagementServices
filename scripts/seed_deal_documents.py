@@ -191,9 +191,22 @@ def seed_document(token: str, deal_id: str, file_type: str, path: Path) -> str:
     return document_id
 
 
-def wait_for_chunks(token: str, document_ids: list[str], timeout_s: int = 900) -> dict[str, int]:
+def wait_for_chunks(token: str, document_ids: list[str], timeout_s: int | None = None) -> dict[str, int]:
     """Poll retrieval until each document has chunks. Ingestion is asynchronous —
-    Kafka delivery plus Docling parsing plus an embedding round-trip per document."""
+    Kafka delivery plus Docling parsing plus an embedding round-trip per document.
+
+    The budget scales with the number of documents rather than being a flat 900s.
+    That constant was set when this seeded ~118 documents; a full-corpus run is 428
+    and overran it, printing a 288-document "never produced chunks" warning for
+    documents that were ingesting correctly and finished minutes later. A timeout
+    that doesn't grow with the workload reports a throughput limit as data loss.
+
+    Note this polls once per *pending* document per cycle, so a large backlog is
+    also a lot of search calls — each one embeds the probe query. Cheap, but it is
+    why the cycle sleeps rather than spinning."""
+    if timeout_s is None:
+        # ~10s per document, floor 900s. Measured: 428 documents took ~25 minutes.
+        timeout_s = max(900, 10 * len(document_ids))
     pending, counts = set(document_ids), {}
     deadline = time.time() + timeout_s
     print(f"Waiting for {len(pending)} document(s) to be ingested", end="", flush=True)

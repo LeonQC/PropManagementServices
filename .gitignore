@@ -53,3 +53,14 @@ src/AuthService/keys/
 ## Python build artifacts (ingestion-service)
 *.egg-info/
 __pycache__/
+
+## Deal Q&A retrieval eval — regeneratable run outputs (scripts/eval_retrieval.py,
+## scripts/rebuild_manifest.py). eval-questions.json is the committed golden set;
+## everything below it is a run artifact that goes stale as the corpus changes.
+seed-manifest.json
+scripts/eval-results*.json
+
+## Deal Q&A generation eval — cached answers and judged scores (scripts/eval_ragas.py).
+## Same reasoning: regeneratable, and the answer cache goes stale on every corpus change.
+scripts/eval-answers.json
+scripts/eval-ragas-results*.json

@@ -1,0 +1,1702 @@
+[
+  {
+    "id": "single-offering_memorandum-asking-price-3dbd02",
+    "slice": "single-fact",
+    "propertyKey": "3dbd02",
+    "dealId": "42daad9a-0872-5c3b-a264-86b957ea0e18",
+    "question": "How much is the seller asking for this property?",
+    "expectedAnswer": "$67,834,000",
+    "gold": [
+      {
+        "documentId": "f01c5b6b-c34a-4b35-ad88-08093b917834",
+        "fileName": "Offering_Memorandum_SoDo_Office_Tower_3dbd02.pdf",
+        "page": 1,
+        "snippet": "Asking price",
+        "passage": "Leasable SF\n179,400 SF\nAsking price\n$67,834,000\nPrice per SF\n$342/SF\nCap rate\n6.69%\nNOI\n$4,537,416\nOccupancy\n76.80%\nMarket benchmark\n6.71%\nInvestment Thesis\nThe offering represents a compelling opportunity to acquire a well-located office asset in the SoDo district of\nSeattle. The property benefits from strong market fundamentals, a creditworthy tenant base, and meaningful\nvalue-add potential through targeted capital improvements and lease-up of the 23.20% vacancy. The Seattle\nMetro market has experienced consistent rent growth of 3-5% annually over the past three years, driven by\npopulation growth, employment expansion, and constrained supply pipelines.\nMarket Overview\nThe Seattle Metro office market reported vacancy of approximately 8.7% as of the most recent quarter, with"
+      }
+    ]
+  },
+  {
+    "id": "single-offering_memorandum-asking-price-30ae2f",
+    "slice": "single-fact",
+    "propertyKey": "30ae2f",
+    "dealId": "2977077b-e122-4319-8082-c315ab6ec6b0",
+    "question": "How much is the seller asking for this property?",
+    "expectedAnswer": "$52,378,000",
+    "gold": [
+      {
+        "documentId": "0b745fe3-b126-42f8-928f-c70df1b90e24",
+        "fileName": "Offering_Memorandum_SoDo_Office_Tower_-_Building_3_30ae2f.pdf",
+        "page": 1,
+        "snippet": "Asking price",
+        "passage": "Leasable SF\n156,700 SF\nAsking price\n$52,378,000\nPrice per SF\n$298/SF\nCap rate\n5.96%\nNOI\n$3,121,205\nOccupancy\n65.20%\nMarket benchmark\n5.46%\nInvestment Thesis\nThe offering represents a compelling opportunity to acquire a well-located office asset in the SoDo district of\nSeattle. The property benefits from strong market fundamentals, a creditworthy tenant base, and meaningful\nvalue-add potential through targeted capital improvements and lease-up of the 34.80% vacancy. The Seattle\nMetro market has experienced consistent rent growth of 3-5% annually over the past three years, driven by\npopulation growth, employment expansion, and constrained supply pipelines.\nMarket Overview\nThe Seattle Metro office market reported vacancy of approximately 5.5% as of the most recent quarter, with"
+      }
+    ]
+  },
+  {
+    "id": "single-rent_roll-vacant-sf-0f1362",
+    "slice": "single-fact",
+    "propertyKey": "0f1362",
+    "dealId": "44af4b5c-434a-4c0e-9ded-2e4773a37d05",
+    "question": "How much vacant space is there?",
+    "expectedAnswer": "12,427 SF",
+    "gold": [
+      {
+        "documentId": "8438b245-124f-4319-8c95-2a70150d9011",
+        "fileName": "Rent_Roll_The_Gulch_Industrial_Park_0f1362.pdf",
+        "page": 1,
+        "snippet": "Vacant SF",
+        "passage": "Occupied SF\n118,773 SF\nVacant SF\n12,427 SF\nOccupancy rate\n90.5%\nTotal annual base rent\n$3,548,384\nAvg rent per SF\n$29.88/SF\nWALT\n7.4 years\nLeases expiring <2yr\n1 leases (15% of GLA)"
+      }
+    ]
+  },
+  {
+    "id": "single-phase_i_esa-report-date-e0a5ff",
+    "slice": "single-fact",
+    "propertyKey": "e0a5ff",
+    "dealId": "7d430015-c1f2-4e1e-9a3d-1633e7a4daa2",
+    "question": "What date does the environmental report carry?",
+    "expectedAnswer": "January 18, 2023",
+    "gold": [
+      {
+        "documentId": "f8e42b4b-b5e7-475e-8dcc-db2e713e132a",
+        "fileName": "Phase_I_ESA_The_Meridian-Kessler_e0a5ff.pdf",
+        "page": 1,
+        "snippet": "Report date",
+        "passage": "Consulting firm\nATC Group Services LLC\nReport date\nJanuary 18, 2023\nStandard\nASTM E1527-21\nClient\nPropTrack Investment Partners LP\nPurpose\nCommercial real estate transaction due diligence\nNO RECOGNIZED ENVIRONMENTAL CONDITIONS\nSite Description\nThe subject site is a 131,200 SF apartment property located at 8547 Metro Pkwy, Indianapolis, IN. The\nproperty was constructed in approximately 2002 and has been used for apartment purposes since\nconstruction. The surrounding area is characterized by similar apartment uses to the north, south, east, and\nwest.\nRecords Review Findings\nDatabase\nFinding\nFederal NPL (Superfund)\nNot listed\nFederal RCRA TSD Facilities"
+      }
+    ]
+  },
+  {
+    "id": "single-offering_memorandum-year-built-6f0343",
+    "slice": "single-fact",
+    "propertyKey": "6f0343",
+    "dealId": "c7d08d8f-4ee6-49d1-ab15-51c26ef86c78",
+    "question": "When was this building constructed?",
+    "expectedAnswer": "2021",
+    "gold": [
+      {
+        "documentId": "ded3ab5f-3e00-4144-8efd-2e1982802951",
+        "fileName": "Offering_Memorandum_Austin_Residences_6f0343.pdf",
+        "page": 1,
+        "snippet": "Year built",
+        "passage": "Property type\nApartment / Student Housing\nYear built\n2021\nTotal SF\n38,300 SF\nLeasable SF\n35,600 SF\nAsking price\n$5,923,000\nPrice per SF\n$155/SF\nCap rate\n5.90%\nNOI\n$349,457\nOccupancy\n88.80%\nMarket benchmark\n5.81%\nInvestment Thesis\nThe offering represents a compelling opportunity to acquire a well-located apartment asset in the Domain"
+      }
+    ]
+  },
+  {
+    "id": "single-appraisal-operating-expenses-e4c15b",
+    "slice": "single-fact",
+    "propertyKey": "e4c15b",
+    "dealId": "c732f7bc-d981-4450-8d20-8152c8e16725",
+    "question": "What operating expense figure appears in the appraisal?",
+    "expectedAnswer": "$673,048",
+    "gold": [
+      {
+        "documentId": "9332bcb3-8e9e-460a-9b65-6f755e1f2c3e",
+        "fileName": "Appraisal_Chicago_Distribution_Hub_e4c15b.pdf",
+        "page": 1,
+        "snippet": "Operating expenses",
+        "passage": "Effective gross income\n$1,922,995\nOperating expenses\n$673,048\nNet operating income\n$1,922,995\nCapitalization rate used\n7.84%\nIndicated value\n$24,540,671\nComparable Sales\nProperty\nSize\nSale Price\n$/SF\nCap Rate\nSale Date\nComp 1 \u2014 Chicago Industrial\n174,733 SF\n$25,538,358\n$146/SF\n6.70%"
+      }
+    ]
+  },
+  {
+    "id": "single-offering_memorandum-asking-price-f07019",
+    "slice": "single-fact",
+    "propertyKey": "f07019",
+    "dealId": "70c38dd4-7888-4b32-a972-81fcac4fdf2c",
+    "question": "How much is the seller asking for this property?",
+    "expectedAnswer": "$16,383,000",
+    "gold": [
+      {
+        "documentId": "8e2292f1-08d7-4298-8e9f-2ed6168931ed",
+        "fileName": "Offering_Memorandum_Chicago_Flex_Campus_f07019.pdf",
+        "page": 1,
+        "snippet": "Asking price",
+        "passage": "Leasable SF\n150,300 SF\nAsking price\n$16,383,000\nPrice per SF\n$101/SF\nCap rate\n6.35%\nNOI\n$1,040,812\nOccupancy\n60.50%\nMarket benchmark\n6.32%\nInvestment Thesis\nThe offering represents a compelling opportunity to acquire a well-located industrial asset in the The Loop\ndistrict of Chicago. The property benefits from strong market fundamentals, a creditworthy tenant base, and\nmeaningful value-add potential through targeted capital improvements and lease-up of the 39.50% vacancy.\nThe Chicago Metro market has experienced consistent rent growth of 3-5% annually over the past three\nyears, driven by population growth, employment expansion, and constrained supply pipelines.\nMarket Overview\nThe Chicago Metro industrial market reported vacancy of approximately 5.2% as of the most recent quarter,"
+      }
+    ]
+  },
+  {
+    "id": "single-offering_memorandum-price-per-sf-9164c7",
+    "slice": "single-fact",
+    "propertyKey": "9164c7",
+    "dealId": "0da89a3d-5d64-4604-865c-dbc5fdb77b8c",
+    "question": "What does the asking price work out to per square foot?",
+    "expectedAnswer": "$113/SF",
+    "gold": [
+      {
+        "documentId": "473ef5f0-3cd4-4cef-89f5-59040ad547cd",
+        "fileName": "Offering_Memorandum_Nashville_Power_Center_9164c7.pdf",
+        "page": 1,
+        "snippet": "Price per SF",
+        "passage": "Asking price\n$7,608,000\nPrice per SF\n$113/SF\nCap rate\n6.54%\nNOI\n$497,259\nOccupancy\n62.80%\nMarket benchmark\n6.74%\nInvestment Thesis\nThe offering represents a compelling opportunity to acquire a well-located retail asset in the The Gulch\ndistrict of Nashville. The property benefits from strong market fundamentals, a creditworthy tenant base, and\nmeaningful value-add potential through targeted capital improvements and lease-up of the 37.20% vacancy.\nThe Nashville Metro market has experienced consistent rent growth of 3-5% annually over the past three\nyears, driven by population growth, employment expansion, and constrained supply pipelines.\nMarket Overview\nThe Nashville Metro retail market reported vacancy of approximately 11.0% as of the most recent quarter,\nwith average asking rents of $26.71/SF NNN. Net absorption has been positive for 13 consecutive quarters,\nreflecting sustained occupi"
+      }
+    ]
+  },
+  {
+    "id": "single-loi-earnest-money-deposit-72bed4",
+    "slice": "single-fact",
+    "propertyKey": "72bed4",
+    "dealId": "b5531ad4-1eeb-4f4e-a989-5830933dde7b",
+    "question": "How much earnest money is the buyer putting up?",
+    "expectedAnswer": "$526,600 (2.0% of purchase price)",
+    "gold": [
+      {
+        "documentId": "7fa863ed-cf3b-4993-8632-ea3c957b75db",
+        "fileName": "LOI_Piscataway_Gateway_72bed4.pdf",
+        "page": 1,
+        "snippet": "Earnest money deposit",
+        "passage": "Implied cap rate\n5.93%\nEarnest money deposit\n$526,600 (2.0% of purchase price)\nDeposit \u2014 hard\n$263,300 hard at execution of PSA\nDue diligence period\n60 days from execution of PSA\nClosing period\n90 days from execution of PSA\nFinancing contingency\nBuyer intends to secure 70% LTV senior financing\nExclusivity period\n30 days from execution of this LOI\nAs-is purchase\nProperty to be purchased in its current as-is, where-is condition\nSeller representations\nLimited to title, authority, and no pending litigation\nBuyer's obligation to close is subject to satisfactory completion of due diligence, including physical\ninspection, environmental review, title examination, review of all leases and operating statements, and\nsecuring of financing on acceptable terms. This LOI shall expire if a mutually acceptable Purchase and Sale\nAgreement is not executed within 15 business days of acceptance."
+      }
+    ]
+  },
+  {
+    "id": "single-appraisal-effective-gross-income-a870f6",
+    "slice": "single-fact",
+    "propertyKey": "a870f6",
+    "dealId": "1d0b206b-e2f9-570b-aaf0-5d5e1e731528",
+    "question": "What effective gross income did the appraisal use?",
+    "expectedAnswer": "$382,118",
+    "gold": [
+      {
+        "documentId": "8c02d3aa-df54-427b-a7db-20afe9876e62",
+        "fileName": "Appraisal_South_End_Shopping_Center_a870f6.pdf",
+        "page": 1,
+        "snippet": "Effective gross income",
+        "passage": "Vacancy & credit loss\n8.0% ($30,569)\nEffective gross income\n$382,118\nOperating expenses\n$133,741\nNet operating income\n$382,118\nCapitalization rate used\n6.35%\nIndicated value\n$6,018,404\nComparable Sales\nProperty\nSize\nSale Price\n$/SF\nCap Rate\nSale Date\nComp 1 \u2014 Charlotte Retail\n88,335 SF\n$13,505,282"
+      }
+    ]
+  },
+  {
+    "id": "single-offering_memorandum-asking-price-00f769",
+    "slice": "single-fact",
+    "propertyKey": "00f769",
+    "dealId": "65f1f697-43a0-466c-a348-bd73fa324ada",
+    "question": "How much is the seller asking for this property?",
+    "expectedAnswer": "$1,895,000",
+    "gold": [
+      {
+        "documentId": "7deb8da2-5801-4551-a792-14d2941d2d6c",
+        "fileName": "Offering_Memorandum_Los_Angeles_Flex_Campus_00f769.pdf",
+        "page": 1,
+        "snippet": "Asking price",
+        "passage": "Leasable SF\n21,300 SF\nAsking price\n$1,895,000\nPrice per SF\n$75/SF\nCap rate\n7.21%\nNOI\n$136,592\nOccupancy\n88.50%\nMarket benchmark\n6.87%\nInvestment Thesis\nThe offering represents a compelling opportunity to acquire a well-located industrial asset in the Downtown\nLA district of Los Angeles. The property benefits from strong market fundamentals, a creditworthy tenant\nbase, and meaningful value-add potential through targeted capital improvements and lease-up of the\n11.50% vacancy. The Los Angeles Metro market has experienced consistent rent growth of 3-5% annually\nover the past three years, driven by population growth, employment expansion, and constrained supply\npipelines.\nMarket Overview"
+      }
+    ]
+  },
+  {
+    "id": "single-title_report-vesting-fac011",
+    "slice": "single-fact",
+    "propertyKey": "fac011",
+    "dealId": "029aafc2-f810-457f-81b1-e5b05b7a86f0",
+    "question": "In whose name is title currently vested?",
+    "expectedAnswer": "Los Angeles Properties LLC, a CA limited liability company",
+    "gold": [
+      {
+        "documentId": "b3f75221-c741-40a6-92fc-0255bd08507a",
+        "fileName": "Title_Report_Los_Angeles_Urban_Village_fac011.pdf",
+        "page": 1,
+        "snippet": "Vesting",
+        "passage": "Report date\nNovember 03, 2023\nVesting\nLos Angeles Properties LLC, a CA limited liability company\nPolicy type\nALTA Owner's Policy (2021) + ALTA Lender's Policy\nSchedule B \u2014 Exceptions from Coverage\nItem\nException\n1\nGeneral and special taxes for the current fiscal year, a lien not yet due and payable.\n2\nSupplemental taxes, if any, assessed pursuant to the Supplemental Property Tax Law.\n3\nRights of parties in possession not shown by the public records.\n4\nCovenants, conditions, and restrictions recorded in the official records but containing no forfeiture or reverter clause.\nDoes not materially affect marketability of title.\nTitle Officer's Notes\nTitle appears insurable subject to the standard exceptions noted above. No liens, encumbrances,\njudgments, or other title defects have been identified that would impair marketability. We recommend\nproceeding with the standard ALTA owner's and lender"
+      }
+    ]
+  },
+  {
+    "id": "single-rent_roll-vacant-sf-292d1c",
+    "slice": "single-fact",
+    "propertyKey": "292d1c",
+    "dealId": "93c1b568-185d-42db-b448-6213b1ecea90",
+    "question": "How much vacant space is there?",
+    "expectedAnswer": "35,602 SF",
+    "gold": [
+      {
+        "documentId": "6a8e28bb-6e64-4556-9b7c-f9e5efcf59ea",
+        "fileName": "Rent_Roll_Corporate_Dr_Warehouse_Complex_292d1c.pdf",
+        "page": 1,
+        "snippet": "Vacant SF",
+        "passage": "Occupied SF\n155,298 SF\nVacant SF\n35,602 SF\nOccupancy rate\n81.4%\nTotal annual base rent\n$2,256,429\nAvg rent per SF\n$14.53/SF\nWALT\n5.2 years\nLeases expiring <2yr\n3 leases (10% of GLA)"
+      }
+    ]
+  },
+  {
+    "id": "single-appraisal-concluded-market-value-bbbc2b",
+    "slice": "single-fact",
+    "propertyKey": "bbbc2b",
+    "dealId": "fb94830c-2655-4dd1-b3a9-79b8cba2bfa4",
+    "question": "What market value did the appraiser conclude?",
+    "expectedAnswer": "$24,193,717",
+    "gold": [
+      {
+        "documentId": "0419d35c-1018-46c2-9fa8-1648815058a3",
+        "fileName": "Appraisal_The_Downtown_LA_bbbc2b.pdf",
+        "page": 1,
+        "snippet": "Concluded Market Value",
+        "passage": "10%\n$2,204,874\nConcluded Market Value\n$24,193,717\n\u2014\n$24,193,717\nIncome Approach \u2014 Direct Capitalization\nPotential gross income\n$1,591,387\nVacancy & credit loss\n8.0% ($117,126)\nEffective gross income\n$1,464,076\nOperating expenses\n$512,427\nNet operating income\n$1,464,076\nCapitalization rate used\n5.25%\nIndicated value\n$27,892,882\nComparable Sales"
+      }
+    ]
+  },
+  {
+    "id": "single-title_report-apn-492f62",
+    "slice": "single-fact",
+    "propertyKey": "492f62",
+    "dealId": "cd1c31b4-de5a-4c56-b2af-7eea463e9359",
+    "question": "What is the assessor's parcel number?",
+    "expectedAnswer": "54-511-10",
+    "gold": [
+      {
+        "documentId": "e143a964-21c0-4479-9df5-4151622c8cee",
+        "fileName": "Title_Report_The_North_Loop_492f62.pdf",
+        "page": 1,
+        "snippet": "APN",
+        "passage": "Property\n1662 Main St, Minneapolis, MN 55401\nAPN\n54-511-10\nReport date\nFebruary 25, 2023\nVesting\nMinneapolis Properties LLC, a MN limited liability company\nPolicy type\nALTA Owner's Policy (2021) + ALTA Lender's Policy\nSchedule B \u2014 Exceptions from Coverage\nItem\nException\n1\nGeneral and special taxes for the current fiscal year, a lien not yet due and payable.\n2\nSupplemental taxes, if any, assessed pursuant to the Supplemental Property Tax Law.\n3\nRights of parties in possession not shown by the public records.\n4\nEasement for utility purposes over the eastern 22 feet of the property, as shown on the recorded plat. Counsel has\nreviewed and confirmed this easement is non-material to the intended commercial use."
+      }
+    ]
+  },
+  {
+    "id": "single-rent_roll-avg-rent-per-sf-f4d3f7",
+    "slice": "single-fact",
+    "propertyKey": "f4d3f7",
+    "dealId": "69c1cc53-1a27-4457-a235-9a64f08d5f3d",
+    "question": "What is the average rent per square foot?",
+    "expectedAnswer": "$28.46/SF",
+    "gold": [
+      {
+        "documentId": "14fd1ca1-8517-4401-810a-ccb27f7e2549",
+        "fileName": "Rent_Roll_Domain_Industrial_Park_-_Building_3_f4d3f7.pdf",
+        "page": 1,
+        "snippet": "Avg rent per SF",
+        "passage": "Total annual base rent\n$4,551,074\nAvg rent per SF\n$28.46/SF\nWALT\n7.4 years\nLeases expiring <2yr\n3 leases (12% of GLA)"
+      }
+    ]
+  },
+  {
+    "id": "single-loi-purchase-price-60b8e8",
+    "slice": "single-fact",
+    "propertyKey": "60b8e8",
+    "dealId": "bbaa93e1-305a-4c79-bb60-319dd02fa0ae",
+    "question": "What price is the buyer offering in the letter of intent?",
+    "expectedAnswer": "$3,567,000",
+    "gold": [
+      {
+        "documentId": "97db9104-1e4b-4f2e-9804-8f833bf06a88",
+        "fileName": "LOI_Kansas_City_Flex_Campus_60b8e8.pdf",
+        "page": 1,
+        "snippet": "Purchase price",
+        "passage": "LOI is non-binding except as to the Exclusivity and Confidentiality provisions.\nProposed Terms\nPurchase price\n$3,567,000\nPrice per SF\n$73/SF\nImplied cap rate\n6.61%\nEarnest money deposit\n$71,340 (2.0% of purchase price)\nDeposit \u2014 hard\n$35,670 hard at execution of PSA\nDue diligence period\n50 days from execution of PSA\nClosing period\n67 days from execution of PSA\nFinancing contingency\nBuyer intends to secure 65% LTV senior financing\nExclusivity period\n30 days from execution of this LOI\nAs-is purchase\nProperty to be purchased in its current as-is, where-is condition"
+      }
+    ]
+  },
+  {
+    "id": "single-appraisal-concluded-market-value-db1da2",
+    "slice": "single-fact",
+    "propertyKey": "db1da2",
+    "dealId": "ad46dfa5-a1a6-4a1d-8c80-1dd3923d43a7",
+    "question": "What market value did the appraiser conclude?",
+    "expectedAnswer": "$10,939,848",
+    "gold": [
+      {
+        "documentId": "6621fc70-90a2-4ee8-bed4-a8272113339c",
+        "fileName": "Appraisal_The_Loop_Mixed-Use_Center_db1da2.pdf",
+        "page": 1,
+        "snippet": "Concluded Market Value",
+        "passage": "10%\n$1,145,266\nConcluded Market Value\n$10,939,848\n\u2014\n$10,939,848\nIncome Approach \u2014 Direct Capitalization\nPotential gross income\n$899,482\nVacancy & credit loss\n8.0% ($66,202)\nEffective gross income\n$827,524\nOperating expenses\n$289,633\nNet operating income\n$827,524\nCapitalization rate used\n6.80%\nIndicated value\n$12,160,813\nComparable Sales"
+      }
+    ]
+  },
+  {
+    "id": "single-rent_roll-occupied-sf-101d23",
+    "slice": "single-fact",
+    "propertyKey": "101d23",
+    "dealId": "1bec062e-cdc7-40d4-b683-1c6774b7e184",
+    "question": "How much space is currently leased?",
+    "expectedAnswer": "62,577 SF",
+    "gold": [
+      {
+        "documentId": "b4cff920-b32c-422d-b618-63beac53c49b",
+        "fileName": "Rent_Roll_South_End_Office_Tower_101d23.pdf",
+        "page": 1,
+        "snippet": "Occupied SF",
+        "passage": "Total leasable SF\n61,900 SF\nOccupied SF\n62,577 SF\nVacant SF\n0 SF\nOccupancy rate\n101.1%\nTotal annual base rent\n$1,960,921\nAvg rent per SF\n$31.34/SF\nWALT\n6.7 years\nLeases expiring <2yr\n2 leases (16% of GLA)"
+      }
+    ]
+  },
+  {
+    "id": "single-appraisal-concluded-market-value-74cc93",
+    "slice": "single-fact",
+    "propertyKey": "74cc93",
+    "dealId": "6b917098-4795-4ebc-9c94-560a3c322c47",
+    "question": "What market value did the appraiser conclude?",
+    "expectedAnswer": "$26,885,533",
+    "gold": [
+      {
+        "documentId": "774e2447-6255-4b58-a504-a7cb60bfc2d7",
+        "fileName": "Appraisal_Chicago_Urban_Village_74cc93.pdf",
+        "page": 1,
+        "snippet": "Concluded Market Value",
+        "passage": "10%\n$2,708,856\nConcluded Market Value\n$26,885,533\n\u2014\n$26,885,533\nIncome Approach \u2014 Direct Capitalization\nPotential gross income\n$1,675,555\nVacancy & credit loss\n8.0% ($123,321)\nEffective gross income\n$1,541,511\nOperating expenses\n$539,529\nNet operating income\n$1,541,511\nCapitalization rate used\n5.72%\nIndicated value\n$26,968,146\nComparable Sales"
+      }
+    ]
+  },
+  {
+    "id": "single-rent_roll-total-annual-base-rent-a3ff11",
+    "slice": "single-fact",
+    "propertyKey": "a3ff11",
+    "dealId": "c86c9578-1998-44c7-b1ba-060e0c91c0cf",
+    "question": "What is the total annual base rent across all tenants?",
+    "expectedAnswer": "$227,752",
+    "gold": [
+      {
+        "documentId": "ef65b015-5f5c-442b-abdf-a0a0c497ff8b",
+        "fileName": "Rent_Roll_Austin_Retail_Plaza_a3ff11.pdf",
+        "page": 1,
+        "snippet": "Total annual base rent",
+        "passage": "Occupancy rate\n84.5%\nTotal annual base rent\n$227,752\nAvg rent per SF\n$26.44/SF\nWALT\n6.0 years\nLeases expiring <2yr\n2 leases (35% of GLA)"
+      }
+    ]
+  },
+  {
+    "id": "single-rent_roll-walt-5676c0",
+    "slice": "single-fact",
+    "propertyKey": "5676c0",
+    "dealId": "f59b2581-68af-46d8-b3be-b8af28d30625",
+    "question": "What is the weighted average lease term remaining?",
+    "expectedAnswer": "5.1 years",
+    "gold": [
+      {
+        "documentId": "fa9565a9-2ec6-4743-9e51-4b10d60e46e2",
+        "fileName": "Rent_Roll_Phoenix_Flex_Campus_5676c0.pdf",
+        "page": 1,
+        "snippet": "WALT",
+        "passage": "Avg rent per SF\n$21.39/SF\nWALT\n5.1 years\nLeases expiring <2yr\n1 leases (31% of GLA)"
+      }
+    ]
+  },
+  {
+    "id": "single-offering_memorandum-asking-price-4322a5",
+    "slice": "single-fact",
+    "propertyKey": "4322a5",
+    "dealId": "65919cc0-9c6e-475b-927d-7aa7fe0bd67f",
+    "question": "How much is the seller asking for this property?",
+    "expectedAnswer": "$31,638,000",
+    "gold": [
+      {
+        "documentId": "fdc9b52f-e179-4efa-a161-563912c3ff61",
+        "fileName": "Offering_Memorandum_Tech_Center_Dr_Professional_Plaza_4322a5.pdf",
+        "page": 1,
+        "snippet": "Asking price",
+        "passage": "Leasable SF\n131,800 SF\nAsking price\n$31,638,000\nPrice per SF\n$203/SF\nCap rate\n5.56%\nNOI\n$1,759,706\nOccupancy\n81.20%\nMarket benchmark\n6.32%\nInvestment Thesis\nThe offering represents a compelling opportunity to acquire a well-located office asset in the Domain district\nof Austin. The property benefits from strong market fundamentals, a creditworthy tenant base, and\nmeaningful value-add potential through targeted capital improvements and lease-up of the 18.80% vacancy.\nThe Austin Metro market has experienced consistent rent growth of 3-5% annually over the past three years,\ndriven by population growth, employment expansion, and constrained supply pipelines.\nMarket Overview\nThe Austin Metro office market reported vacancy of approximately 7.6% as of the most recent quarter, with"
+      }
+    ]
+  },
+  {
+    "id": "single-offering_memorandum-noi-47ea75",
+    "slice": "single-fact",
+    "propertyKey": "47ea75",
+    "dealId": "1833711c-7b68-5bbe-8ed7-c48417cfd352",
+    "question": "What is the net operating income?",
+    "expectedAnswer": "$700,458",
+    "gold": [
+      {
+        "documentId": "256359c7-b1a2-40e7-98bc-239879c25ad7",
+        "fileName": "Offering_Memorandum_Denver_Logistics_Center_47ea75.pdf",
+        "page": 1,
+        "snippet": "NOI",
+        "passage": "Cap rate\n7.94%\nNOI\n$700,458\nOccupancy\n82.30%\nMarket benchmark\n7.51%\nInvestment Thesis\nThe offering represents a compelling opportunity to acquire a well-located industrial asset in the LoDo\ndistrict of Denver. The property benefits from strong market fundamentals, a creditworthy tenant base, and\nmeaningful value-add potential through targeted capital improvements and lease-up of the 17.70% vacancy.\nThe Denver Metro market has experienced consistent rent growth of 3-5% annually over the past three\nyears, driven by population growth, employment expansion, and constrained supply pipelines.\nMarket Overview\nThe Denver Metro industrial market reported vacancy of approximately 7.2% as of the most recent quarter,\nwith average asking rents of $15.11/SF NNN. Net absorption has been positive for 15 consecutive quarters,\nreflecting sustained occupier demand. The subject property's submarket, LoDo, h"
+      }
+    ]
+  },
+  {
+    "id": "single-offering_memorandum-price-per-sf-4ed4fc",
+    "slice": "single-fact",
+    "propertyKey": "4ed4fc",
+    "dealId": "aeee1a81-2d03-4b16-ba50-7b067ab6af1a",
+    "question": "What does the asking price work out to per square foot?",
+    "expectedAnswer": "$130/SF",
+    "gold": [
+      {
+        "documentId": "e57817f6-82f0-4203-bbdd-c0a879e955ae",
+        "fileName": "Offering_Memorandum_Miami_Distribution_Hub_4ed4fc.pdf",
+        "page": 1,
+        "snippet": "Price per SF",
+        "passage": "Asking price\n$14,012,000\nPrice per SF\n$130/SF\nCap rate\n6.28%\nNOI\n$880,234\nOccupancy\n65.50%\nMarket benchmark\n6.98%\nInvestment Thesis\nThe offering represents a compelling opportunity to acquire a well-located industrial asset in the Wynwood\ndistrict of Miami. The property benefits from strong market fundamentals, a creditworthy tenant base, and\nmeaningful value-add potential through targeted capital improvements and lease-up of the 34.50% vacancy.\nThe Miami Metro market has experienced consistent rent growth of 3-5% annually over the past three years,\ndriven by population growth, employment expansion, and constrained supply pipelines.\nMarket Overview\nThe Miami Metro industrial market reported vacancy of approximately 7.3% as of the most recent quarter,\nwith average asking rents of $27.07/SF NNN. Net absorption has been positive for 6 consecutive quarters,\nreflecting sustained occupier dema"
+      }
+    ]
+  },
+  {
+    "id": "single-rent_roll-walt-d67a6a",
+    "slice": "single-fact",
+    "propertyKey": "d67a6a",
+    "dealId": "cc8f1f72-bd04-4e21-81de-43a2daafaf98",
+    "question": "What is the weighted average lease term remaining?",
+    "expectedAnswer": "4.9 years",
+    "gold": [
+      {
+        "documentId": "f8346de6-d536-4efb-ba22-d8d8dcc17ad2",
+        "fileName": "Rent_Roll_Los_Angeles_Retail_Plaza_d67a6a.pdf",
+        "page": 1,
+        "snippet": "WALT",
+        "passage": "Avg rent per SF\n$24.52/SF\nWALT\n4.9 years\nLeases expiring <2yr\n2 leases (22% of GLA)"
+      }
+    ]
+  },
+  {
+    "id": "single-offering_memorandum-noi-015229",
+    "slice": "single-fact",
+    "propertyKey": "015229",
+    "dealId": "2c4f55d7-f6cc-4230-be62-a9d93468d8e2",
+    "question": "What is the net operating income?",
+    "expectedAnswer": "$1,207,282",
+    "gold": [
+      {
+        "documentId": "9d40fa23-bab3-49d6-bd85-4556d441441e",
+        "fileName": "Offering_Memorandum_Pittsburgh_Logistics_Center_015229.pdf",
+        "page": 1,
+        "snippet": "NOI",
+        "passage": "Cap rate\n8.12%\nNOI\n$1,207,282\nOccupancy\n60.80%\nMarket benchmark\n7.39%\nInvestment Thesis\nThe offering represents a compelling opportunity to acquire a well-located industrial asset in the Strip District\ndistrict of Pittsburgh. The property benefits from strong market fundamentals, a creditworthy tenant base,\nand meaningful value-add potential through targeted capital improvements and lease-up of the 39.20%\nvacancy. The Pittsburgh Metro market has experienced consistent rent growth of 3-5% annually over the\npast three years, driven by population growth, employment expansion, and constrained supply pipelines.\nMarket Overview\nThe Pittsburgh Metro industrial market reported vacancy of approximately 4.6% as of the most recent\nquarter, with average asking rents of $29.12/SF NNN. Net absorption has been positive for 9 consecutive\nquarters, reflecting sustained occupier demand. The subject proper"
+      }
+    ]
+  },
+  {
+    "id": "single-loi-implied-cap-rate-189ee4",
+    "slice": "single-fact",
+    "propertyKey": "189ee4",
+    "dealId": "7067d8da-018d-4ca7-bf35-874a1759efb3",
+    "question": "What cap rate does the buyer's offer imply?",
+    "expectedAnswer": "9.08%",
+    "gold": [
+      {
+        "documentId": "98ba8cb0-8102-407b-9291-c540d7031238",
+        "fileName": "LOI_Dallas_Flex_Campus_189ee4.pdf",
+        "page": 1,
+        "snippet": "Implied cap rate",
+        "passage": "Price per SF\n$144/SF\nImplied cap rate\n9.08%\nEarnest money deposit\n$208,840 (1.0% of purchase price)\nDeposit \u2014 hard\n$104,420 hard at execution of PSA\nDue diligence period\n31 days from execution of PSA\nClosing period\n55 days from execution of PSA\nFinancing contingency\nBuyer intends to secure 63% LTV senior financing\nExclusivity period\n30 days from execution of this LOI\nAs-is purchase\nProperty to be purchased in its current as-is, where-is condition\nSeller representations\nLimited to title, authority, and no pending litigation\nBuyer's obligation to close is subject to satisfactory completion of due diligence, including physical\ninspection, environmental review, title examination, review of all leases and operating statements, and"
+      }
+    ]
+  },
+  {
+    "id": "single-offering_memorandum-leasable-sf-916f06",
+    "slice": "single-fact",
+    "propertyKey": "916f06",
+    "dealId": "3b217425-c084-5141-8c05-4d23d3d97e2e",
+    "question": "How much leasable area does the property have?",
+    "expectedAnswer": "119,900 SF",
+    "gold": [
+      {
+        "documentId": "ff30796c-aa19-4b6b-9195-18eb292983bf",
+        "fileName": "Offering_Memorandum_Meridian-Kessler_Industrial_Park_916f06.pdf",
+        "page": 1,
+        "snippet": "Leasable SF",
+        "passage": "Total SF\n126,600 SF\nLeasable SF\n119,900 SF\nAsking price\n$11,774,000\nPrice per SF\n$93/SF\nCap rate\n7.32%\nNOI\n$862,446\nOccupancy\n63.10%\nMarket benchmark\n6.63%\nInvestment Thesis\nThe offering represents a compelling opportunity to acquire a well-located industrial asset in the\nMeridian-Kessler district of Indianapolis. The property benefits from strong market fundamentals, a\ncreditworthy tenant base, and meaningful value-add potential through targeted capital improvements and\nlease-up of the 36.90% vacancy. The Indianapolis Metro market has experienced consistent rent growth of\n3-5% annually over the past three years, driven by population growth, employment expansion, and"
+      }
+    ]
+  },
+  {
+    "id": "single-rent_roll-total-annual-base-rent-01893e",
+    "slice": "single-fact",
+    "propertyKey": "01893e",
+    "dealId": "51f450ae-68f5-41ed-bc77-e7ccbd66f630",
+    "question": "What is the total annual base rent across all tenants?",
+    "expectedAnswer": "$3,360,957",
+    "gold": [
+      {
+        "documentId": "7c882cf6-ed36-4497-967c-636d3b26cedf",
+        "fileName": "Rent_Roll_Austin_Urban_Village_01893e.pdf",
+        "page": 1,
+        "snippet": "Total annual base rent",
+        "passage": "Occupancy rate\n83.9%\nTotal annual base rent\n$3,360,957\nAvg rent per SF\n$18.58/SF\nWALT\n7.8 years\nLeases expiring <2yr\n1 leases (31% of GLA)"
+      }
+    ]
+  },
+  {
+    "id": "single-loi-implied-cap-rate-f8093f",
+    "slice": "single-fact",
+    "propertyKey": "f8093f",
+    "dealId": "c8bc8949-bbe6-58f2-a07b-7c066cd78e87",
+    "question": "What cap rate does the buyer's offer imply?",
+    "expectedAnswer": "6.67%",
+    "gold": [
+      {
+        "documentId": "4261fbac-bac5-4716-8acb-bb8f90069514",
+        "fileName": "LOI_Innovation_Dr_Professional_Plaza_f8093f.pdf",
+        "page": 1,
+        "snippet": "Implied cap rate",
+        "passage": "Price per SF\n$201/SF\nImplied cap rate\n6.67%\nEarnest money deposit\n$121,700 (2.0% of purchase price)\nDeposit \u2014 hard\n$60,850 hard at execution of PSA\nDue diligence period\n39 days from execution of PSA\nClosing period\n54 days from execution of PSA\nFinancing contingency\nBuyer intends to secure 62% LTV senior financing\nExclusivity period\n30 days from execution of this LOI\nAs-is purchase\nProperty to be purchased in its current as-is, where-is condition\nSeller representations\nLimited to title, authority, and no pending litigation\nBuyer's obligation to close is subject to satisfactory completion of due diligence, including physical\ninspection, environmental review, title examination, review of all leases and operating statements, and"
+      }
+    ]
+  },
+  {
+    "id": "single-offering_memorandum-asking-price-a9eb19",
+    "slice": "single-fact",
+    "propertyKey": "a9eb19",
+    "dealId": "4f8b79bc-76fe-5dc1-8036-9a272b1cced4",
+    "question": "How much is the seller asking for this property?",
+    "expectedAnswer": "$9,793,000",
+    "gold": [
+      {
+        "documentId": "5ff68d75-b9b8-4953-8254-b3010ef5981b",
+        "fileName": "Offering_Memorandum_Nashville_Flex_Campus_a9eb19.pdf",
+        "page": 1,
+        "snippet": "Asking price",
+        "passage": "Leasable SF\n101,200 SF\nAsking price\n$9,793,000\nPrice per SF\n$91/SF\nCap rate\n6.44%\nNOI\n$630,473\nOccupancy\n87.70%\nMarket benchmark\n6.14%\nInvestment Thesis\nThe offering represents a compelling opportunity to acquire a well-located industrial asset in the The Gulch\ndistrict of Nashville. The property benefits from strong market fundamentals, a creditworthy tenant base, and\nmeaningful value-add potential through targeted capital improvements and lease-up of the 12.30% vacancy.\nThe Nashville Metro market has experienced consistent rent growth of 3-5% annually over the past three\nyears, driven by population growth, employment expansion, and constrained supply pipelines.\nMarket Overview\nThe Nashville Metro industrial market reported vacancy of approximately 6.0% as of the most recent quarter,"
+      }
+    ]
+  },
+  {
+    "id": "single-phase_i_esa-report-date-ff1cc6",
+    "slice": "single-fact",
+    "propertyKey": "ff1cc6",
+    "dealId": "7768fd53-18c9-4711-8fcc-9ee5b977355e",
+    "question": "What date does the environmental report carry?",
+    "expectedAnswer": "April 30, 2024",
+    "gold": [
+      {
+        "documentId": "e75098f1-cdaf-44b3-a68c-27ff85af382a",
+        "fileName": "Phase_I_ESA_Harbor_East_Mixed-Use_Center_ff1cc6.pdf",
+        "page": 1,
+        "snippet": "Report date",
+        "passage": "Consulting firm\nECS Mid-Atlantic LLC\nReport date\nApril 30, 2024\nStandard\nASTM E1527-21\nClient\nPropTrack Investment Partners LP\nPurpose\nCommercial real estate transaction due diligence\nRECOGNIZED ENVIRONMENTAL CONDITION IDENTIFIED\nSite Description\nThe subject site is a 74,100 SF mixed-use property located at 4481 Ridge Road, Baltimore, MD. The\nproperty was constructed in approximately 1996 and has been used for mixed-use purposes since\nconstruction. The surrounding area is characterized by similar mixed-use uses to the north, south, east, and\nwest.\nRecords Review Findings\nDatabase\nFinding\nFederal NPL (Superfund)\nNot listed\nFederal RCRA TSD Facilities"
+      }
+    ]
+  },
+  {
+    "id": "single-rent_roll-avg-rent-per-sf-869ff8",
+    "slice": "single-fact",
+    "propertyKey": "869ff8",
+    "dealId": "02645044-bf5d-46a4-9cbf-66ae7b60379f",
+    "question": "What is the average rent per square foot?",
+    "expectedAnswer": "$21.20/SF",
+    "gold": [
+      {
+        "documentId": "3a3a5198-0224-4cae-bb39-901b3f5e7b62",
+        "fileName": "Rent_Roll_The_Wynwood_869ff8.pdf",
+        "page": 1,
+        "snippet": "Avg rent per SF",
+        "passage": "Total annual base rent\n$2,999,161\nAvg rent per SF\n$21.20/SF\nWALT\n5.6 years\nLeases expiring <2yr\n3 leases (20% of GLA)"
+      }
+    ]
+  },
+  {
+    "id": "single-rent_roll-avg-rent-per-sf-eade41",
+    "slice": "single-fact",
+    "propertyKey": "eade41",
+    "dealId": "9beb3b62-7c18-45f1-a382-3889cf5e3b25",
+    "question": "What is the average rent per square foot?",
+    "expectedAnswer": "$25.86/SF",
+    "gold": [
+      {
+        "documentId": "22f0f3ad-3fff-4ff6-8912-65746774d254",
+        "fileName": "Rent_Roll_Market_St_Living_eade41.pdf",
+        "page": 1,
+        "snippet": "Avg rent per SF",
+        "passage": "Total annual base rent\n$3,623,638\nAvg rent per SF\n$25.86/SF\nWALT\n4.5 years\nLeases expiring <2yr\n1 leases (24% of GLA)"
+      }
+    ]
+  },
+  {
+    "id": "single-offering_memorandum-cap-rate-0ee5d0",
+    "slice": "single-fact",
+    "propertyKey": "0ee5d0",
+    "dealId": "5e1a462f-ebef-59f1-b74c-eb951110d57d",
+    "question": "What capitalization rate is this asset being offered at?",
+    "expectedAnswer": "6.08%",
+    "gold": [
+      {
+        "documentId": "c9f3463c-c1a7-4b43-a5d2-836874cba2cf",
+        "fileName": "Offering_Memorandum_Gateway_Blvd_Professional_Plaza_0ee5d0.pdf",
+        "page": 1,
+        "snippet": "Cap rate",
+        "passage": "Price per SF\n$292/SF\nCap rate\n6.08%\nNOI\n$1,137,811\nOccupancy\n84.30%\nMarket benchmark\n5.33%\nInvestment Thesis\nThe offering represents a compelling opportunity to acquire a well-located office asset in the Wynwood\ndistrict of Miami. The property benefits from strong market fundamentals, a creditworthy tenant base, and\nmeaningful value-add potential through targeted capital improvements and lease-up of the 15.70% vacancy.\nThe Miami Metro market has experienced consistent rent growth of 3-5% annually over the past three years,\ndriven by population growth, employment expansion, and constrained supply pipelines.\nMarket Overview\nThe Miami Metro office market reported vacancy of approximately 4.0% as of the most recent quarter, with\naverage asking rents of $28.55/SF NNN. Net absorption has been positive for 9 consecutive quarters,\nreflecting sustained occupier demand. The subject property's subm"
+      }
+    ]
+  },
+  {
+    "id": "single-loi-earnest-money-deposit-7df53c",
+    "slice": "single-fact",
+    "propertyKey": "7df53c",
+    "dealId": "cf493338-cd7a-43a8-a43f-a979452375d5",
+    "question": "How much earnest money is the buyer putting up?",
+    "expectedAnswer": "$186,690 (1.0% of purchase price)",
+    "gold": [
+      {
+        "documentId": "3c96714e-dadc-49e9-a0d9-e9bd9d4bc0a1",
+        "fileName": "LOI_Ybor_City_Apartments_-_Building_3_7df53c.pdf",
+        "page": 1,
+        "snippet": "Earnest money deposit",
+        "passage": "Implied cap rate\n5.17%\nEarnest money deposit\n$186,690 (1.0% of purchase price)\nDeposit \u2014 hard\n$93,345 hard at execution of PSA\nDue diligence period\n30 days from execution of PSA\nClosing period\n57 days from execution of PSA\nFinancing contingency\nBuyer intends to secure 65% LTV senior financing\nExclusivity period\n30 days from execution of this LOI\nAs-is purchase\nProperty to be purchased in its current as-is, where-is condition\nSeller representations\nLimited to title, authority, and no pending litigation\nBuyer's obligation to close is subject to satisfactory completion of due diligence, including physical\ninspection, environmental review, title examination, review of all leases and operating statements, and\nsecuring of financing on acceptable terms. This LOI shall expire if a mutually acceptable Purchase and Sale\nAgreement is not executed within 15 business days of acceptance."
+      }
+    ]
+  },
+  {
+    "id": "single-rent_roll-walt-276f62",
+    "slice": "single-fact",
+    "propertyKey": "276f62",
+    "dealId": "d4330526-a63d-41f8-9824-56c9a95fd118",
+    "question": "What is the weighted average lease term remaining?",
+    "expectedAnswer": "3.0 years",
+    "gold": [
+      {
+        "documentId": "07dceec2-d87e-48e1-8a3d-8822b18f4b76",
+        "fileName": "Rent_Roll_Market_St_Strip_Center_276f62.pdf",
+        "page": 1,
+        "snippet": "WALT",
+        "passage": "Avg rent per SF\n$18.45/SF\nWALT\n3.0 years\nLeases expiring <2yr\n3 leases (24% of GLA)"
+      }
+    ]
+  },
+  {
+    "id": "single-offering_memorandum-total-sf-3c5ee0",
+    "slice": "single-fact",
+    "propertyKey": "3c5ee0",
+    "dealId": "ed4a7a7d-9192-408a-8612-24918ef2fb45",
+    "question": "What is the total square footage of the building?",
+    "expectedAnswer": "36,500 SF",
+    "gold": [
+      {
+        "documentId": "1695d328-8701-4a90-b238-86005c55ac87",
+        "fileName": "Offering_Memorandum_Portland_Logistics_Center_3c5ee0.pdf",
+        "page": 1,
+        "snippet": "Total SF",
+        "passage": "Year built\n2020\nTotal SF\n36,500 SF\nLeasable SF\n33,900 SF\nAsking price\n$6,564,000\nPrice per SF\n$180/SF\nCap rate\n7.34%\nNOI\n$481,535\nOccupancy\n68.20%\nMarket benchmark\n7.65%\nInvestment Thesis\nThe offering represents a compelling opportunity to acquire a well-located industrial asset in the Pearl\nDistrict district of Portland. The property benefits from strong market fundamentals, a creditworthy tenant\nbase, and meaningful value-add potential through targeted capital improvements and lease-up of the"
+      }
+    ]
+  },
+  {
+    "id": "single-appraisal-concluded-market-value-73ab13",
+    "slice": "single-fact",
+    "propertyKey": "73ab13",
+    "dealId": "1a671a25-eea5-4d2f-8f28-7012f4201a28",
+    "question": "What market value did the appraiser conclude?",
+    "expectedAnswer": "$5,095,802",
+    "gold": [
+      {
+        "documentId": "4cc61dca-8836-406e-b906-51f06b82ccbd",
+        "fileName": "Appraisal_North_Loop_Marketplace_73ab13.pdf",
+        "page": 1,
+        "snippet": "Concluded Market Value",
+        "passage": "10%\n$517,390\nConcluded Market Value\n$5,095,802\n\u2014\n$5,095,802\nIncome Approach \u2014 Direct Capitalization\nPotential gross income\n$335,874\nVacancy & credit loss\n8.0% ($24,720)\nEffective gross income\n$309,004\nOperating expenses\n$108,152\nNet operating income\n$309,004\nCapitalization rate used\n5.96%\nIndicated value\n$5,186,669\nComparable Sales"
+      }
+    ]
+  },
+  {
+    "id": "table-suite100-7df53c",
+    "slice": "table-lookup",
+    "propertyKey": "7df53c",
+    "dealId": "cf493338-cd7a-43a8-a43f-a979452375d5",
+    "question": "What is the annual base rent for the tenant in suite 100?",
+    "expectedAnswer": "$515,531",
+    "gold": [
+      {
+        "documentId": "a88dd24c-29af-4910-8a5b-bcb713f805fd",
+        "fileName": "Rent_Roll_Ybor_City_Apartments_-_Building_3_7df53c.pdf",
+        "page": 1,
+        "snippet": "100",
+        "passage": "Local\nBusiness\nSuite\n100\n14,724\nFull Service\n$515,531\n$35.01\nJan 2020\nDec 2030\n1 x 5yr\nTenant B\nLocal\nBusiness\nSuite\n110\n11,068\nFull Service\n$288,698\n$26.08\nJan 2023\nDec 2030"
+      }
+    ]
+  },
+  {
+    "id": "table-suite100-62ec25",
+    "slice": "table-lookup",
+    "propertyKey": "62ec25",
+    "dealId": "93c98a6b-cb12-421b-b025-3eb5deba44f4",
+    "question": "What is the annual base rent for the tenant in suite 100?",
+    "expectedAnswer": "$1,079,286",
+    "gold": [
+      {
+        "documentId": "9eab29ad-4f3c-423d-bc13-0404cf8d8fa0",
+        "fileName": "Rent_Roll_Miami_Retail_Plaza_62ec25.pdf",
+        "page": 1,
+        "snippet": "100",
+        "passage": "Tenant A\nGovernment\nSuite\n100\n53,277\nNNN\n$1,079,286\n$20.26\nJan 2022\nDec 2025\n2 x 5yr\nTenant B\nLocal\nBusiness\nSuite\n110\n58,006\nNNN\n$954,862\n$16.46\nJan 2018\nDec 2021"
+      }
+    ]
+  },
+  {
+    "id": "table-suite130-bb63a0",
+    "slice": "table-lookup",
+    "propertyKey": "bb63a0",
+    "dealId": "d3f68bcf-1f56-4c17-be4b-6354794d5aa2",
+    "question": "What is the annual base rent for the tenant in suite 130?",
+    "expectedAnswer": "$172,556",
+    "gold": [
+      {
+        "documentId": "6a3e810c-8cf5-49a3-8740-3b1b0f0a5043",
+        "fileName": "Rent_Roll_Camelback_Corridor_Executive_Suites_bb63a0.pdf",
+        "page": 1,
+        "snippet": "130",
+        "passage": "Local\nBusiness\nSuite\n130\n14,348\nNNN\n$172,556\n$12.03\nJan 2023\nDec 2030\n1 x 5yr\nTenant E\nRegional\nChain\nSuite\n140\n15,456\nNNN\n$312,059\n$20.19\nJan 2023\nDec 2029"
+      }
+    ]
+  },
+  {
+    "id": "table-suite100-e0a5ff",
+    "slice": "table-lookup",
+    "propertyKey": "e0a5ff",
+    "dealId": "7d430015-c1f2-4e1e-9a3d-1633e7a4daa2",
+    "question": "What is the annual base rent for the tenant in suite 100?",
+    "expectedAnswer": "$1,221,373",
+    "gold": [
+      {
+        "documentId": "755da08f-cedd-4676-ab1b-6c6030298147",
+        "fileName": "Rent_Roll_The_Meridian-Kessler_e0a5ff.pdf",
+        "page": 1,
+        "snippet": "100",
+        "passage": "Tenant A\nHealthcare\nSuite\n100\n49,091\nModified\nGross\n$1,221,373\n$24.88\nJan 2021\nDec 2027\n2 x 5yr\nTenant B\nNational\nCredit\nSuite\n110\n74,220\nModified\nGross\n$1,469,844\n$19.80"
+      }
+    ]
+  },
+  {
+    "id": "table-suite130-a3ff11",
+    "slice": "table-lookup",
+    "propertyKey": "a3ff11",
+    "dealId": "c86c9578-1998-44c7-b1ba-060e0c91c0cf",
+    "question": "What is the annual base rent for the tenant in suite 130?",
+    "expectedAnswer": "$30,861",
+    "gold": [
+      {
+        "documentId": "ef65b015-5f5c-442b-abdf-a0a0c497ff8b",
+        "fileName": "Rent_Roll_Austin_Retail_Plaza_a3ff11.pdf",
+        "page": 1,
+        "snippet": "130",
+        "passage": "Regional\nChain\nSuite\n130\n1,728\nNNN\n$30,861\n$17.86\nJan 2022\nDec 2025\n2 x 5yr\nTenant E\nHealthcare\nSuite\n140\n1,970\nNNN\n$71,610\n$36.35\nJan 2021\nDec 2026\n1 x 5yr"
+      }
+    ]
+  },
+  {
+    "id": "table-suite110-47ea75",
+    "slice": "table-lookup",
+    "propertyKey": "47ea75",
+    "dealId": "1833711c-7b68-5bbe-8ed7-c48417cfd352",
+    "question": "What is the annual base rent for the tenant in suite 110?",
+    "expectedAnswer": "$121,280",
+    "gold": [
+      {
+        "documentId": "1db7398b-dc7b-4f45-8635-09590e121984",
+        "fileName": "Rent_Roll_Denver_Logistics_Center_47ea75.pdf",
+        "page": 1,
+        "snippet": "110",
+        "passage": "Local\nBusiness\nSuite\n110\n7,986\nFull Service\n$121,280\n$15.19\nJan 2021\nDec 2030\n2 x 5yr\nTenant C\nHealthcare\nSuite\n120\n8,779\nNNN\n$206,458\n$23.52\nJan 2018\nDec 2022\n2 x 5yr"
+      }
+    ]
+  },
+  {
+    "id": "table-suite100-e4c15b",
+    "slice": "table-lookup",
+    "propertyKey": "e4c15b",
+    "dealId": "c732f7bc-d981-4450-8d20-8152c8e16725",
+    "question": "What is the annual base rent for the tenant in suite 100?",
+    "expectedAnswer": "$400,322",
+    "gold": [
+      {
+        "documentId": "1be18b29-ee48-4eac-82ca-d2f7fa32ce04",
+        "fileName": "Rent_Roll_Chicago_Distribution_Hub_e4c15b.pdf",
+        "page": 1,
+        "snippet": "100",
+        "passage": "Tenant A\nGovernment\nSuite\n100\n28,855\nModified\nGross\n$400,322\n$13.87\nJan 2018\nDec 2025\n2 x 5yr\nTenant B\nLocal\nBusiness\nSuite\n110\n28,264\nModified\nGross\n$737,454\n$26.09"
+      }
+    ]
+  },
+  {
+    "id": "table-suite130-492f62",
+    "slice": "table-lookup",
+    "propertyKey": "492f62",
+    "dealId": "cd1c31b4-de5a-4c56-b2af-7eea463e9359",
+    "question": "What is the annual base rent for the tenant in suite 130?",
+    "expectedAnswer": "$859,337",
+    "gold": [
+      {
+        "documentId": "28ee0eb7-6f88-46a7-8d45-42178db1cf4d",
+        "fileName": "Rent_Roll_The_North_Loop_492f62.pdf",
+        "page": 1,
+        "snippet": "130",
+        "passage": "Tenant D\nTech\nSuite\n130\n28,748\nNNN\n$859,337\n$29.89\nJan 2018\nDec 2026\n2 x 5yr\nTenant E\nGovernment\nSuite\n140\n30,808\nNNN\n$903,394\n$29.32\nJan 2018\nDec 2028\n2 x 5yr"
+      }
+    ]
+  },
+  {
+    "id": "table-suite100-bbbc2b",
+    "slice": "table-lookup",
+    "propertyKey": "bbbc2b",
+    "dealId": "fb94830c-2655-4dd1-b3a9-79b8cba2bfa4",
+    "question": "What is the annual base rent for the tenant in suite 100?",
+    "expectedAnswer": "$464,454",
+    "gold": [
+      {
+        "documentId": "f0b23d0a-fe83-459f-9cd1-4a58302fc062",
+        "fileName": "Rent_Roll_The_Downtown_LA_bbbc2b.pdf",
+        "page": 1,
+        "snippet": "100",
+        "passage": "Tenant A\nTech\nSuite\n100\n23,731\nModified\nGross\n$464,454\n$19.57\nJan 2019\nDec 2024\n1 x 5yr\nTenant B\nRegional\nChain\nSuite\n110\n21,541\nNNN\n$717,817\n$33.32\nJan 2021"
+      }
+    ]
+  },
+  {
+    "id": "table-suite120-869ff8",
+    "slice": "table-lookup",
+    "propertyKey": "869ff8",
+    "dealId": "02645044-bf5d-46a4-9cbf-66ae7b60379f",
+    "question": "What is the annual base rent for the tenant in suite 120?",
+    "expectedAnswer": "$524,553",
+    "gold": [
+      {
+        "documentId": "3a3a5198-0224-4cae-bb39-901b3f5e7b62",
+        "fileName": "Rent_Roll_The_Wynwood_869ff8.pdf",
+        "page": 1,
+        "snippet": "120",
+        "passage": "Local\nBusiness\nSuite\n120\n20,709\nModified\nGross\n$524,553\n$25.33\nJan 2022\nDec 2030\n2 x 5yr\nTenant D\nRegional\nChain\nSuite\n130\n35,593\nModified\nGross\n$706,254\n$19.84"
+      }
+    ]
+  },
+  {
+    "id": "table-suite100-3339bc",
+    "slice": "table-lookup",
+    "propertyKey": "3339bc",
+    "dealId": "2585c4f6-93d2-4456-a321-a93580e02fad",
+    "question": "What is the annual base rent for the tenant in suite 100?",
+    "expectedAnswer": "$343,973",
+    "gold": [
+      {
+        "documentId": "c4223cf2-34b4-46b6-8aca-bf705e0f4a79",
+        "fileName": "Rent_Roll_Ybor_City_Apartments_3339bc.pdf",
+        "page": 1,
+        "snippet": "100",
+        "passage": "Regional\nChain\nSuite\n100\n26,216\nNNN\n$343,973\n$13.12\nJan 2021\nDec 2029\n1 x 5yr\nTenant B\nRegional\nChain\nSuite\n110\n28,380\nNNN\n$723,484\n$25.49\nJan 2022\nDec 2031"
+      }
+    ]
+  },
+  {
+    "id": "table-suite120-0ee5d0",
+    "slice": "table-lookup",
+    "propertyKey": "0ee5d0",
+    "dealId": "5e1a462f-ebef-59f1-b74c-eb951110d57d",
+    "question": "What is the annual base rent for the tenant in suite 120?",
+    "expectedAnswer": "$134,342",
+    "gold": [
+      {
+        "documentId": "12d89a50-8fe9-4035-ab4d-067ce4497249",
+        "fileName": "Rent_Roll_Gateway_Blvd_Professional_Plaza_0ee5d0.pdf",
+        "page": 1,
+        "snippet": "120",
+        "passage": "Tenant C\nGovernment\nSuite\n120\n11,088\nModified\nGross\n$134,342\n$12.12\nJan 2018\nDec 2021\n2 x 5yr\nTenant D\nRegional\nChain\nSuite\n130\n12,012\nNNN\n$330,801\n$27.54\nJan 2023"
+      }
+    ]
+  },
+  {
+    "id": "table-suite130-a870f6",
+    "slice": "table-lookup",
+    "propertyKey": "a870f6",
+    "dealId": "1d0b206b-e2f9-570b-aaf0-5d5e1e731528",
+    "question": "What is the annual base rent for the tenant in suite 130?",
+    "expectedAnswer": "$476,388",
+    "gold": [
+      {
+        "documentId": "e8f4f0a6-4229-4346-bb8f-f6974a6ad2f8",
+        "fileName": "Rent_Roll_South_End_Shopping_Center_a870f6.pdf",
+        "page": 1,
+        "snippet": "130",
+        "passage": "Regional\nChain\nSuite\n130\n12,865\nNNN\n$476,388\n$37.03\nJan 2022\nDec 2031\n1 x 5yr\nVACANT\n\u2014\nSuite V\n1,322\n\u2014\n\u2014\n\u2014\n\u2014\n\u2014\n\u2014\nRent Roll Summary"
+      }
+    ]
+  },
+  {
+    "id": "table-suite140-f9179d",
+    "slice": "table-lookup",
+    "propertyKey": "f9179d",
+    "dealId": "3d8aa393-eacf-4635-850d-d11adbd3b7af",
+    "question": "What is the annual base rent for the tenant in suite 140?",
+    "expectedAnswer": "$701,063",
+    "gold": [
+      {
+        "documentId": "53c5654c-e49c-4170-8a5c-1cefbd168b44",
+        "fileName": "Rent_Roll_Strip_District_Office_Tower_f9179d.pdf",
+        "page": 1,
+        "snippet": "140",
+        "passage": "Tenant E\nHealthcare\nSuite\n140\n26,125\nModified\nGross\n$701,063\n$26.83\nJan 2019\nDec 2027\n2 x 5yr\nRent Roll Summary\nTotal leasable SF\n176,500 SF\nOccupied SF\n177,211 SF\nVacant SF\n0 SF\nOccupancy rate\n100.4%\nTotal annual base rent"
+      }
+    ]
+  },
+  {
+    "id": "table-suite110-f4d3f7",
+    "slice": "table-lookup",
+    "propertyKey": "f4d3f7",
+    "dealId": "69c1cc53-1a27-4457-a235-9a64f08d5f3d",
+    "question": "What is the annual base rent for the tenant in suite 110?",
+    "expectedAnswer": "$669,038",
+    "gold": [
+      {
+        "documentId": "14fd1ca1-8517-4401-810a-ccb27f7e2549",
+        "fileName": "Rent_Roll_Domain_Industrial_Park_-_Building_3_f4d3f7.pdf",
+        "page": 1,
+        "snippet": "110",
+        "passage": "Tenant B\nGovernment\nSuite\n110\n48,817\nNNN\n$669,038\n$13.71\nJan 2021\nDec 2031\n2 x 5yr\nTenant C\nLocal\nBusiness\nSuite\n120\n63,571\nModified\nGross\n$2,257,093\n$35.51\nJan 2018"
+      }
+    ]
+  },
+  {
+    "id": "table-suite110-276f62",
+    "slice": "table-lookup",
+    "propertyKey": "276f62",
+    "dealId": "d4330526-a63d-41f8-9824-56c9a95fd118",
+    "question": "What is the annual base rent for the tenant in suite 110?",
+    "expectedAnswer": "$1,199,954",
+    "gold": [
+      {
+        "documentId": "07dceec2-d87e-48e1-8a3d-8822b18f4b76",
+        "fileName": "Rent_Roll_Market_St_Strip_Center_276f62.pdf",
+        "page": 1,
+        "snippet": "110",
+        "passage": "Local\nBusiness\nSuite\n110\n57,098\nModified\nGross\n$1,199,954\n$21.02\nJan 2021\nDec 2026\n1 x 5yr\nVACANT\n\u2014\nSuite V\n1,680\n\u2014\n\u2014\n\u2014\n\u2014\n\u2014\n\u2014"
+      }
+    ]
+  },
+  {
+    "id": "table-suite110-ca8079",
+    "slice": "table-lookup",
+    "propertyKey": "ca8079",
+    "dealId": "7c449c19-e9bf-5467-afd2-f85821d48137",
+    "question": "What is the annual base rent for the tenant in suite 110?",
+    "expectedAnswer": "$686,005",
+    "gold": [
+      {
+        "documentId": "00d67c76-b297-4f4d-bc1a-6f6202282208",
+        "fileName": "Rent_Roll_Downtown_LA_Shopping_Center_ca8079.pdf",
+        "page": 1,
+        "snippet": "110",
+        "passage": "Tenant B\nGovernment\nSuite\n110\n21,226\nModified\nGross\n$686,005\n$32.32\nJan 2018\nDec 2023\n1 x 5yr\nTenant C\nHealthcare\nSuite\n120\n16,175\nNNN\n$358,970\n$22.19\nJan 2020\nDec 2030"
+      }
+    ]
+  },
+  {
+    "id": "table-suite100-90a2ac",
+    "slice": "table-lookup",
+    "propertyKey": "90a2ac",
+    "dealId": "4e3e193c-23bc-4876-b845-fef18f593fb0",
+    "question": "What is the annual base rent for the tenant in suite 100?",
+    "expectedAnswer": "$1,441,999",
+    "gold": [
+      {
+        "documentId": "b115c7a0-a606-463d-9192-d1fc2ccfaf8a",
+        "fileName": "Rent_Roll_Domain_Industrial_Park_90a2ac.pdf",
+        "page": 1,
+        "snippet": "100",
+        "passage": "Tenant A\nGovernment\nSuite\n100\n81,211\nNNN\n$1,441,999\n$17.76\nJan 2020\nDec 2024\n2 x 5yr\nTenant B\nHealthcare\nSuite\n110\n70,066\nNNN\n$1,567,888\n$22.38\nJan 2019\nDec 2023\n2 x 5yr"
+      }
+    ]
+  },
+  {
+    "id": "table-suite110-fac011",
+    "slice": "table-lookup",
+    "propertyKey": "fac011",
+    "dealId": "029aafc2-f810-457f-81b1-e5b05b7a86f0",
+    "question": "What is the annual base rent for the tenant in suite 110?",
+    "expectedAnswer": "$2,149,642",
+    "gold": [
+      {
+        "documentId": "1f31502a-c226-4655-ac66-0cbce76b89fc",
+        "fileName": "Rent_Roll_Los_Angeles_Urban_Village_fac011.pdf",
+        "page": 1,
+        "snippet": "110",
+        "passage": "Tenant B\nTech\nSuite\n110\n99,732\nNNN\n$2,149,642\n$21.55\nJan 2023\nDec 2032\n1 x 5yr\nRent Roll Summary\nTotal leasable SF\n214,900 SF\nOccupied SF\n228,672 SF\nVacant SF\n0 SF\nOccupancy rate\n106.4%\nTotal annual base rent\n$3,771,436"
+      }
+    ]
+  },
+  {
+    "id": "table-suite110-4ed4fc",
+    "slice": "table-lookup",
+    "propertyKey": "4ed4fc",
+    "dealId": "aeee1a81-2d03-4b16-ba50-7b067ab6af1a",
+    "question": "What is the annual base rent for the tenant in suite 110?",
+    "expectedAnswer": "$1,066,728",
+    "gold": [
+      {
+        "documentId": "e5fb188f-969d-40f5-9b5d-d33bb4d766b4",
+        "fileName": "Rent_Roll_Miami_Distribution_Hub_4ed4fc.pdf",
+        "page": 1,
+        "snippet": "110",
+        "passage": "Tenant B\nTech\nSuite\n110\n52,750\nNNN\n$1,066,728\n$20.22\nJan 2021\nDec 2027\n1 x 5yr\nRent Roll Summary\nTotal leasable SF\n97,200 SF\nOccupied SF\n99,280 SF\nVacant SF\n0 SF\nOccupancy rate\n102.1%\nTotal annual base rent\n$2,766,190"
+      }
+    ]
+  },
+  {
+    "id": "cross-occupancy-60b8e8",
+    "slice": "cross-document",
+    "propertyKey": "60b8e8",
+    "dealId": "bbaa93e1-305a-4c79-bb60-319dd02fa0ae",
+    "question": "What occupancy does this deal report, and do the documents agree?",
+    "expectedAnswer": "Offering_Memorandum: 83.50%; Rent_Roll: 103.9%",
+    "requiresAll": true,
+    "gold": [
+      {
+        "documentId": "e49938e4-3a12-4e87-b64b-277af96bf584",
+        "fileName": "Offering_Memorandum_Kansas_City_Flex_Campus_60b8e8.pdf",
+        "page": 1,
+        "snippet": "Occupancy",
+        "passage": "NOI\n$235,752\nOccupancy\n83.50%\nMarket benchmark\n6.88%\nInvestment Thesis\nThe offering represents a compelling opportunity to acquire a well-located industrial asset in the Crossroads\nArts District district of Kansas City. The property benefits from strong market fundamentals, a creditworthy\ntenant base, and meaningful value-add potential through targeted capital improvements and lease-up of the\n16.50% vacancy. The Kansas City Metro market has experienced consistent rent growth of 3-5% annually\nover the past three years, driven by population growth, employment expansion, and constrained supply\npipelines.\nMarket Overview\nThe Kansas City Metro industrial market reported vacancy of approximately 11.5% as of the most recent\nquarter, with average asking rents of $35.29/SF NNN. Net absorption has been positive for 16 consecutive\nquarters, reflecting sustained occupier demand. The subject property"
+      },
+      {
+        "documentId": "9a9d012c-e30c-4eba-b542-0bbe5a871235",
+        "fileName": "Rent_Roll_Kansas_City_Flex_Campus_60b8e8.pdf",
+        "page": 1,
+        "snippet": "Occupancy rate",
+        "passage": "Vacant SF\n0 SF\nOccupancy rate\n103.9%\nTotal annual base rent\n$870,886\nAvg rent per SF\n$20.54/SF\nWALT\n7.2 years\nLeases expiring <2yr\n1 leases (34% of GLA)"
+      }
+    ]
+  },
+  {
+    "id": "cross-asking-price-0ee5d0",
+    "slice": "cross-document",
+    "propertyKey": "0ee5d0",
+    "dealId": "5e1a462f-ebef-59f1-b74c-eb951110d57d",
+    "question": "How does the buyer's offer compare to the asking price?",
+    "expectedAnswer": "Offering_Memorandum: $18,714,000; LOI: $18,732,000",
+    "requiresAll": true,
+    "gold": [
+      {
+        "documentId": "c9f3463c-c1a7-4b43-a5d2-836874cba2cf",
+        "fileName": "Offering_Memorandum_Gateway_Blvd_Professional_Plaza_0ee5d0.pdf",
+        "page": 1,
+        "snippet": "Asking price",
+        "passage": "Leasable SF\n56,200 SF\nAsking price\n$18,714,000\nPrice per SF\n$292/SF\nCap rate\n6.08%\nNOI\n$1,137,811\nOccupancy\n84.30%\nMarket benchmark\n5.33%\nInvestment Thesis\nThe offering represents a compelling opportunity to acquire a well-located office asset in the Wynwood\ndistrict of Miami. The property benefits from strong market fundamentals, a creditworthy tenant base, and\nmeaningful value-add potential through targeted capital improvements and lease-up of the 15.70% vacancy.\nThe Miami Metro market has experienced consistent rent growth of 3-5% annually over the past three years,\ndriven by population growth, employment expansion, and constrained supply pipelines.\nMarket Overview\nThe Miami Metro office market reported vacancy of approximately 4.0% as of the most recent quarter, with"
+      },
+      {
+        "documentId": "95eafd51-68c9-4e4c-861c-d397a98e7311",
+        "fileName": "LOI_Gateway_Blvd_Professional_Plaza_0ee5d0.pdf",
+        "page": 1,
+        "snippet": "Purchase price",
+        "passage": "LOI is non-binding except as to the Exclusivity and Confidentiality provisions.\nProposed Terms\nPurchase price\n$18,732,000\nPrice per SF\n$292/SF\nImplied cap rate\n6.07%\nEarnest money deposit\n$187,320 (1.0% of purchase price)\nDeposit \u2014 hard\n$93,660 hard at execution of PSA\nDue diligence period\n52 days from execution of PSA\nClosing period\n79 days from execution of PSA\nFinancing contingency\nBuyer intends to secure 70% LTV senior financing\nExclusivity period\n30 days from execution of this LOI\nAs-is purchase\nProperty to be purchased in its current as-is, where-is condition"
+      }
+    ]
+  },
+  {
+    "id": "cross-occupancy-1d63ae",
+    "slice": "cross-document",
+    "propertyKey": "1d63ae",
+    "dealId": "a358a04c-7782-5766-b16f-8361d0ee595e",
+    "question": "What occupancy does this deal report, and do the documents agree?",
+    "expectedAnswer": "Offering_Memorandum: 90.10%; Rent_Roll: 92.9%",
+    "requiresAll": true,
+    "gold": [
+      {
+        "documentId": "35eaefb5-63fc-4e35-b8f2-656371061881",
+        "fileName": "Offering_Memorandum_Pearl_District_Industrial_Park_1d63ae.pdf",
+        "page": 1,
+        "snippet": "Occupancy",
+        "passage": "NOI\n$1,447,119\nOccupancy\n90.10%\nMarket benchmark\n5.33%\nInvestment Thesis\nThe offering represents a compelling opportunity to acquire a well-located industrial asset in the Pearl\nDistrict district of Portland. The property benefits from strong market fundamentals, a creditworthy tenant\nbase, and meaningful value-add potential through targeted capital improvements and lease-up of the 9.90%\nvacancy. The Portland Metro market has experienced consistent rent growth of 3-5% annually over the past\nthree years, driven by population growth, employment expansion, and constrained supply pipelines.\nMarket Overview\nThe Portland Metro industrial market reported vacancy of approximately 5.6% as of the most recent quarter,\nwith average asking rents of $42.80/SF NNN. Net absorption has been positive for 18 consecutive quarters,\nreflecting sustained occupier demand. The subject property's submarket, Pearl"
+      },
+      {
+        "documentId": "8427183a-9975-4d65-969c-694e263055c0",
+        "fileName": "Rent_Roll_Pearl_District_Industrial_Park_1d63ae.pdf",
+        "page": 1,
+        "snippet": "Occupancy rate",
+        "passage": "Vacant SF\n11,333 SF\nOccupancy rate\n92.9%\nTotal annual base rent\n$2,706,688\nAvg rent per SF\n$18.28/SF\nWALT\n5.2 years\nLeases expiring <2yr\n2 leases (25% of GLA)"
+      }
+    ]
+  },
+  {
+    "id": "cross-cap-rate-e4c15b",
+    "slice": "cross-document",
+    "propertyKey": "e4c15b",
+    "dealId": "c732f7bc-d981-4450-8d20-8152c8e16725",
+    "question": "How does the cap rate implied by the offer compare to the one in the offering memorandum?",
+    "expectedAnswer": "Offering_Memorandum: 7.84%; LOI: 8.41%",
+    "requiresAll": true,
+    "gold": [
+      {
+        "documentId": "b110fcb7-9e20-4fa7-a8ef-1389553e1394",
+        "fileName": "Offering_Memorandum_Chicago_Distribution_Hub_e4c15b.pdf",
+        "page": 1,
+        "snippet": "Cap rate",
+        "passage": "Price per SF\n$109/SF\nCap rate\n7.84%\nNOI\n$1,922,995\nOccupancy\n63.90%\nMarket benchmark\n8.46%\nInvestment Thesis\nThe offering represents a compelling opportunity to acquire a well-located industrial asset in the The Loop\ndistrict of Chicago. The property benefits from strong market fundamentals, a creditworthy tenant base, and\nmeaningful value-add potential through targeted capital improvements and lease-up of the 36.10% vacancy.\nThe Chicago Metro market has experienced consistent rent growth of 3-5% annually over the past three\nyears, driven by population growth, employment expansion, and constrained supply pipelines.\nMarket Overview\nThe Chicago Metro industrial market reported vacancy of approximately 4.5% as of the most recent quarter,\nwith average asking rents of $26.57/SF NNN. Net absorption has been positive for 16 consecutive quarters,\nreflecting sustained occupier demand. The subject"
+      },
+      {
+        "documentId": "90af2256-4d10-4f99-9c59-1743cebb4029",
+        "fileName": "LOI_Chicago_Distribution_Hub_e4c15b.pdf",
+        "page": 1,
+        "snippet": "Implied cap rate",
+        "passage": "Price per SF\n$101/SF\nImplied cap rate\n8.41%\nEarnest money deposit\n$228,560 (1.0% of purchase price)\nDeposit \u2014 hard\n$114,280 hard at execution of PSA\nDue diligence period\n35 days from execution of PSA\nClosing period\n57 days from execution of PSA\nFinancing contingency\nBuyer intends to secure 70% LTV senior financing\nExclusivity period\n30 days from execution of this LOI\nAs-is purchase\nProperty to be purchased in its current as-is, where-is condition\nSeller representations\nLimited to title, authority, and no pending litigation\nBuyer's obligation to close is subject to satisfactory completion of due diligence, including physical\ninspection, environmental review, title examination, review of all leases and operating statements, and"
+      }
+    ]
+  },
+  {
+    "id": "cross-occupancy-a9eb19",
+    "slice": "cross-document",
+    "propertyKey": "a9eb19",
+    "dealId": "4f8b79bc-76fe-5dc1-8036-9a272b1cced4",
+    "question": "What occupancy does this deal report, and do the documents agree?",
+    "expectedAnswer": "Offering_Memorandum: 87.70%; Rent_Roll: 97.3%",
+    "requiresAll": true,
+    "gold": [
+      {
+        "documentId": "5ff68d75-b9b8-4953-8254-b3010ef5981b",
+        "fileName": "Offering_Memorandum_Nashville_Flex_Campus_a9eb19.pdf",
+        "page": 1,
+        "snippet": "Occupancy",
+        "passage": "NOI\n$630,473\nOccupancy\n87.70%\nMarket benchmark\n6.14%\nInvestment Thesis\nThe offering represents a compelling opportunity to acquire a well-located industrial asset in the The Gulch\ndistrict of Nashville. The property benefits from strong market fundamentals, a creditworthy tenant base, and\nmeaningful value-add potential through targeted capital improvements and lease-up of the 12.30% vacancy.\nThe Nashville Metro market has experienced consistent rent growth of 3-5% annually over the past three\nyears, driven by population growth, employment expansion, and constrained supply pipelines.\nMarket Overview\nThe Nashville Metro industrial market reported vacancy of approximately 6.0% as of the most recent quarter,\nwith average asking rents of $38.02/SF NNN. Net absorption has been positive for 8 consecutive quarters,\nreflecting sustained occupier demand. The subject property's submarket, The Gulch"
+      },
+      {
+        "documentId": "9f123c71-36ce-4f2b-88e5-f42e3d89655c",
+        "fileName": "Rent_Roll_Nashville_Flex_Campus_a9eb19.pdf",
+        "page": 1,
+        "snippet": "Occupancy rate",
+        "passage": "Vacant SF\n2,769 SF\nOccupancy rate\n97.3%\nTotal annual base rent\n$2,471,038\nAvg rent per SF\n$25.10/SF\nWALT\n7.0 years\nLeases expiring <2yr\n3 leases (33% of GLA)"
+      }
+    ]
+  },
+  {
+    "id": "cross-occupancy-547c40",
+    "slice": "cross-document",
+    "propertyKey": "547c40",
+    "dealId": "57818ac6-037b-55bc-9c3f-44c0df1d27c4",
+    "question": "What occupancy does this deal report, and do the documents agree?",
+    "expectedAnswer": "Offering_Memorandum: 94.20%; Rent_Roll: 101.0%",
+    "requiresAll": true,
+    "gold": [
+      {
+        "documentId": "4030ffd8-fac1-412d-adee-63f37efe0a97",
+        "fileName": "Offering_Memorandum_Columbus_Retail_Plaza_547c40.pdf",
+        "page": 1,
+        "snippet": "Occupancy",
+        "passage": "NOI\n$1,455,729\nOccupancy\n94.20%\nMarket benchmark\n7.03%\nInvestment Thesis\nThe offering represents a compelling opportunity to acquire a well-located retail asset in the Short North\ndistrict of Columbus. The property benefits from strong market fundamentals, a creditworthy tenant base,\nand meaningful value-add potential through targeted capital improvements and lease-up of the 5.80%\nvacancy. The Columbus Metro market has experienced consistent rent growth of 3-5% annually over the\npast three years, driven by population growth, employment expansion, and constrained supply pipelines.\nMarket Overview\nThe Columbus Metro retail market reported vacancy of approximately 10.4% as of the most recent quarter,\nwith average asking rents of $44.42/SF NNN. Net absorption has been positive for 16 consecutive quarters,\nreflecting sustained occupier demand. The subject property's submarket, Short North, ha"
+      },
+      {
+        "documentId": "1b98c5f4-6089-4b23-829b-cbb16ed4c935",
+        "fileName": "Rent_Roll_Columbus_Retail_Plaza_547c40.pdf",
+        "page": 1,
+        "snippet": "Occupancy rate",
+        "passage": "Vacant SF\n0 SF\nOccupancy rate\n101.0%\nTotal annual base rent\n$4,931,677\nAvg rent per SF\n$33.67/SF\nWALT\n3.0 years\nLeases expiring <2yr\n2 leases (12% of GLA)"
+      }
+    ]
+  },
+  {
+    "id": "cross-asking-price-9a7c09",
+    "slice": "cross-document",
+    "propertyKey": "9a7c09",
+    "dealId": "8e7758ab-b710-4262-a201-dbfb1d0a6063",
+    "question": "How does the buyer's offer compare to the asking price?",
+    "expectedAnswer": "Offering_Memorandum: $25,473,000; LOI: $26,463,000",
+    "requiresAll": true,
+    "gold": [
+      {
+        "documentId": "f40acb70-8793-4f1a-a623-6b227139d794",
+        "fileName": "Offering_Memorandum_Short_North_Apartments_9a7c09.pdf",
+        "page": 1,
+        "snippet": "Asking price",
+        "passage": "Leasable SF\n129,900 SF\nAsking price\n$25,473,000\nPrice per SF\n$175/SF\nCap rate\n5.74%\nNOI\n$1,462,660\nOccupancy\n76.70%\nMarket benchmark\n5.45%\nInvestment Thesis\nThe offering represents a compelling opportunity to acquire a well-located apartment asset in the Short\nNorth district of Columbus. The property benefits from strong market fundamentals, a creditworthy tenant\nbase, and meaningful value-add potential through targeted capital improvements and lease-up of the\n23.30% vacancy. The Columbus Metro market has experienced consistent rent growth of 3-5% annually\nover the past three years, driven by population growth, employment expansion, and constrained supply\npipelines.\nMarket Overview"
+      },
+      {
+        "documentId": "4cf30ff0-d3bd-427b-bf56-16280b920b41",
+        "fileName": "LOI_Short_North_Apartments_9a7c09.pdf",
+        "page": 1,
+        "snippet": "Purchase price",
+        "passage": "LOI is non-binding except as to the Exclusivity and Confidentiality provisions.\nProposed Terms\nPurchase price\n$26,463,000\nPrice per SF\n$182/SF\nImplied cap rate\n5.53%\nEarnest money deposit\n$529,260 (2.0% of purchase price)\nDeposit \u2014 hard\n$264,630 hard at execution of PSA\nDue diligence period\n48 days from execution of PSA\nClosing period\n78 days from execution of PSA\nFinancing contingency\nBuyer intends to secure 67% LTV senior financing\nExclusivity period\n30 days from execution of this LOI\nAs-is purchase\nProperty to be purchased in its current as-is, where-is condition"
+      }
+    ]
+  },
+  {
+    "id": "cross-occupancy-3dbd02",
+    "slice": "cross-document",
+    "propertyKey": "3dbd02",
+    "dealId": "42daad9a-0872-5c3b-a264-86b957ea0e18",
+    "question": "What occupancy does this deal report, and do the documents agree?",
+    "expectedAnswer": "Offering_Memorandum: 76.80%; Rent_Roll: 86.7%",
+    "requiresAll": true,
+    "gold": [
+      {
+        "documentId": "f01c5b6b-c34a-4b35-ad88-08093b917834",
+        "fileName": "Offering_Memorandum_SoDo_Office_Tower_3dbd02.pdf",
+        "page": 1,
+        "snippet": "Occupancy",
+        "passage": "NOI\n$4,537,416\nOccupancy\n76.80%\nMarket benchmark\n6.71%\nInvestment Thesis\nThe offering represents a compelling opportunity to acquire a well-located office asset in the SoDo district of\nSeattle. The property benefits from strong market fundamentals, a creditworthy tenant base, and meaningful\nvalue-add potential through targeted capital improvements and lease-up of the 23.20% vacancy. The Seattle\nMetro market has experienced consistent rent growth of 3-5% annually over the past three years, driven by\npopulation growth, employment expansion, and constrained supply pipelines.\nMarket Overview\nThe Seattle Metro office market reported vacancy of approximately 8.7% as of the most recent quarter, with\naverage asking rents of $29.15/SF NNN. Net absorption has been positive for 13 consecutive quarters,\nreflecting sustained occupier demand. The subject property's submarket, SoDo, has outperformed th"
+      },
+      {
+        "documentId": "1cf4adeb-99c2-4dd6-af0f-75c141ee138b",
+        "fileName": "Rent_Roll_SoDo_Office_Tower_3dbd02.pdf",
+        "page": 1,
+        "snippet": "Occupancy rate",
+        "passage": "Vacant SF\n23,799 SF\nOccupancy rate\n86.7%\nTotal annual base rent\n$4,956,029\nAvg rent per SF\n$31.85/SF\nWALT\n7.5 years\nLeases expiring <2yr\n1 leases (35% of GLA)"
+      }
+    ]
+  },
+  {
+    "id": "cross-occupancy-101d23",
+    "slice": "cross-document",
+    "propertyKey": "101d23",
+    "dealId": "1bec062e-cdc7-40d4-b683-1c6774b7e184",
+    "question": "What occupancy does this deal report, and do the documents agree?",
+    "expectedAnswer": "Offering_Memorandum: 70.30%; Rent_Roll: 101.1%",
+    "requiresAll": true,
+    "gold": [
+      {
+        "documentId": "bbc137ad-3e6e-4bc2-8555-c85138ddae00",
+        "fileName": "Offering_Memorandum_South_End_Office_Tower_101d23.pdf",
+        "page": 1,
+        "snippet": "Occupancy",
+        "passage": "NOI\n$685,790\nOccupancy\n70.30%\nMarket benchmark\n5.86%\nInvestment Thesis\nThe offering represents a compelling opportunity to acquire a well-located office asset in the South End\ndistrict of Charlotte. The property benefits from strong market fundamentals, a creditworthy tenant base, and\nmeaningful value-add potential through targeted capital improvements and lease-up of the 29.70% vacancy.\nThe Charlotte Metro market has experienced consistent rent growth of 3-5% annually over the past three\nyears, driven by population growth, employment expansion, and constrained supply pipelines.\nMarket Overview\nThe Charlotte Metro office market reported vacancy of approximately 5.1% as of the most recent quarter,\nwith average asking rents of $43.46/SF NNN. Net absorption has been positive for 16 consecutive quarters,\nreflecting sustained occupier demand. The subject property's submarket, South End, has o"
+      },
+      {
+        "documentId": "b4cff920-b32c-422d-b618-63beac53c49b",
+        "fileName": "Rent_Roll_South_End_Office_Tower_101d23.pdf",
+        "page": 1,
+        "snippet": "Occupancy rate",
+        "passage": "Vacant SF\n0 SF\nOccupancy rate\n101.1%\nTotal annual base rent\n$1,960,921\nAvg rent per SF\n$31.34/SF\nWALT\n6.7 years\nLeases expiring <2yr\n2 leases (16% of GLA)"
+      }
+    ]
+  },
+  {
+    "id": "cross-occupancy-ddbf23",
+    "slice": "cross-document",
+    "propertyKey": "ddbf23",
+    "dealId": "0a071895-a4c6-4f17-bc2d-99f62e1b5340",
+    "question": "What occupancy does this deal report, and do the documents agree?",
+    "expectedAnswer": "Offering_Memorandum: 96.50%; Rent_Roll: 98.3%",
+    "requiresAll": true,
+    "gold": [
+      {
+        "documentId": "16e1aea6-a5c1-4cab-b758-095b24d541da",
+        "fileName": "Offering_Memorandum_Lakeview_Rd_Professional_Plaza_ddbf23.pdf",
+        "page": 1,
+        "snippet": "Occupancy",
+        "passage": "NOI\n$1,932,996\nOccupancy\n96.50%\nMarket benchmark\n4.70%\nInvestment Thesis\nThe offering represents a compelling opportunity to acquire a well-located office asset in the The Loop\ndistrict of Chicago. The property benefits from strong market fundamentals, a creditworthy tenant base, and\nmeaningful value-add potential through targeted capital improvements and lease-up of the 3.50% vacancy.\nThe Chicago Metro market has experienced consistent rent growth of 3-5% annually over the past three\nyears, driven by population growth, employment expansion, and constrained supply pipelines.\nMarket Overview\nThe Chicago Metro office market reported vacancy of approximately 9.0% as of the most recent quarter,\nwith average asking rents of $41.54/SF NNN. Net absorption has been positive for 11 consecutive quarters,\nreflecting sustained occupier demand. The subject property's submarket, The Loop, has outperfo"
+      },
+      {
+        "documentId": "9772646c-0156-4a9a-b199-56c8a79c12f7",
+        "fileName": "Rent_Roll_Lakeview_Rd_Professional_Plaza_ddbf23.pdf",
+        "page": 1,
+        "snippet": "Occupancy rate",
+        "passage": "Vacant SF\n2,046 SF\nOccupancy rate\n98.3%\nTotal annual base rent\n$2,602,191\nAvg rent per SF\n$21.73/SF\nWALT\n4.9 years\nLeases expiring <2yr\n1 leases (17% of GLA)"
+      }
+    ]
+  },
+  {
+    "id": "cross-cap-rate-276f62",
+    "slice": "cross-document",
+    "propertyKey": "276f62",
+    "dealId": "d4330526-a63d-41f8-9824-56c9a95fd118",
+    "question": "How does the cap rate implied by the offer compare to the one in the offering memorandum?",
+    "expectedAnswer": "Offering_Memorandum: 5.80%; LOI: 6.13%",
+    "requiresAll": true,
+    "gold": [
+      {
+        "documentId": "a416a998-e3d2-45d3-9f76-865a85b0eb0b",
+        "fileName": "Offering_Memorandum_Market_St_Strip_Center_276f62.pdf",
+        "page": 1,
+        "snippet": "Cap rate",
+        "passage": "Price per SF\n$184/SF\nCap rate\n5.80%\nNOI\n$1,500,740\nOccupancy\n86.50%\nMarket benchmark\n6.56%\nInvestment Thesis\nThe offering represents a compelling opportunity to acquire a well-located retail asset in the Ybor City district\nof Tampa. The property benefits from strong market fundamentals, a creditworthy tenant base, and\nmeaningful value-add potential through targeted capital improvements and lease-up of the 13.50% vacancy.\nThe Tampa Metro market has experienced consistent rent growth of 3-5% annually over the past three\nyears, driven by population growth, employment expansion, and constrained supply pipelines.\nMarket Overview\nThe Tampa Metro retail market reported vacancy of approximately 11.7% as of the most recent quarter, with\naverage asking rents of $22.01/SF NNN. Net absorption has been positive for 6 consecutive quarters,\nreflecting sustained occupier demand. The subject property's s"
+      },
+      {
+        "documentId": "8ba5a121-44cd-42a3-94d5-0459d6767def",
+        "fileName": "LOI_Market_St_Strip_Center_276f62.pdf",
+        "page": 1,
+        "snippet": "Implied cap rate",
+        "passage": "Price per SF\n$174/SF\nImplied cap rate\n6.13%\nEarnest money deposit\n$612,400 (2.5% of purchase price)\nDeposit \u2014 hard\n$306,200 hard at execution of PSA\nDue diligence period\n56 days from execution of PSA\nClosing period\n86 days from execution of PSA\nFinancing contingency\nBuyer intends to secure 64% LTV senior financing\nExclusivity period\n30 days from execution of this LOI\nAs-is purchase\nProperty to be purchased in its current as-is, where-is condition\nSeller representations\nLimited to title, authority, and no pending litigation\nBuyer's obligation to close is subject to satisfactory completion of due diligence, including physical\ninspection, environmental review, title examination, review of all leases and operating statements, and"
+      }
+    ]
+  },
+  {
+    "id": "cross-asking-price-f8093f",
+    "slice": "cross-document",
+    "propertyKey": "f8093f",
+    "dealId": "c8bc8949-bbe6-58f2-a07b-7c066cd78e87",
+    "question": "How does the buyer's offer compare to the asking price?",
+    "expectedAnswer": "Offering_Memorandum: $5,859,000; LOI: $6,085,000",
+    "requiresAll": true,
+    "gold": [
+      {
+        "documentId": "3b6d7eb5-9dfd-4094-8421-341cb224de7b",
+        "fileName": "Offering_Memorandum_Innovation_Dr_Professional_Plaza_f8093f.pdf",
+        "page": 1,
+        "snippet": "Asking price",
+        "passage": "Leasable SF\n26,600 SF\nAsking price\n$5,859,000\nPrice per SF\n$193/SF\nCap rate\n6.93%\nNOI\n$405,912\nOccupancy\n60.10%\nMarket benchmark\n7.15%\nInvestment Thesis\nThe offering represents a compelling opportunity to acquire a well-located office asset in the Strip District\ndistrict of Pittsburgh. The property benefits from strong market fundamentals, a creditworthy tenant base,\nand meaningful value-add potential through targeted capital improvements and lease-up of the 39.90%\nvacancy. The Pittsburgh Metro market has experienced consistent rent growth of 3-5% annually over the\npast three years, driven by population growth, employment expansion, and constrained supply pipelines.\nMarket Overview\nThe Pittsburgh Metro office market reported vacancy of approximately 7.0% as of the most recent quarter,"
+      },
+      {
+        "documentId": "4261fbac-bac5-4716-8acb-bb8f90069514",
+        "fileName": "LOI_Innovation_Dr_Professional_Plaza_f8093f.pdf",
+        "page": 1,
+        "snippet": "Purchase price",
+        "passage": "LOI is non-binding except as to the Exclusivity and Confidentiality provisions.\nProposed Terms\nPurchase price\n$6,085,000\nPrice per SF\n$201/SF\nImplied cap rate\n6.67%\nEarnest money deposit\n$121,700 (2.0% of purchase price)\nDeposit \u2014 hard\n$60,850 hard at execution of PSA\nDue diligence period\n39 days from execution of PSA\nClosing period\n54 days from execution of PSA\nFinancing contingency\nBuyer intends to secure 62% LTV senior financing\nExclusivity period\n30 days from execution of this LOI\nAs-is purchase\nProperty to be purchased in its current as-is, where-is condition"
+      }
+    ]
+  },
+  {
+    "id": "cross-occupancy-6f0343",
+    "slice": "cross-document",
+    "propertyKey": "6f0343",
+    "dealId": "c7d08d8f-4ee6-49d1-ab15-51c26ef86c78",
+    "question": "What occupancy does this deal report, and do the documents agree?",
+    "expectedAnswer": "Offering_Memorandum: 88.80%; Rent_Roll: 93.1%",
+    "requiresAll": true,
+    "gold": [
+      {
+        "documentId": "ded3ab5f-3e00-4144-8efd-2e1982802951",
+        "fileName": "Offering_Memorandum_Austin_Residences_6f0343.pdf",
+        "page": 1,
+        "snippet": "Occupancy",
+        "passage": "NOI\n$349,457\nOccupancy\n88.80%\nMarket benchmark\n5.81%\nInvestment Thesis\nThe offering represents a compelling opportunity to acquire a well-located apartment asset in the Domain\ndistrict of Austin. The property benefits from strong market fundamentals, a creditworthy tenant base, and\nmeaningful value-add potential through targeted capital improvements and lease-up of the 11.20% vacancy.\nThe Austin Metro market has experienced consistent rent growth of 3-5% annually over the past three years,\ndriven by population growth, employment expansion, and constrained supply pipelines.\nMarket Overview\nThe Austin Metro apartment market reported vacancy of approximately 6.5% as of the most recent quarter,\nwith average asking rents of $34.16/SF NNN. Net absorption has been positive for 9 consecutive quarters,\nreflecting sustained occupier demand. The subject property's submarket, Domain, has outperforme"
+      },
+      {
+        "documentId": "6f62501b-89e4-48d9-aa89-a1465b5932cc",
+        "fileName": "Rent_Roll_Austin_Residences_6f0343.pdf",
+        "page": 1,
+        "snippet": "Occupancy rate",
+        "passage": "Vacant SF\n2,460 SF\nOccupancy rate\n93.1%\nTotal annual base rent\n$820,426\nAvg rent per SF\n$24.76/SF\nWALT\n4.4 years\nLeases expiring <2yr\n2 leases (14% of GLA)"
+      }
+    ]
+  },
+  {
+    "id": "cross-cap-rate-f4d3f7",
+    "slice": "cross-document",
+    "propertyKey": "f4d3f7",
+    "dealId": "69c1cc53-1a27-4457-a235-9a64f08d5f3d",
+    "question": "How does the cap rate implied by the offer compare to the one in the offering memorandum?",
+    "expectedAnswer": "Offering_Memorandum: 6.05%; LOI: 6.71%",
+    "requiresAll": true,
+    "gold": [
+      {
+        "documentId": "4598f0f0-b23b-4b07-ae71-6cbe94da512d",
+        "fileName": "Offering_Memorandum_Domain_Industrial_Park_-_Building_3_f4d3f7.pdf",
+        "page": 1,
+        "snippet": "Cap rate",
+        "passage": "Price per SF\n$146/SF\nCap rate\n6.05%\nNOI\n$1,844,275\nOccupancy\n78.20%\nMarket benchmark\n5.46%\nInvestment Thesis\nThe offering represents a compelling opportunity to acquire a well-located industrial asset in the Domain\ndistrict of Austin. The property benefits from strong market fundamentals, a creditworthy tenant base, and\nmeaningful value-add potential through targeted capital improvements and lease-up of the 21.80% vacancy.\nThe Austin Metro market has experienced consistent rent growth of 3-5% annually over the past three years,\ndriven by population growth, employment expansion, and constrained supply pipelines.\nMarket Overview\nThe Austin Metro industrial market reported vacancy of approximately 9.8% as of the most recent quarter,\nwith average asking rents of $12.35/SF NNN. Net absorption has been positive for 16 consecutive quarters,\nreflecting sustained occupier demand. The subject prop"
+      },
+      {
+        "documentId": "dcb7b963-1a29-46e3-a87e-0b4fecc07edf",
+        "fileName": "LOI_Domain_Industrial_Park_-_Building_3_f4d3f7.pdf",
+        "page": 1,
+        "snippet": "Implied cap rate",
+        "passage": "Price per SF\n$132/SF\nImplied cap rate\n6.71%\nEarnest money deposit\n$549,980 (2.0% of purchase price)\nDeposit \u2014 hard\n$274,990 hard at execution of PSA\nDue diligence period\n51 days from execution of PSA\nClosing period\n73 days from execution of PSA\nFinancing contingency\nBuyer intends to secure 68% LTV senior financing\nExclusivity period\n30 days from execution of this LOI\nAs-is purchase\nProperty to be purchased in its current as-is, where-is condition\nSeller representations\nLimited to title, authority, and no pending litigation\nBuyer's obligation to close is subject to satisfactory completion of due diligence, including physical\ninspection, environmental review, title examination, review of all leases and operating statements, and"
+      }
+    ]
+  },
+  {
+    "id": "cross-occupancy-41c91f",
+    "slice": "cross-document",
+    "propertyKey": "41c91f",
+    "dealId": "3f2bfae6-a2be-51be-97f4-da49c179dd89",
+    "question": "What occupancy does this deal report, and do the documents agree?",
+    "expectedAnswer": "Offering_Memorandum: 74.10%; Rent_Roll: 100.0%",
+    "requiresAll": true,
+    "gold": [
+      {
+        "documentId": "af1786e9-60aa-4bf8-a3a2-b20cf6b9de11",
+        "fileName": "Offering_Memorandum_Indianapolis_Gateway_41c91f.pdf",
+        "page": 1,
+        "snippet": "Occupancy",
+        "passage": "NOI\n$639,276\nOccupancy\n74.10%\nMarket benchmark\n6.60%\nInvestment Thesis\nThe offering represents a compelling opportunity to acquire a well-located mixed-use asset in the\nMeridian-Kessler district of Indianapolis. The property benefits from strong market fundamentals, a\ncreditworthy tenant base, and meaningful value-add potential through targeted capital improvements and\nlease-up of the 25.90% vacancy. The Indianapolis Metro market has experienced consistent rent growth of\n3-5% annually over the past three years, driven by population growth, employment expansion, and\nconstrained supply pipelines.\nMarket Overview\nThe Indianapolis Metro mixed-use market reported vacancy of approximately 9.7% as of the most recent\nquarter, with average asking rents of $27.68/SF NNN. Net absorption has been positive for 7 consecutive\nquarters, reflecting sustained occupier demand. The subject property's submar"
+      },
+      {
+        "documentId": "de6ac7ef-6c50-4556-a9c1-dc4d9c0e1cd4",
+        "fileName": "Rent_Roll_Indianapolis_Gateway_41c91f.pdf",
+        "page": 1,
+        "snippet": "Occupancy rate",
+        "passage": "Vacant SF\n0 SF\nOccupancy rate\n100.0%\nTotal annual base rent\n$1,845,359\nAvg rent per SF\n$25.24/SF\nWALT\n6.2 years\nLeases expiring <2yr\n1 leases (20% of GLA)"
+      }
+    ]
+  },
+  {
+    "id": "cross-asking-price-ca34c2",
+    "slice": "cross-document",
+    "propertyKey": "ca34c2",
+    "dealId": "eff3efe9-33df-5766-ad9f-57a45ff5a8d1",
+    "question": "How does the buyer's offer compare to the asking price?",
+    "expectedAnswer": "Offering_Memorandum: $15,830,000; LOI: $14,654,000",
+    "requiresAll": true,
+    "gold": [
+      {
+        "documentId": "d8eeb472-0dfc-486d-913f-535a7b30825c",
+        "fileName": "Offering_Memorandum_Camelback_Corridor_Industrial_Park__ca34c2.pdf",
+        "page": 1,
+        "snippet": "Asking price",
+        "passage": "Leasable SF\n101,700 SF\nAsking price\n$15,830,000\nPrice per SF\n$133/SF\nCap rate\n7.42%\nNOI\n$1,174,111\nOccupancy\n80.10%\nMarket benchmark\n7.57%\nInvestment Thesis\nThe offering represents a compelling opportunity to acquire a well-located industrial asset in the Camelback\nCorridor district of Phoenix. The property benefits from strong market fundamentals, a creditworthy tenant\nbase, and meaningful value-add potential through targeted capital improvements and lease-up of the\n19.90% vacancy. The Phoenix Metro market has experienced consistent rent growth of 3-5% annually over\nthe past three years, driven by population growth, employment expansion, and constrained supply pipelines.\nMarket Overview\nThe Phoenix Metro industrial market reported vacancy of approximately 10.0% as of the most recent"
+      },
+      {
+        "documentId": "1ef7cc4b-a56a-47b0-a956-e3c0cbca1930",
+        "fileName": "LOI_Camelback_Corridor_Industrial_Park__ca34c2.pdf",
+        "page": 1,
+        "snippet": "Purchase price",
+        "passage": "LOI is non-binding except as to the Exclusivity and Confidentiality provisions.\nProposed Terms\nPurchase price\n$14,654,000\nPrice per SF\n$123/SF\nImplied cap rate\n8.01%\nEarnest money deposit\n$293,080 (2.0% of purchase price)\nDeposit \u2014 hard\n$146,540 hard at execution of PSA\nDue diligence period\n36 days from execution of PSA\nClosing period\n51 days from execution of PSA\nFinancing contingency\nBuyer intends to secure 68% LTV senior financing\nExclusivity period\n30 days from execution of this LOI\nAs-is purchase\nProperty to be purchased in its current as-is, where-is condition"
+      }
+    ]
+  },
+  {
+    "id": "cross-occupancy-47ea75",
+    "slice": "cross-document",
+    "propertyKey": "47ea75",
+    "dealId": "1833711c-7b68-5bbe-8ed7-c48417cfd352",
+    "question": "What occupancy does this deal report, and do the documents agree?",
+    "expectedAnswer": "Offering_Memorandum: 82.30%; Rent_Roll: 94.3%",
+    "requiresAll": true,
+    "gold": [
+      {
+        "documentId": "256359c7-b1a2-40e7-98bc-239879c25ad7",
+        "fileName": "Offering_Memorandum_Denver_Logistics_Center_47ea75.pdf",
+        "page": 1,
+        "snippet": "Occupancy",
+        "passage": "NOI\n$700,458\nOccupancy\n82.30%\nMarket benchmark\n7.51%\nInvestment Thesis\nThe offering represents a compelling opportunity to acquire a well-located industrial asset in the LoDo\ndistrict of Denver. The property benefits from strong market fundamentals, a creditworthy tenant base, and\nmeaningful value-add potential through targeted capital improvements and lease-up of the 17.70% vacancy.\nThe Denver Metro market has experienced consistent rent growth of 3-5% annually over the past three\nyears, driven by population growth, employment expansion, and constrained supply pipelines.\nMarket Overview\nThe Denver Metro industrial market reported vacancy of approximately 7.2% as of the most recent quarter,\nwith average asking rents of $15.11/SF NNN. Net absorption has been positive for 15 consecutive quarters,\nreflecting sustained occupier demand. The subject property's submarket, LoDo, has outperformed"
+      },
+      {
+        "documentId": "1db7398b-dc7b-4f45-8635-09590e121984",
+        "fileName": "Rent_Roll_Denver_Logistics_Center_47ea75.pdf",
+        "page": 1,
+        "snippet": "Occupancy rate",
+        "passage": "Vacant SF\n3,065 SF\nOccupancy rate\n94.3%\nTotal annual base rent\n$1,301,184\nAvg rent per SF\n$25.55/SF\nWALT\n7.1 years\nLeases expiring <2yr\n3 leases (20% of GLA)"
+      }
+    ]
+  },
+  {
+    "id": "cross-cap-rate-72bed4",
+    "slice": "cross-document",
+    "propertyKey": "72bed4",
+    "dealId": "b5531ad4-1eeb-4f4e-a989-5830933dde7b",
+    "question": "How does the cap rate implied by the offer compare to the one in the offering memorandum?",
+    "expectedAnswer": "Offering_Memorandum: 6.00%; LOI: 5.93%",
+    "requiresAll": true,
+    "gold": [
+      {
+        "documentId": "adada158-fb98-420d-b10b-233a1371770b",
+        "fileName": "Offering_Memorandum_Piscataway_Gateway_72bed4.pdf",
+        "page": 1,
+        "snippet": "Cap rate",
+        "passage": "Price per SF\n$135/SF\nCap rate\n6.00%\nNOI\n$1,562,417\nOccupancy\n64.60%\nMarket benchmark\n5.88%\nInvestment Thesis\nThe offering represents a compelling opportunity to acquire a well-located mixed-use asset in the Central\nJersey Industrial Corridor district of Piscataway. The property benefits from strong market fundamentals, a\ncreditworthy tenant base, and meaningful value-add potential through targeted capital improvements and\nlease-up of the 35.40% vacancy. The New York Metro market has experienced consistent rent growth of\n3-5% annually over the past three years, driven by population growth, employment expansion, and\nconstrained supply pipelines.\nMarket Overview\nThe New York Metro mixed-use market reported vacancy of approximately 5.4% as of the most recent\nquarter, with average asking rents of $42.75/SF NNN. Net absorption has been positive for 14 consecutive\nquarters, reflecting sustained"
+      },
+      {
+        "documentId": "7fa863ed-cf3b-4993-8632-ea3c957b75db",
+        "fileName": "LOI_Piscataway_Gateway_72bed4.pdf",
+        "page": 1,
+        "snippet": "Implied cap rate",
+        "passage": "Price per SF\n$136/SF\nImplied cap rate\n5.93%\nEarnest money deposit\n$526,600 (2.0% of purchase price)\nDeposit \u2014 hard\n$263,300 hard at execution of PSA\nDue diligence period\n60 days from execution of PSA\nClosing period\n90 days from execution of PSA\nFinancing contingency\nBuyer intends to secure 70% LTV senior financing\nExclusivity period\n30 days from execution of this LOI\nAs-is purchase\nProperty to be purchased in its current as-is, where-is condition\nSeller representations\nLimited to title, authority, and no pending litigation\nBuyer's obligation to close is subject to satisfactory completion of due diligence, including physical\ninspection, environmental review, title examination, review of all leases and operating statements, and"
+      }
+    ]
+  },
+  {
+    "id": "cross-cap-rate-e2f072",
+    "slice": "cross-document",
+    "propertyKey": "e2f072",
+    "dealId": "a4c180b4-aee9-4dee-8ac4-27b5e3f5ee28",
+    "question": "How does the cap rate implied by the offer compare to the one in the offering memorandum?",
+    "expectedAnswer": "Offering_Memorandum: 5.40%; LOI: 5.30%",
+    "requiresAll": true,
+    "gold": [
+      {
+        "documentId": "5fbaa1ea-38b0-4168-961c-30d626d7e33e",
+        "fileName": "Offering_Memorandum_Main_St_Plaza_e2f072.pdf",
+        "page": 1,
+        "snippet": "Cap rate",
+        "passage": "Price per SF\n$268/SF\nCap rate\n5.40%\nNOI\n$2,129,009\nOccupancy\n95.80%\nMarket benchmark\n5.54%\nInvestment Thesis\nThe offering represents a compelling opportunity to acquire a well-located mixed-use asset in the North\nLoop district of Minneapolis. The property benefits from strong market fundamentals, a creditworthy tenant\nbase, and meaningful value-add potential through targeted capital improvements and lease-up of the 4.20%\nvacancy. The Minneapolis Metro market has experienced consistent rent growth of 3-5% annually over the\npast three years, driven by population growth, employment expansion, and constrained supply pipelines.\nMarket Overview\nThe Minneapolis Metro mixed-use market reported vacancy of approximately 8.9% as of the most recent\nquarter, with average asking rents of $34.84/SF NNN. Net absorption has been positive for 6 consecutive\nquarters, reflecting sustained occupier demand. T"
+      },
+      {
+        "documentId": "be31411b-b015-4829-abf7-9e68200f464c",
+        "fileName": "LOI_Main_St_Plaza_e2f072.pdf",
+        "page": 1,
+        "snippet": "Implied cap rate",
+        "passage": "Price per SF\n$273/SF\nImplied cap rate\n5.30%\nEarnest money deposit\n$401,980 (1.0% of purchase price)\nDeposit \u2014 hard\n$200,990 hard at execution of PSA\nDue diligence period\n50 days from execution of PSA\nClosing period\n77 days from execution of PSA\nFinancing contingency\nBuyer intends to secure 63% LTV senior financing\nExclusivity period\n30 days from execution of this LOI\nAs-is purchase\nProperty to be purchased in its current as-is, where-is condition\nSeller representations\nLimited to title, authority, and no pending litigation\nBuyer's obligation to close is subject to satisfactory completion of due diligence, including physical\ninspection, environmental review, title examination, review of all leases and operating statements, and"
+      }
+    ]
+  },
+  {
+    "id": "cross-cap-rate-58684a",
+    "slice": "cross-document",
+    "propertyKey": "58684a",
+    "dealId": "16a8d11b-80df-41b5-b246-f4649d7d8bc3",
+    "question": "How does the cap rate implied by the offer compare to the one in the offering memorandum?",
+    "expectedAnswer": "Offering_Memorandum: 7.64%; LOI: 7.99%",
+    "requiresAll": true,
+    "gold": [
+      {
+        "documentId": "adca7bc5-831b-4808-b5de-2219374685b6",
+        "fileName": "Offering_Memorandum_North_Loop_Shopping_Center_58684a.pdf",
+        "page": 1,
+        "snippet": "Cap rate",
+        "passage": "Price per SF\n$196/SF\nCap rate\n7.64%\nNOI\n$3,383,893\nOccupancy\n66.30%\nMarket benchmark\n7.54%\nInvestment Thesis\nThe offering represents a compelling opportunity to acquire a well-located retail asset in the North Loop\ndistrict of Minneapolis. The property benefits from strong market fundamentals, a creditworthy tenant base,\nand meaningful value-add potential through targeted capital improvements and lease-up of the 33.70%\nvacancy. The Minneapolis Metro market has experienced consistent rent growth of 3-5% annually over the\npast three years, driven by population growth, employment expansion, and constrained supply pipelines.\nMarket Overview\nThe Minneapolis Metro retail market reported vacancy of approximately 5.5% as of the most recent quarter,\nwith average asking rents of $18.01/SF NNN. Net absorption has been positive for 12 consecutive quarters,\nreflecting sustained occupier demand. The s"
+      },
+      {
+        "documentId": "df44d7a1-9e02-431f-a02a-518eaf69b461",
+        "fileName": "LOI_North_Loop_Shopping_Center_58684a.pdf",
+        "page": 1,
+        "snippet": "Implied cap rate",
+        "passage": "Price per SF\n$187/SF\nImplied cap rate\n7.99%\nEarnest money deposit\n$423,620 (1.0% of purchase price)\nDeposit \u2014 hard\n$211,810 hard at execution of PSA\nDue diligence period\n55 days from execution of PSA\nClosing period\n73 days from execution of PSA\nFinancing contingency\nBuyer intends to secure 66% LTV senior financing\nExclusivity period\n30 days from execution of this LOI\nAs-is purchase\nProperty to be purchased in its current as-is, where-is condition\nSeller representations\nLimited to title, authority, and no pending litigation\nBuyer's obligation to close is subject to satisfactory completion of due diligence, including physical\ninspection, environmental review, title examination, review of all leases and operating statements, and"
+      }
+    ]
+  },
+  {
+    "id": "unanswerable-00",
+    "slice": "unanswerable",
+    "propertyKey": null,
+    "dealId": "ad46dfa5-a1a6-4a1d-8c80-1dd3923d43a7",
+    "question": "What is the tenant's dog policy for the rooftop pool?",
+    "expectedAnswer": null,
+    "gold": []
+  },
+  {
+    "id": "unanswerable-01",
+    "slice": "unanswerable",
+    "propertyKey": null,
+    "dealId": "1833711c-7b68-5bbe-8ed7-c48417cfd352",
+    "question": "How many electric vehicle charging stations are in the parking garage?",
+    "expectedAnswer": null,
+    "gold": []
+  },
+  {
+    "id": "unanswerable-02",
+    "slice": "unanswerable",
+    "propertyKey": null,
+    "dealId": "9e94d2ae-037d-439f-a0e5-14c34307beba",
+    "question": "What is the seismic retrofit schedule for this building?",
+    "expectedAnswer": null,
+    "gold": []
+  },
+  {
+    "id": "unanswerable-03",
+    "slice": "unanswerable",
+    "propertyKey": null,
+    "dealId": "d4330526-a63d-41f8-9824-56c9a95fd118",
+    "question": "Which broker earned the highest commission on this deal last quarter?",
+    "expectedAnswer": null,
+    "gold": []
+  },
+  {
+    "id": "unanswerable-04",
+    "slice": "unanswerable",
+    "propertyKey": null,
+    "dealId": "4f8b79bc-76fe-5dc1-8036-9a272b1cced4",
+    "question": "What did the fire marshal note in the most recent inspection?",
+    "expectedAnswer": null,
+    "gold": []
+  },
+  {
+    "id": "unanswerable-05",
+    "slice": "unanswerable",
+    "propertyKey": null,
+    "dealId": "c732f7bc-d981-4450-8d20-8152c8e16725",
+    "question": "How much did the property pay in stormwater utility fees last year?",
+    "expectedAnswer": null,
+    "gold": []
+  },
+  {
+    "id": "unanswerable-06",
+    "slice": "unanswerable",
+    "propertyKey": null,
+    "dealId": "57818ac6-037b-55bc-9c3f-44c0df1d27c4",
+    "question": "What is the current status of the elevator modernization permit?",
+    "expectedAnswer": null,
+    "gold": []
+  },
+  {
+    "id": "unanswerable-07",
+    "slice": "unanswerable",
+    "propertyKey": null,
+    "dealId": "6b917098-4795-4ebc-9c94-560a3c322c47",
+    "question": "Which insurance carrier writes the property's flood coverage?",
+    "expectedAnswer": null,
+    "gold": []
+  },
+  {
+    "id": "unanswerable-08",
+    "slice": "unanswerable",
+    "propertyKey": null,
+    "dealId": "cc8f1f72-bd04-4e21-81de-43a2daafaf98",
+    "question": "What is the union labor agreement for on-site janitorial staff?",
+    "expectedAnswer": null,
+    "gold": []
+  },
+  {
+    "id": "unanswerable-09",
+    "slice": "unanswerable",
+    "propertyKey": null,
+    "dealId": "a358a04c-7782-5766-b16f-8361d0ee595e",
+    "question": "How many parking spaces are reserved for handicapped access?",
+    "expectedAnswer": null,
+    "gold": []
+  },
+  {
+    "id": "off-domain-00",
+    "slice": "off-domain",
+    "propertyKey": null,
+    "dealId": "cf493338-cd7a-43a8-a43f-a979452375d5",
+    "question": "What is the best recipe for sourdough bread?",
+    "expectedAnswer": null,
+    "gold": []
+  },
+  {
+    "id": "off-domain-01",
+    "slice": "off-domain",
+    "propertyKey": null,
+    "dealId": "5c3ffc39-0265-4d84-b805-29a0587a80a3",
+    "question": "How do I change the oil in a 2015 Honda Civic?",
+    "expectedAnswer": null,
+    "gold": []
+  },
+  {
+    "id": "off-domain-02",
+    "slice": "off-domain",
+    "propertyKey": null,
+    "dealId": "23e444e5-6179-4d94-ab12-5b446e8f08b3",
+    "question": "Who won the World Cup in 1998?",
+    "expectedAnswer": null,
+    "gold": []
+  },
+  {
+    "id": "off-domain-03",
+    "slice": "off-domain",
+    "propertyKey": null,
+    "dealId": "7067d8da-018d-4ca7-bf35-874a1759efb3",
+    "question": "What is the capital of Mongolia?",
+    "expectedAnswer": null,
+    "gold": []
+  },
+  {
+    "id": "off-domain-04",
+    "slice": "off-domain",
+    "propertyKey": null,
+    "dealId": "1833711c-7b68-5bbe-8ed7-c48417cfd352",
+    "question": "How do I train a puppy to stop barking?",
+    "expectedAnswer": null,
+    "gold": []
+  },
+  {
+    "id": "off-domain-05",
+    "slice": "off-domain",
+    "propertyKey": null,
+    "dealId": "9beb3b62-7c18-45f1-a382-3889cf5e3b25",
+    "question": "What are the side effects of ibuprofen?",
+    "expectedAnswer": null,
+    "gold": []
+  },
+  {
+    "id": "off-domain-06",
+    "slice": "off-domain",
+    "propertyKey": null,
+    "dealId": "a4c180b4-aee9-4dee-8ac4-27b5e3f5ee28",
+    "question": "Explain how a transformer neural network works.",
+    "expectedAnswer": null,
+    "gold": []
+  },
+  {
+    "id": "off-domain-07",
+    "slice": "off-domain",
+    "propertyKey": null,
+    "dealId": "0da89a3d-5d64-4604-865c-dbc5fdb77b8c",
+    "question": "What is the best hiking trail near Portland?",
+    "expectedAnswer": null,
+    "gold": []
+  },
+  {
+    "id": "off-domain-08",
+    "slice": "off-domain",
+    "propertyKey": null,
+    "dealId": "d817db52-5160-42ad-b181-5940caca4d12",
+    "question": "How long should I boil an egg for a soft yolk?",
+    "expectedAnswer": null,
+    "gold": []
+  },
+  {
+    "id": "off-domain-09",
+    "slice": "off-domain",
+    "propertyKey": null,
+    "dealId": "6b917098-4795-4ebc-9c94-560a3c322c47",
+    "question": "What year did the Berlin Wall fall?",
+    "expectedAnswer": null,
+    "gold": []
+  }
+]

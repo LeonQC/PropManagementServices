@@ -20,7 +20,37 @@ model_list:
       api_base: http://tei:80/v1
       api_key: none
 
+  # ── The RAGAS judge, for scripts/eval_ragas.py ───────────────────────────
+  # This proxy is otherwise embeddings-only; the judge rides here so that
+  # swapping judge models is a one-line config change rather than a code edit,
+  # and so judge calls land in the same request log as everything else.
+  #
+  # OpenAI is chosen deliberately, because Deal Q&A *generates* on Anthropic:
+  # AnthropicOptions.Model is claude-sonnet-5, called directly via the Anthropic
+  # SDK. Judging a model's output with the same model — or the same family —
+  # measures self-preference as much as it measures faithfulness, so the judge
+  # has to come from the other provider. Swapping this to a Claude model would
+  # quietly invalidate every faithfulness number the harness reports.
+  - model_name: judge-default
+    litellm_params:
+      model: openai/gpt-4o
+      api_key: os.environ/OPENAI_API_KEY
+
+  # Cheaper judge candidate, same generation/family as judge-default (not a
+  # jump to a newer model line with different claim-decomposition behavior).
+  # Added alongside judge-default, not in place of it, so eval_ragas.py can
+  # score the same cached answers under both via --judge-model and the two
+  # can be diffed before deciding whether to switch the default over.
+  - model_name: judge-mini
+    litellm_params:
+      model: openai/gpt-4o-mini
+      api_key: os.environ/OPENAI_API_KEY
+
 litellm_settings:
   # TEI rejects OpenAI-only params like `dimensions`; drop instead of erroring
-  # so the client can send one request shape to either route.
+  # so the client can send one request shape to either route. This also covers
+  # the judge route: RAGAS and LangChain both send temperature=0 by default, and
+  # dropping it rather than erroring is what keeps the judge callable if it is
+  # ever pointed at a model that rejects sampling parameters (claude-sonnet-5,
+  # the generation model, already does — see AnthropicOptions.Temperature).
   drop_params: true
