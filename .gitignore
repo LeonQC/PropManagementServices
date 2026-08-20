@@ -59,8 +59,13 @@ __pycache__/
 ## everything below it is a run artifact that goes stale as the corpus changes.
 seed-manifest.json
 scripts/eval-results*.json
+## ...but the frozen pre-hybrid reference IS committed: it is what
+## check_dense_regression.py compares against and cannot be regenerated
+## once the retrieval path changes.
+!scripts/dense-baseline-reference.json
 
 ## Deal Q&A generation eval — cached answers and judged scores (scripts/eval_ragas.py).
 ## Same reasoning: regeneratable, and the answer cache goes stale on every corpus change.
-scripts/eval-answers.json
+# eval-answers-<mode>.json since the hybrid A/B; the cache is per retrieval mode.
+scripts/eval-answers*.json
 scripts/eval-ragas-results*.json

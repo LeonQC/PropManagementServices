@@ -76,8 +76,18 @@ public class RetrievalService(
     {
         var best = chunks.Max(c => c.Score);
         var relative = best * _options.RelativeFloor;
+        // Filter on cosine, order on the server's rank. These are two separate decisions
+        // and conflating them was what made hybrid retrieval a no-op here: the floors are
+        // calibrated on the cosine scale and must stay on it, but the *ordering* belongs to
+        // whoever retrieved — in hybrid mode that is the RRF fusion, and since
+        // TakeWithinBudget keeps a prefix of this list, re-sorting by score would silently
+        // discard the fused ranking and rebuild the dense one.
+        //
+        // Rank is null from a pre-hybrid server; the sentinel then collapses this to
+        // exactly the previous score ordering.
         return [.. chunks.Where(c => c.Score >= _options.MinScore && c.Score >= relative)
-                         .OrderByDescending(c => c.Score)];
+                         .OrderBy(c => c.Rank ?? int.MaxValue)
+                         .ThenByDescending(c => c.Score)];
     }
 
     /// <summary>Highest-scoring chunks first, up to the count and character budget.</summary>
@@ -102,17 +112,24 @@ public class RetrievalService(
     /// Claude page 2 of the appraisal, then page 1 of the rent roll, then page 1 of the
     /// appraisal. Grouping restores something that reads like prose.
     ///
-    /// <para>Documents are ordered by their best-scoring chunk, so the most relevant
+    /// <para>Documents are ordered by their best-ranked chunk, so the most relevant
     /// document still leads.</para>
     /// </summary>
     private static List<ContextChunk> RestoreReadingOrder(IReadOnlyList<RetrievedChunk> chunks)
     {
+        // A document leads by its best-ranked chunk. This was Max(Score); with fusion the
+        // server's rank is the authority on "best", and Min(rank) is its spelling of it.
+        // Score remains the tie-break, which keeps dense mode byte-identical to before.
         var documentRank = chunks
+            .GroupBy(c => c.DocumentId)
+            .ToDictionary(g => g.Key, g => g.Min(c => c.Rank ?? int.MaxValue));
+        var documentScore = chunks
             .GroupBy(c => c.DocumentId)
             .ToDictionary(g => g.Key, g => g.Max(c => c.Score));
 
         return [.. chunks
-            .OrderByDescending(c => documentRank[c.DocumentId])
+            .OrderBy(c => documentRank[c.DocumentId])
+            .ThenByDescending(c => documentScore[c.DocumentId])
             .ThenBy(c => c.DocumentId)
             .ThenBy(c => c.PageNo ?? int.MaxValue)
             .ThenBy(c => c.ChunkIndex)

@@ -41,10 +41,12 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import collections
 import json
 import os
 import statistics
 import sys
+import time
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -93,7 +95,8 @@ def ask(token: str, deal_id: str, question: str) -> dict:
 
 # ---------- collecting answers ----------
 
-def retrieved_context(token: str, question: str, deal_id: str) -> list[str]:
+def retrieved_context(token: str, question: str, deal_id: str, mode: str = "dense",
+                      rrf_k: int | None = None) -> list[str]:
     """The chunk texts that actually reached the prompt, reconstructed.
 
     NOT the answer's citations. Citations are only the sources the model chose to
@@ -107,8 +110,10 @@ def retrieved_context(token: str, question: str, deal_id: str) -> list[str]:
     reproduces the real context set exactly, costs one embedding call, and keeps
     both harnesses scoring the same quantity — which is what makes the
     NonLLMContextRecall / recall@final cross-check meaningful at all."""
-    chunks = eval_retrieval.search(token, question, deal_id, eval_retrieval.FETCH_TOP_K)
-    return [c["text"] for c in eval_retrieval.apply_filters(chunks, eval_retrieval.Config())]
+    chunks = eval_retrieval.search(token, question, deal_id, eval_retrieval.FETCH_TOP_K,
+                                   mode=mode, rrf_k=rrf_k)
+    return [c["text"] for c in eval_retrieval.apply_filters(
+        chunks, eval_retrieval.Config(mode=mode, rrf_k=rrf_k or eval_retrieval.RRF_K))]
 
 
 def gold_chunk_texts(token: str, question: dict) -> list[str]:
@@ -129,8 +134,12 @@ def gold_chunk_texts(token: str, question: dict) -> list[str]:
     for gold in question.get("gold", []):
         if not gold.get("documentId"):
             continue
+        # Pinned to dense on purpose, whatever arm is being scored. This call reads the
+        # index rather than ranking it, and the reference set has to be byte-identical
+        # across arms — a reference that shifts with the retriever would make a
+        # dense-vs-hybrid comparison meaningless.
         payload = {"query": gold["snippet"], "dealId": question["dealId"],
-                   "documentId": gold["documentId"], "topK": 20}
+                   "documentId": gold["documentId"], "topK": 20, "mode": "dense"}
         try:
             chunks = _request("POST", f"{eval_retrieval.INGESTION_URL}/ingestion/v1/search",
                               token=token, payload=payload)["data"]["chunks"]
@@ -143,26 +152,55 @@ def gold_chunk_texts(token: str, question: dict) -> list[str]:
     return texts
 
 
-def collect(token: str, questions: list[dict]) -> list[dict]:
+def collect(token: str, questions: list[dict], mode: str = "dense",
+            rrf_k: int | None = None, relogin=None) -> list[dict]:
     """Run every question through the real endpoint and keep what RAGAS needs.
 
     This is the expensive half — one full Deal Q&A call per question, billed to
     the generation model. Cache it to disk so repeated scoring runs (--repeats)
     re-score the same answers rather than regenerating them: judge variance is
     what we want to measure, not generator variance on top of it."""
-    rows = []
+    rows, failures = [], []
     for i, q in enumerate(questions, start=1):
-        try:
-            answer = ask(token, q["dealId"], q["question"])
-            contexts = retrieved_context(token, q["question"], q["dealId"])
-            gold_texts = gold_chunk_texts(token, q)
-        except urllib.error.HTTPError as ex:
-            print(f"  {q['id']}: ask failed {ex.code} {ex.read().decode(errors='replace')[:120]}",
-                  file=sys.stderr)
+        # Two transient failures cost this harness a whole arm once, silently: the access
+        # token expired partway through (401 on 45 of 100 questions) and one call hit a
+        # 503 from the model provider. The run still produced a summary — over a subset
+        # that happened to exclude every cross-document question, the hardest slice — and
+        # so reported a flattering number for an arm that was never fully measured.
+        #
+        # So: refresh the token and retry on 401, retry once on 5xx, and record whatever
+        # still fails. A partial arm has to be visible, never quietly averaged.
+        collected = None
+        for attempt in (1, 2, 3):
+            try:
+                collected = (
+                    ask(token, q["dealId"], q["question"]),
+                    retrieved_context(token, q["question"], q["dealId"], mode, rrf_k),
+                    gold_chunk_texts(token, q),
+                )
+                break
+            except urllib.error.HTTPError as ex:
+                detail = ex.read().decode(errors="replace")[:120]
+                if attempt < 3 and ex.code == 401 and relogin is not None:
+                    print("  access token expired — re-authenticating", file=sys.stderr)
+                    token = relogin()
+                    continue
+                if attempt < 3 and ex.code >= 500:
+                    time.sleep(5)
+                    continue
+                failures.append(f"{q['id']}: {ex.code} {detail}")
+                print(f"  {q['id']}: ask failed {ex.code} {detail}", file=sys.stderr)
+                break
+            except urllib.error.URLError as ex:
+                if attempt < 3:
+                    time.sleep(5)
+                    continue
+                failures.append(f"{q['id']}: {ex}")
+                print(f"  {q['id']}: ask failed {ex}", file=sys.stderr)
+                break
+        if collected is None:
             continue
-        except urllib.error.URLError as ex:
-            print(f"  {q['id']}: ask failed {ex}", file=sys.stderr)
-            continue
+        answer, contexts, gold_texts = collected
 
         rows.append({
             "id": q["id"],
@@ -182,6 +220,12 @@ def collect(token: str, questions: list[dict]) -> list[dict]:
         })
         if i % 10 == 0:
             print(f"  asked {i}/{len(questions)}", file=sys.stderr)
+    if failures:
+        print(f"\n  WARNING: {len(failures)} of {len(questions)} question(s) never produced "
+              f"an answer. This arm is INCOMPLETE — its scores are computed over a subset "
+              f"and are not comparable to a full arm.", file=sys.stderr)
+        for f in failures[:5]:
+            print(f"    {f}", file=sys.stderr)
     return rows
 
 
@@ -284,15 +328,23 @@ def answer_contains_expected(rows: list[dict]) -> tuple[float, int]:
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--questions", type=Path, default=Path("scripts/eval-questions.json"))
-    ap.add_argument("--answers", type=Path, default=Path("scripts/eval-answers.json"),
-                    help="cache of generated answers; reused by --repeats")
+    ap.add_argument("--mode", choices=eval_retrieval.MODES, default="dense",
+                    help="retrieval mode being scored. MUST match ai-service's configured "
+                         "Retrieval__Mode — ai-service has no per-request mode, so the "
+                         "answers come from whatever it was restarted with.")
+    ap.add_argument("--rrf-k", type=int, default=eval_retrieval.RRF_K)
+    # Cache path defaults per mode. With one shared path, running hybrid after dense
+    # rescores dense's cached answers against hybrid's contexts and reports the mixture
+    # as a hybrid result.
+    ap.add_argument("--answers", type=Path, default=None,
+                    help="cache of generated answers; reused by --repeats "
+                         "(default: eval-answers-<mode>.json)")
     # Default output is tier-specific. With one shared filename, a free run
     # silently overwrites the judged results — which is backwards: the cheap,
     # repeatable artifact clobbers the expensive one that cost ~1,300 judge calls
     # to produce. An explicit --out still wins.
     ap.add_argument("--out", type=Path, default=None,
-                    help="default: eval-ragas-results.json with --llm-judge, "
-                         "eval-ragas-results-free.json without")
+                    help="default: eval-ragas-results[-free]-<mode>.json")
     ap.add_argument("--email", default="admin@proptrack.local")
     ap.add_argument("--password", default="ChangeMe123!")
     ap.add_argument("--judge-model", default="judge-default",
@@ -317,6 +369,9 @@ def main() -> int:
         print(f"No question set at {args.questions}. Run build_eval_set.py first.", file=sys.stderr)
         return 1
 
+    if args.answers is None:
+        args.answers = Path(f"scripts/eval-answers-{args.mode}.json")
+
     questions = json.loads(args.questions.read_text())
     if args.limit:
         questions = questions[:args.limit]
@@ -337,7 +392,8 @@ def main() -> int:
                   f"Is the stack up? `docker compose up -d`", file=sys.stderr)
             return 1
         print(f"Asking {len(questions)} question(s) through /ai/v1/deals/.../ask...", file=sys.stderr)
-        rows = collect(token, questions)
+        rows = collect(token, questions, args.mode, args.rrf_k,
+                       relogin=lambda: login(args.email, args.password))
         args.answers.write_text(json.dumps(rows, indent=2) + "\n")
         print(f"Cached {len(rows)} answer(s) to {args.answers}", file=sys.stderr)
 
@@ -365,8 +421,8 @@ def main() -> int:
         return 1
 
     if args.out is None:
-        args.out = Path("scripts/eval-ragas-results.json") if args.llm_judge \
-            else Path("scripts/eval-ragas-results-free.json")
+        args.out = Path(f"scripts/eval-ragas-results-{args.mode}.json") if args.llm_judge \
+            else Path(f"scripts/eval-ragas-results-free-{args.mode}.json")
 
     if args.llm_judge:
         # Rough, but the right order of magnitude: each metric makes several calls
@@ -412,9 +468,26 @@ def main() -> int:
     exact, graded = answer_contains_expected(rows)
     print(f"\n  answer states the expected value: {exact:.3f}  (n={graded}, deterministic)")
 
+    # Coverage travels with the numbers. An arm that lost questions to a transient
+    # failure scores a subset, and a subset that drops the hardest slice looks like an
+    # improvement — so the artifact has to say which questions it actually covered, not
+    # only how many samples reached RAGAS.
+    covered = collections.Counter(r["slice"] for r in rows)
+    expected = collections.Counter(q["slice"] for q in questions)
+    complete = all(covered.get(k, 0) == v for k, v in expected.items())
+    if not complete:
+        missing = {k: v - covered.get(k, 0) for k, v in expected.items() if covered.get(k, 0) < v}
+        print(f"\n  *** INCOMPLETE ARM: missing {missing}. These scores are not comparable "
+              f"to a full run. ***", file=sys.stderr)
+
     payload = {"tier": "llm-judged" if args.llm_judge else "free",
+               "mode": args.mode,
+               "rrfK": args.rrf_k if args.mode == "hybrid" else None,
                "judgeModel": args.judge_model if args.llm_judge else None,
                "sampleCount": len(dataset),
+               "complete": complete,
+               "coverageBySlice": dict(covered),
+               "expectedBySlice": dict(expected),
                "skipped": skipped, "answerContainsExpected": exact,
                "answerContainsExpectedN": graded, "runs": runs}
     args.out.write_text(json.dumps(payload, indent=2) + "\n")
