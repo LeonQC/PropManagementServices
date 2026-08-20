@@ -1,0 +1,42 @@
+{
+  "settings": {
+    "number_of_shards": 1,
+    "number_of_replicas": 0,
+    "analysis": {
+      "filter": {
+        "english_stemmer": { "type": "stemmer", "language": "english" },
+        "english_stop": { "type": "stop", "stopwords": "_english_" }
+      },
+      "analyzer": {
+        "proptrack_text": {
+          "type": "custom",
+          "tokenizer": "standard",
+          "filter": ["lowercase", "asciifolding", "english_stop", "english_stemmer"]
+        },
+        "proptrack_exact": {
+          "type": "custom",
+          "tokenizer": "standard",
+          "filter": ["lowercase", "asciifolding"]
+        }
+      }
+    }
+  },
+  "mappings": {
+    "properties": {
+      "documentId": { "type": "keyword" },
+      "dealId": { "type": "keyword" },
+      "documentType": { "type": "keyword" },
+      "chunkIndex": { "type": "integer" },
+      "pageNo": { "type": "integer" },
+      "ingestionRunId": { "type": "long" },
+
+      "text": {
+        "type": "text",
+        "analyzer": "proptrack_text",
+        "fields": {
+          "exact": { "type": "text", "analyzer": "proptrack_exact" }
+        }
+      }
+    }
+  }
+}

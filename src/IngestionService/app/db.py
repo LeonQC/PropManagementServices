@@ -43,6 +43,13 @@ CREATE TABLE IF NOT EXISTS ingestion_runs (
     started_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
     finished_at     TIMESTAMPTZ
 );
+
+-- Added with hybrid retrieval. These MUST be explicit ALTERs: the CREATE TABLE above is
+-- IF NOT EXISTS, so on any database that already has ingestion_runs it is a no-op and new
+-- columns written into its body would never appear. NULL means "ingested before the
+-- lexical index existed", which is what `python -m app.backfill --repair` selects on.
+ALTER TABLE ingestion_runs ADD COLUMN IF NOT EXISTS lexical_indexed BOOLEAN;
+ALTER TABLE ingestion_runs ADD COLUMN IF NOT EXISTS lexical_error   TEXT;
 """
 
 pool: ConnectionPool | None = None

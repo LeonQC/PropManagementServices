@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 
 from pgvector import Vector
 
-from . import chunking, embeddings, parsing, storage
+from . import chunking, embeddings, lexical, parsing, storage
 from .config import settings
 from .db import get_pool
 
@@ -78,9 +78,30 @@ def ingest(event: dict, publish) -> None:
                             for c, v in zip(chunks, vectors)
                         ],
                     )
+            # Lexical dual-write, after the pgvector transaction has committed and before
+            # the run is marked succeeded. Order matters: pgvector is the source of truth,
+            # so an OpenSearch document that has no row behind it is the bad direction —
+            # it costs a wasted lookup on every query and gets dropped anyway. The reverse
+            # (a row with no OpenSearch document) is benign: that chunk just degrades to
+            # dense.
+            #
+            # A lexical failure never fails the run. ingest() has already paid for Docling
+            # parsing and embeddings — the expensive, irreversible half — while indexing is
+            # cheap and replayable via `app.backfill --repair`. Recording status='failed'
+            # here would misreport a successful dense ingest and force a re-pay of both.
+            lexical_indexed, lexical_error = None, None
+            if settings.lexical_enabled:
+                try:
+                    lexical.index_document(document_id, deal_id, document_type, chunks, run_id)
+                    lexical_indexed = True
+                except Exception as ex:  # noqa: BLE001 — recorded, never propagated
+                    lexical_indexed, lexical_error = False, str(ex)[:2000]
+                    log.error("Lexical indexing failed for document %s: %s", document_id, ex)
+
             conn.execute(
-                "UPDATE ingestion_runs SET status='succeeded', chunk_count=%s, finished_at=%s WHERE id=%s",
-                (len(chunks), _now(), run_id),
+                "UPDATE ingestion_runs SET status='succeeded', chunk_count=%s,"
+                " lexical_indexed=%s, lexical_error=%s, finished_at=%s WHERE id=%s",
+                (len(chunks), lexical_indexed, lexical_error, _now(), run_id),
             )
 
         publish(
@@ -94,8 +115,9 @@ def ingest(event: dict, publish) -> None:
             },
             key=deal_id or document_id,
         )
-        log.info("Ingested document %s (deal %s): %d chunks via %s.",
-                 document_id, deal_id, len(chunks), settings.embedding_model_tag)
+        log.info("Ingested document %s (deal %s): %d chunks via %s (lexical=%s).",
+                 document_id, deal_id, len(chunks), settings.embedding_model_tag,
+                 "skipped" if lexical_indexed is None else lexical_indexed)
 
     except Exception as ex:  # noqa: BLE001 — recorded, never propagated
         log.error("Ingestion failed for document %s: %s", document_id, ex, exc_info=True)

@@ -2,17 +2,38 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json.Serialization;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace AiService.Business.Retrieval;
 
-/// <summary>One chunk as ingestion-service returns it from POST /ingestion/v1/search.</summary>
+/// <summary>One chunk as ingestion-service returns it from POST /ingestion/v1/search.
+///
+/// <para>The last three properties arrived with hybrid retrieval and are nullable for a
+/// reason: a response from a server that predates them — or from any request in dense
+/// mode — leaves them null, and every consumer falls back to the score-only behaviour
+/// that shipped before. Defaults keep existing positional construction compiling.</para>
+/// </summary>
 public record RetrievedChunk(
     [property: JsonPropertyName("documentId")] string DocumentId,
     [property: JsonPropertyName("dealId")] string? DealId,
     [property: JsonPropertyName("chunkIndex")] int ChunkIndex,
     [property: JsonPropertyName("pageNo")] int? PageNo,
     [property: JsonPropertyName("text")] string Text,
-    [property: JsonPropertyName("score")] double Score);
+    /// <summary>Cosine similarity — always, in every retrieval mode. Deliberately
+    /// unchanged in meaning: <see cref="RetrievalOptions.MinScore"/>,
+    /// <see cref="RetrievalOptions.RelativeFloor"/> and the off-domain abstain behaviour
+    /// are all calibrated against this scale. A fused score here would look like a
+    /// harmless field change and would quietly break the feature's ability to decline.</summary>
+    [property: JsonPropertyName("score")] double Score,
+    /// <summary>1-based position in the server's ranking: cosine order in dense mode, RRF
+    /// order in hybrid mode. Null from a pre-hybrid server — order by Score then.</summary>
+    [property: JsonPropertyName("rank")] int? Rank = null,
+    /// <summary>BM25 score, when a lexical retriever contributed this chunk. Diagnostic
+    /// only — nothing ranks or filters on it.</summary>
+    [property: JsonPropertyName("lexScore")] double? LexScore = null,
+    /// <summary>Reciprocal-rank-fusion score, hybrid mode only. Diagnostic: the ordering
+    /// it produced is already expressed by <see cref="Rank"/>.</summary>
+    [property: JsonPropertyName("fusedScore")] double? FusedScore = null);
 
 /// <summary>Raised when retrieval fails upstream; the controller turns this into a 502.</summary>
 public class RetrievalException(string message, Exception? inner = null) : Exception(message, inner);
@@ -30,10 +51,16 @@ public class RetrievalException(string message, Exception? inner = null) : Excep
 /// auth-service token, which means a service token would silently widen the blast
 /// radius of this endpoint to the entire corpus.</para>
 /// </summary>
-public class IngestionSearchClient(HttpClient http, ILogger<IngestionSearchClient> logger)
+public class IngestionSearchClient(
+    HttpClient http,
+    IOptions<RetrievalOptions> options,
+    ILogger<IngestionSearchClient> logger)
 {
-    private record SearchRequest(string Query, string? DealId, string? DocumentId, int TopK);
-    private record SearchData(string Query, string EmbeddingModel, List<RetrievedChunk> Chunks);
+    private readonly RetrievalOptions _options = options.Value;
+
+    private record SearchRequest(string Query, string? DealId, string? DocumentId, int TopK, string? Mode);
+    private record SearchData(string Query, string EmbeddingModel, string? Mode, bool Degraded,
+                              List<RetrievedChunk> Chunks);
     private record SearchEnvelope(SearchData Data);
 
     public async Task<IReadOnlyList<RetrievedChunk>> SearchAsync(
@@ -42,7 +69,9 @@ public class IngestionSearchClient(HttpClient http, ILogger<IngestionSearchClien
     {
         using var request = new HttpRequestMessage(HttpMethod.Post, "/ingestion/v1/search")
         {
-            Content = JsonContent.Create(new SearchRequest(query, dealId, documentId, topK)),
+            // A null Mode sends nothing and lets ingestion-service apply its own default,
+            // so the retrieval strategy stays a deployment decision rather than a rebuild.
+            Content = JsonContent.Create(new SearchRequest(query, dealId, documentId, topK, _options.Mode)),
         };
         request.Headers.TryAddWithoutValidation("Authorization", $"Bearer {bearerToken}");
 
@@ -75,6 +104,16 @@ public class IngestionSearchClient(HttpClient http, ILogger<IngestionSearchClien
             }
 
             var body = await response.Content.ReadFromJsonAsync<SearchEnvelope>(ct);
+            if (body?.Data?.Degraded == true)
+            {
+                // Not an error — dense results are still good results, and failing the
+                // question would be worse. But it must not pass silently: a hybrid
+                // deployment quietly serving dense is exactly the kind of drift that
+                // shows up months later as "retrieval got worse and nobody knows when".
+                logger.LogWarning(
+                    "ingestion-service degraded to {ActualMode} (requested {RequestedMode}) — " +
+                    "the lexical index is unavailable.", body.Data.Mode, _options.Mode);
+            }
             return body?.Data?.Chunks ?? [];
         }
     }

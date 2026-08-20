@@ -21,6 +21,9 @@ Usage:
     python3 scripts/eval_retrieval.py --limit 10           # smoke test
     python3 scripts/eval_retrieval.py --sweep              # parameter grid
     python3 scripts/eval_retrieval.py --no-floors          # ablation
+    python3 scripts/eval_retrieval.py --sweep-mode         # dense vs lexical vs hybrid
+    python3 scripts/eval_retrieval.py --sweep-mode --fetch-k 5     # truncated haystack
+    python3 scripts/eval_retrieval.py --sweep-mode --no-deal-scope # corpus-wide haystack
 """
 from __future__ import annotations
 
@@ -43,6 +46,11 @@ MAX_CONTEXT_CHUNKS = 8
 MIN_SCORE = 0.15
 RELATIVE_FLOOR = 0.55
 MAX_CONTEXT_CHARS = 24_000
+
+# Hybrid retrieval. Mirrors Settings.rrf_k / Settings.candidate_k in ingestion-service.
+MODES = ("dense", "lexical", "hybrid")
+RRF_K = 10
+CANDIDATE_K = 50
 
 SLICES = ("single-fact", "table-lookup", "cross-document", "unanswerable", "off-domain")
 POSITIVE_SLICES = ("single-fact", "table-lookup", "cross-document")
@@ -67,26 +75,65 @@ def login(email: str, password: str) -> str:
                     payload={"email": email, "password": password})["data"]["accessToken"]
 
 
-def search(token: str, question: str, deal_id: str, top_k: int) -> list[dict]:
+def search(token: str, question: str, deal_id: str | None, top_k: int, *,
+           mode: str | None = None, rrf_k: int | None = None,
+           candidate_k: int | None = None) -> list[dict]:
     payload = {"query": question, "dealId": deal_id, "topK": top_k}
-    return _request("POST", f"{INGESTION_URL}/ingestion/v1/search",
-                    token=token, payload=payload)["data"]["chunks"]
+    if mode:
+        payload["mode"] = mode
+    if rrf_k:
+        payload["rrfK"] = rrf_k
+    if candidate_k:
+        payload["candidateK"] = candidate_k
+    data = _request("POST", f"{INGESTION_URL}/ingestion/v1/search",
+                    token=token, payload=payload)["data"]
+    if data.get("degraded"):
+        # ingestion-service fell back to dense because OpenSearch errored. Scoring it
+        # would silently mix arms and report "hybrid made no difference" — the exact
+        # false negative this whole comparison exists to avoid.
+        raise RuntimeError(f"ingestion-service degraded to {data['mode']}: refusing to "
+                           f"score a mixed run. Is OpenSearch up?")
+    return data["chunks"]
 
 
 # ---------- the filter chain, mirroring RetrievalService.cs ----------
 
 class Config:
     def __init__(self, min_score=MIN_SCORE, relative_floor=RELATIVE_FLOOR,
-                 max_chunks=MAX_CONTEXT_CHUNKS, max_chars=MAX_CONTEXT_CHARS, fetch_k=FETCH_TOP_K):
+                 max_chunks=MAX_CONTEXT_CHUNKS, max_chars=MAX_CONTEXT_CHARS, fetch_k=FETCH_TOP_K,
+                 mode="dense", rrf_k=RRF_K, candidate_k=CANDIDATE_K, deal_scope=True):
         self.min_score = min_score
         self.relative_floor = relative_floor
         self.max_chunks = max_chunks
         self.max_chars = max_chars
         self.fetch_k = fetch_k
+        self.mode = mode
+        self.rrf_k = rrf_k
+        self.candidate_k = candidate_k
+        self.deal_scope = deal_scope
 
     def label(self) -> str:
-        return (f"min={self.min_score:.2f} rel={self.relative_floor:.2f} "
-                f"k={self.max_chunks} fetch={self.fetch_k}")
+        # Mode first so a mode sweep sorts readably.
+        rrf = f" rrf={self.rrf_k}" if self.mode == "hybrid" else ""
+        scope = "" if self.deal_scope else " unscoped"
+        return (f"{self.mode}{rrf}{scope} min={self.min_score:.2f} "
+                f"rel={self.relative_floor:.2f} k={self.max_chunks} fetch={self.fetch_k}")
+
+    def fetch_key(self) -> tuple:
+        """What the server-side ranked list depends on.
+
+        min_score / relative_floor / max_chunks are deliberately absent: they are applied
+        here in-process, which is what makes a multi-config sweep cost one search call per
+        question rather than one per question per config.
+
+        mode/candidate_k/rrf_k are NOT optional here. Keying the cache by question id
+        alone — as this script did before hybrid existed — would serve the first mode's
+        ranked list to every later mode, producing three identical columns that read as
+        "hybrid changed nothing". That is the single most plausible way to get a wrong
+        answer out of this comparison.
+        """
+        return (self.mode, self.candidate_k, self.deal_scope,
+                self.rrf_k if self.mode == "hybrid" else None)
 
 
 def apply_filters(chunks: list[dict], cfg: Config) -> list[dict]:
@@ -97,8 +144,13 @@ def apply_filters(chunks: list[dict], cfg: Config) -> list[dict]:
         return []
     best = max(c["score"] for c in chunks)
     relative = best * cfg.relative_floor
+    # Filter on cosine, order on the server's rank — mirroring RetrievalService.
+    # ApplyRelevanceFloor. The two are separate decisions: the floors are calibrated on the
+    # cosine scale and stay there, while the ordering is the server's, which in hybrid mode
+    # is the RRF ordering. `rank` is absent from a pre-hybrid server, and the sentinel then
+    # collapses this to the previous pure-score ordering.
     kept = sorted((c for c in chunks if c["score"] >= cfg.min_score and c["score"] >= relative),
-                  key=lambda c: -c["score"])
+                  key=lambda c: (c.get("rank") or 1 << 30, -c["score"]))
 
     out, chars = [], 0
     for chunk in kept:
@@ -140,26 +192,65 @@ def gold_rank(chunks: list[dict], question: dict) -> int | None:
     return None
 
 
-def fetch_all(token: str, questions: list[dict], fetch_k: int) -> dict[str, list[dict]]:
-    """Ranked chunks per question, fetched once.
+def depth_to_satisfy(chunks: list[dict], question: dict) -> int | None:
+    """How deep the ranked list must be read before the question becomes answerable.
 
-    The ranked list depends only on the question and fetch_k — the floors and the
+    gold_rank() gives the rank of the *first* gold hit, which is the wrong statistic for
+    requiresAll questions: the answer *is* the comparison, so what matters is the rank of
+    the *last* required source. That is precisely the number better ranking moves, and
+    unlike the binary hitKept it shows partial progress — a cross-document question whose
+    second source climbs from rank 14 to rank 9 has improved even though both still miss
+    an 8-chunk budget."""
+    gold = question["gold"]
+    if not gold:
+        return None
+    ranks = [next((i for i, c in enumerate(chunks, start=1) if matches(c, g)), None) for g in gold]
+    if question.get("requiresAll"):
+        return max(ranks) if all(r is not None for r in ranks) else None
+    found = [r for r in ranks if r is not None]
+    return min(found) if found else None
+
+
+def fetch_all(token: str, questions: list[dict], fetch_k: int, *, mode: str | None = None,
+              rrf_k: int | None = None, candidate_k: int | None = None,
+              deal_scope: bool = True) -> dict[str, list[dict]]:
+    """Ranked chunks per question, fetched once per distinct Config.fetch_key().
+
+    The ranked list depends only on the question and the fetch key — the floors and the
     context cap are applied afterwards, in this process. So a 36-config sweep needs
     100 search calls, not 3600. Without this the sweep would re-embed every question
-    for every config, which is both slow and a pointless embedding bill."""
+    for every config, which is both slow and a pointless embedding bill.
+
+    fetch_k is correctly absent from the key, but that now rests on a *cross-service*
+    invariant rather than a local one: ingestion-service's candidate depth is independent
+    of the request's topK (see Settings.candidate_k), so a smaller topK returns a prefix
+    of a larger one and truncating the cached list stays exact. If that ever changes on
+    the server, this optimisation silently starts lying."""
     cache: dict[str, list[dict]] = {}
+    failures: list[str] = []
     for i, q in enumerate(questions, start=1):
-        if not q.get("dealId"):
+        if deal_scope and not q.get("dealId"):
             print(f"  skipping {q['id']}: no dealId (was the manifest present at build time?)",
                   file=sys.stderr)
             continue
         try:
-            cache[q["id"]] = search(token, q["question"], q["dealId"], fetch_k)
+            cache[q["id"]] = search(token, q["question"], q["dealId"] if deal_scope else None,
+                                    fetch_k, mode=mode, rrf_k=rrf_k, candidate_k=candidate_k)
         except urllib.error.HTTPError as ex:
-            print(f"  {q['id']}: search failed {ex.code} {ex.read().decode(errors='replace')[:120]}",
-                  file=sys.stderr)
+            detail = ex.read().decode(errors="replace")[:120]
+            failures.append(f"{q['id']}: {ex.code} {detail}")
+            print(f"  {q['id']}: search failed {ex.code} {detail}", file=sys.stderr)
         if i % 25 == 0:
             print(f"  fetched {i}/{len(questions)}", file=sys.stderr)
+    if failures:
+        # Never return a partial cache quietly. A mode arm that lost half its questions
+        # still produces a summary — with a different denominator — and lands in the
+        # comparison table looking like a real measurement. That happened once, to an
+        # expired token on a long multi-mode sweep, and the arms silently dropped to n=25.
+        raise RuntimeError(
+            f"{len(failures)} of {len(questions)} searches failed for mode={mode}: "
+            f"refusing to score a partial arm.\n  " + "\n  ".join(failures[:5])
+            + ("\n  ..." if len(failures) > 5 else ""))
     return cache
 
 
@@ -186,8 +277,13 @@ def evaluate(questions: list[dict], fetched_by_id: dict[str, list[dict]],
             "hitFetched": gold_hit(fetched, q),
             "hitKept": gold_hit(kept, q),
             "rank": gold_rank(fetched, q),
+            "depth": depth_to_satisfy(fetched, q),
             "goldInContext": sum(1 for c in kept if any(matches(c, g) for g in q["gold"])),
         }
+        # Budget-free proxy for recallFinal: would this question be satisfied if the only
+        # thing standing between fetch and prompt were the chunk count? Isolates ranking
+        # quality from the floors entirely.
+        row["depthWithinK"] = row["depth"] is not None and row["depth"] <= cfg.max_chunks
         rows.append(row)
         if verbose:
             mark = "ok " if row["hitKept"] or not q["gold"] else "MISS"
@@ -212,6 +308,7 @@ def summarize(result: dict) -> dict:
                  "avgKeptChars": statistics.mean(r["keptChars"] for r in rows)}
         if name in POSITIVE_SLICES:
             ranks = [r["rank"] for r in rows if r["rank"]]
+            depths = [r["depth"] for r in rows if r["depth"]]
             entry.update({
                 "recallFetched": sum(r["hitFetched"] for r in rows) / n,
                 "recallFinal": sum(r["hitKept"] for r in rows) / n,
@@ -222,6 +319,8 @@ def summarize(result: dict) -> dict:
                 # MaxContextChunks costs.
                 "precisionFinal": statistics.mean(
                     (r["goldInContext"] / r["keptCount"]) if r["keptCount"] else 0.0 for r in rows),
+                "meanDepthToSatisfy": statistics.mean(depths) if depths else None,
+                "depthWithinK": sum(r["depthWithinK"] for r in rows) / n,
             })
         else:
             # For negatives the correct outcome is an empty context: no chunks survive
@@ -235,23 +334,24 @@ def summarize(result: dict) -> dict:
 def print_summary(config_label: str, summary: dict) -> None:
     print(f"\n  config: {config_label}")
     print(f"  {'slice':<16}{'n':>4}{'R@fetch':>9}{'R@final':>9}{'MRR':>7}"
-          f"{'meanRk':>8}{'P@final':>9}{'chunks':>8}{'chars':>8}")
-    print("  " + "-" * 78)
+          f"{'meanRk':>8}{'depth':>7}{'d<=k':>7}{'P@final':>9}{'chunks':>8}{'chars':>8}")
+    print("  " + "-" * 92)
     for name in POSITIVE_SLICES:
         s = summary.get(name)
         if not s:
             continue
         mean_rank = f"{s['meanRank']:.1f}" if s["meanRank"] is not None else "-"
+        depth = f"{s['meanDepthToSatisfy']:.1f}" if s["meanDepthToSatisfy"] is not None else "-"
         print(f"  {name:<16}{s['n']:>4}{s['recallFetched']:>9.2f}{s['recallFinal']:>9.2f}"
-              f"{s['mrr']:>7.2f}{mean_rank:>8}{s['precisionFinal']:>9.2f}"
-              f"{s['avgKeptChunks']:>8.1f}{s['avgKeptChars']:>8.0f}")
+              f"{s['mrr']:>7.2f}{mean_rank:>8}{depth:>7}{s['depthWithinK']:>7.2f}"
+              f"{s['precisionFinal']:>9.2f}{s['avgKeptChunks']:>8.1f}{s['avgKeptChars']:>8.0f}")
 
     positives = [summary[n] for n in POSITIVE_SLICES if n in summary]
     if positives:
         total = sum(s["n"] for s in positives)
         overall_fetch = sum(s["recallFetched"] * s["n"] for s in positives) / total
         overall_final = sum(s["recallFinal"] * s["n"] for s in positives) / total
-        print("  " + "-" * 78)
+        print("  " + "-" * 92)
         print(f"  {'ALL POSITIVE':<16}{total:>4}{overall_fetch:>9.2f}{overall_final:>9.2f}")
         # The number the filters cost, stated directly rather than left to be inferred.
         print(f"  {'filter cost':<16}{'':>4}{'':>9}{overall_fetch - overall_final:>9.2f}"
@@ -280,8 +380,17 @@ def main() -> int:
     ap.add_argument("--relative-floor", type=float, default=RELATIVE_FLOOR)
     ap.add_argument("--max-chunks", type=int, default=MAX_CONTEXT_CHUNKS)
     ap.add_argument("--fetch-k", type=int, default=FETCH_TOP_K)
+    ap.add_argument("--mode", choices=MODES, default="dense",
+                    help="retrieval mode requested from ingestion-service")
+    ap.add_argument("--rrf-k", type=int, default=RRF_K, help="RRF rank constant (hybrid only)")
+    ap.add_argument("--candidate-k", type=int, default=CANDIDATE_K,
+                    help="per-source candidate depth requested from the server")
+    ap.add_argument("--no-deal-scope", action="store_true",
+                    help="secondary experiment: search the whole corpus, not one deal")
     ap.add_argument("--no-floors", action="store_true", help="ablation: disable both floors")
     ap.add_argument("--sweep", action="store_true", help="run the parameter grid")
+    ap.add_argument("--sweep-mode", action="store_true",
+                    help="the mode A/B: dense vs lexical vs hybrid, filters held fixed")
     ap.add_argument("-v", "--verbose", action="store_true", help="per-question results")
     args = ap.parse_args()
 
@@ -303,32 +412,91 @@ def main() -> int:
               f"Is the stack up? `docker compose up -d`", file=sys.stderr)
         return 1
 
+    scope = not args.no_deal_scope
+    common = dict(fetch_k=args.fetch_k, candidate_k=args.candidate_k, deal_scope=scope)
     configs = []
     if args.sweep:
         # Grid chosen around the production values. RelativeFloor gets the widest
         # range because it is the constant most likely to be dropping good chunks:
         # at a top score of 0.50 the current 0.55 kills everything below 0.275.
         for min_score, rel, k in itertools.product((0.10, 0.15, 0.20), (0.0, 0.35, 0.55, 0.70), (5, 8, 12)):
-            configs.append(Config(min_score, rel, k, fetch_k=args.fetch_k))
+            configs.append(Config(min_score, rel, k, mode=args.mode, rrf_k=args.rrf_k, **common))
+    elif args.sweep_mode:
+        # Deliberately NOT the 36-config grid crossed with 3 modes. The existing sweep
+        # shows min_score and relative_floor move recall by exactly 0.000, so crossing
+        # them in would triple the runtime to re-measure a constant. Production filters
+        # are held fixed instead, because MaxContextChunks is the one variable that does
+        # move recall (by 0.087-0.174) and would swamp the mode effect being measured.
+        for mode in MODES:
+            for rrf_k in ((10, 20, 60) if mode == "hybrid" else (RRF_K,)):
+                for k in (MAX_CONTEXT_CHUNKS, 12):
+                    configs.append(Config(MIN_SCORE, RELATIVE_FLOOR, k,
+                                          mode=mode, rrf_k=rrf_k, **common))
+        # One floors-off hybrid arm. The relative floor can veto exactly the chunks BM25
+        # promotes — a cosine-0.20 chunk dies against a 0.45 best however good its RRF
+        # rank. It is not binding today (rel moves recall by 0.000), but if hybrid gains
+        # materially more here than at rel=0.55, the floor is capping fusion and that is
+        # a finding rather than a bug to paper over.
+        configs.append(Config(MIN_SCORE, 0.0, MAX_CONTEXT_CHUNKS,
+                              mode="hybrid", rrf_k=args.rrf_k, **common))
     elif args.no_floors:
-        configs.append(Config(0.0, 0.0, args.max_chunks, fetch_k=args.fetch_k))
+        configs.append(Config(0.0, 0.0, args.max_chunks, mode=args.mode, rrf_k=args.rrf_k, **common))
     else:
-        configs.append(Config(args.min_score, args.relative_floor, args.max_chunks, fetch_k=args.fetch_k))
+        configs.append(Config(args.min_score, args.relative_floor, args.max_chunks,
+                              mode=args.mode, rrf_k=args.rrf_k, **common))
 
-    # Fetch at the widest candidate depth any config asks for, then reuse for all of them.
+    # Fetch at the widest candidate depth any config asks for, once per distinct fetch
+    # key. Configs that differ only in filters share a fetch; configs that differ in mode
+    # must not (see Config.fetch_key).
     max_fetch = max(cfg.fetch_k for cfg in configs)
-    print(f"\nFetching ranked chunks for {len(questions)} question(s) at topK={max_fetch}...",
-          file=sys.stderr)
-    fetched_by_id = fetch_all(token, questions, max_fetch)
+    caches: dict[tuple, dict[str, list[dict]]] = {}
+    for key in dict.fromkeys(cfg.fetch_key() for cfg in configs):
+        mode, candidate_k, deal_scope, rrf_k = key
+        print(f"\nFetching ranked chunks for {len(questions)} question(s) at topK={max_fetch} "
+              f"mode={mode}{'' if rrf_k is None else f' rrf={rrf_k}'}"
+              f"{'' if deal_scope else ' unscoped'}...", file=sys.stderr)
+        try:
+            # Fresh token per arm. Access tokens are short-lived and a mode sweep makes
+            # one search call per question per arm, which outlives the TTL — an expiry
+            # halfway through corrupts every arm after it.
+            token = login(args.email, args.password)
+            caches[key] = fetch_all(token, questions, max_fetch, mode=mode, rrf_k=rrf_k,
+                                    candidate_k=candidate_k, deal_scope=deal_scope)
+        except RuntimeError as ex:
+            print(f"\n{ex}", file=sys.stderr)
+            return 1
 
     all_results = []
     for cfg in configs:
         print(f"\nScoring at {cfg.label()}...", file=sys.stderr)
-        result = evaluate(questions, fetched_by_id, cfg, verbose=args.verbose)
+        result = evaluate(questions, caches[cfg.fetch_key()], cfg, verbose=args.verbose)
         summary = summarize(result)
         result["summary"] = summary
         all_results.append(result)
         print_summary(cfg.label(), summary)
+
+    if args.sweep_mode:
+        print("\n\n  === mode comparison, production filters held fixed ===")
+        print("  R@fetch is a CONTROL, not an outcome: on a deal-scoped haystack of ~17")
+        print("  chunks it is saturated at 0.99 and cannot move. Read R@final and depth.")
+        print(f"\n  {'config':<44}{'R@fetch':>9}{'R@final':>9}{'MRR':>7}"
+              f"{'depth':>7}{'d<=k':>7}{'x-doc':>7}{'abstain':>9}")
+        print("  " + "-" * 99)
+        for result in all_results:
+            sm = result["summary"]
+            positives = [sm[n] for n in POSITIVE_SLICES if n in sm]
+            if not positives:
+                continue
+            total = sum(x["n"] for x in positives)
+            wavg = lambda key: sum(x[key] * x["n"] for x in positives) / total  # noqa: E731
+            depths = [x["meanDepthToSatisfy"] for x in positives if x["meanDepthToSatisfy"]]
+            depth = f"{statistics.mean(depths):.1f}" if depths else "-"
+            xdoc = sm.get("cross-document", {}).get("recallFinal")
+            abstain = sm.get("off-domain", {}).get("abstainRate")
+            print(f"  {result['config']:<44}{wavg('recallFetched'):>9.3f}{wavg('recallFinal'):>9.3f}"
+                  f"{wavg('mrr'):>7.3f}{depth:>7}{wavg('depthWithinK'):>7.2f}"
+                  f"{'-' if xdoc is None else f'{xdoc:.2f}':>7}"
+                  f"{'-' if abstain is None else f'{abstain:.2f}':>9}")
 
     if args.sweep:
         print("\n\n  === sweep, ranked by positive-slice recall@final ===")
