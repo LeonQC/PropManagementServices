@@ -46,6 +46,18 @@ model_list:
       model: openai/gpt-4o-mini
       api_key: os.environ/OPENAI_API_KEY
 
+  # ── Why the CROSS-ENCODER RERANKER is not routed here ────────────────────
+  # It looks like it belongs: it is a model, and the rule above says models are
+  # chosen in this file. app/rerank.py calls the tei-rerank container directly
+  # anyway, for one concrete reason. TEI serves rerankers on `/rerank`, which
+  # is not the OpenAI-shaped `/v1/rerank`; LiteLLM does have a TEI rerank
+  # provider, but its request transform hard-codes `"truncate": false` and does
+  # not expose the parameter. This corpus has chunks of 544 tokens against the
+  # model's 512-token limit, so that path 422s and drops the whole batch —
+  # intermittently, depending on which chunks a query happens to retrieve.
+  # Measured, not assumed. Calling TEI directly is the same shape as
+  # app/lexical.py calling OpenSearch directly.
+
 litellm_settings:
   # TEI rejects OpenAI-only params like `dimensions`; drop instead of erroring
   # so the client can send one request shape to either route. This also covers
