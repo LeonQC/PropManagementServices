@@ -46,17 +46,27 @@ model_list:
       model: openai/gpt-4o-mini
       api_key: os.environ/OPENAI_API_KEY
 
-  # ── Why the CROSS-ENCODER RERANKER is not routed here ────────────────────
-  # It looks like it belongs: it is a model, and the rule above says models are
-  # chosen in this file. app/rerank.py calls the tei-rerank container directly
-  # anyway, for one concrete reason. TEI serves rerankers on `/rerank`, which
-  # is not the OpenAI-shaped `/v1/rerank`; LiteLLM does have a TEI rerank
-  # provider, but its request transform hard-codes `"truncate": false` and does
-  # not expose the parameter. This corpus has chunks of 544 tokens against the
-  # model's 512-token limit, so that path 422s and drops the whole batch —
-  # intermittently, depending on which chunks a query happens to retrieve.
-  # Measured, not assumed. Calling TEI directly is the same shape as
-  # app/lexical.py calling OpenSearch directly.
+  # ── The CROSS-ENCODER RERANKER, for /ingestion/v1/search ─────────────────
+  # Served by the tei-rerank container; LiteLLM's HuggingFace rerank provider
+  # speaks TEI's `/rerank` and fronts it as the Cohere-shaped `/v1/rerank`.
+  #
+  # This route did not exist at first, and why it can exist now is worth
+  # keeping: LiteLLM's rerank transform hard-codes `"truncate": false` and
+  # exposes no parameter to override it, so any chunk over the model's
+  # 512-token input window 422s and takes its whole batch with it. The corpus
+  # was thought to hold 544-token chunks, which ruled this route out; measured,
+  # its worst is 350, so the route is fine.
+  #
+  # That safety is margin, not enforcement — app/chunking.py sizes chunks in
+  # tiktoken, which is not this model's tokenizer. The mismatch is measured and
+  # accepted; the numbers are in the comment there. Changing the model here
+  # means re-checking that margin against the new model's limit — the two files
+  # are coupled whether or not they look it.
+  - model_name: rerank-local
+    litellm_params:
+      model: huggingface/BAAI/bge-reranker-base
+      api_base: http://tei-rerank:80
+      api_key: none
 
 litellm_settings:
   # TEI rejects OpenAI-only params like `dimensions`; drop instead of erroring

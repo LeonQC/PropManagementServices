@@ -1088,12 +1088,43 @@ Reranking is a third stage on the same contract hybrid established, not a new mo
   protected.
 - **Depth** — `rerank_candidates=30`, a fixed setting, never derived from `topK`. Covers a
   deal's whole haystack (~17 chunks, max 33) and caps unscoped latency below `candidate_k`.
-- **Model server** — a `tei-rerank` TEI container, called directly with `httpx` rather than
-  through the LiteLLM proxy that fronts embeddings. LiteLLM does have a TEI rerank provider,
-  but its transform hard-codes `"truncate": false` with no override, and this corpus has
-  544-token chunks against the model's 512-token limit — that path returns HTTP 422 and
-  drops the whole batch, intermittently, depending on what a query retrieves. Measured, not
-  assumed. `app/rerank.py` therefore always sends `truncate: true`.
+- **Model server** — a `tei-rerank` TEI container, reached through the LiteLLM proxy
+  (`rerank-local`) like every other model, with `RERANK_ROUTE` naming the entry.
+
+  It did not start that way, and the correction is the useful part. LiteLLM's rerank
+  transform hard-codes `"truncate": false` and exposes no override, so a chunk over the
+  model's 512-token window returns HTTP 422 and drops its whole batch. The original write-up
+  said this corpus held 544-token chunks and that the proxied path therefore failed
+  intermittently, and the first fix was to bypass the proxy and send `truncate: true` to TEI
+  directly.
+
+  **That 544 figure was wrong, and the failure it described never happened.** Re-measured
+  across all 1,147 chunks with the reranker's own tokenizer: median 214, p95 337, **max
+  350, zero over the cap**. The chunk cited as the 544-token worst case — 2,089 characters
+  — is 319 tokens. The number came from estimating tokens at ~3.8 chars each; dense CRE
+  text here runs about 6.5. Worth recording as a methodology note: a token count estimated
+  from a character count is not a measurement, and this one drove a design decision.
+
+  A narrower version of the concern is real: `app/chunking.py` sizes chunks at "300 tokens"
+  using tiktoken's `gpt-4o` encoding, which is not the tokenizer of the model that enforces
+  the limit. Sizing them with the reranker's own tokenizer was implemented and then
+  **reverted**, because the measured margin does not justify the coupling — it added a
+  `transformers` import and a tokenizer bake into the ingestion image to protect a gap that
+  is already wide.
+- **Chunk size — unchanged at 300 tiktoken tokens**, with the mismatch documented in
+  `app/chunking.py` rather than engineered away. The ratio of bge tokens to tiktoken tokens
+  across all 1,147 chunks: median 1.08, p95 1.27, max 1.43 — and that max is a 14-token
+  form-field fragment of underscores, not a real chunk. Among chunks at the 300 target the
+  worst is 350 (~1.17x). **Crossing 512 needs 1.71x.**
+
+  The margin narrows fast if `chunk_size` rises: at 400 it takes only 1.28x, which is
+  inside the observed p95. So the number is safe where it sits and should not be raised
+  without re-measuring. The mechanism to watch is in that 1.43 outlier — SentencePiece
+  fragments underscore runs, long numeric strings, and non-Latin text much harder than
+  cl100k, so document types unlike these templated CRE PDFs are what would change the
+  answer.
+- **No re-ingest was run.** Nothing in the corpus violates the limit, so re-chunking 428
+  documents would have spent hours of Docling time to reproduce what is already there.
 - **Image tag** — `cpu-arm64-latest`. `cpu-latest` publishes `linux/amd64` only, so on an
   Apple Silicon host it runs under Rosetta. The pre-existing `tei` service had the same bug
   and was fixed in the same change; nobody had noticed because that profile had never been

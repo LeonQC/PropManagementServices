@@ -188,15 +188,22 @@ services:
 
   tei-rerank:
     # Cross-encoder reranker for /ingestion/v1/search. Same image family as `tei` above, a
-    # different model and a different task — TEI serves sequence-classification models on
-    # /rerank, which is NOT the OpenAI-shaped /v1/rerank, and is why app/rerank.py talks to
-    # this container directly rather than through the LiteLLM proxy (see the note in
-    # litellm/config.yaml).
+    # different model and a different task. Reached through the LiteLLM proxy
+    # (`rerank-local`), which fronts TEI's /rerank as the Cohere-shaped /v1/rerank — so
+    # nothing outside litellm/config.yaml knows this container's address.
     #
     # NOT profile-gated, unlike `tei`: reranking is on in this deployment
     # (RERANK_ENABLED=true), so the container has to come up with the rest of the stack or
     # ingestion-service degrades every search and fails its health gate. First start
     # downloads ~1.1GB into the cache volume.
+    #
+    # MEMORY: this is the largest container in the stack — ~3.7GB resident, roughly half
+    # of an 8GB Docker VM. Observed getting OOM-killed (exit 137) mid-search with the full
+    # stack up, which surfaces as `degraded: true` and a "Rerank failed (timed out)" log
+    # line rather than an obvious crash, because the request hangs at the proxy until
+    # rerank_timeout. If reranking degrades for no apparent reason, check
+    # `docker compose ps -a` for an exited tei-rerank before suspecting the code, and give
+    # Docker Desktop more RAM.
     #
     # bge-reranker-base, not the smaller ms-marco-MiniLM-L6-v2 that was tried first. The
     # model choice was NOT a detail: MiniLM scores every chunk in this corpus at ~1e-4 —
@@ -205,13 +212,20 @@ services:
     # exists so re-running that comparison is a restart, not an edit; see
     # docs/retrieval-eval.md.
     #   RERANK_MODEL=cross-encoder/ms-marco-MiniLM-L6-v2 docker compose up -d tei-rerank
+    #
+    # That override still works unchanged now that requests arrive via litellm: the model
+    # string in the `rerank-local` route is a label on the HuggingFace provider, and the
+    # request is served by whatever model-id this container was started with. Two caveats
+    # if the default is ever changed rather than overridden for an A/B — the label in
+    # litellm/config.yaml goes stale, and app/chunking.py's chunk_size is sized against
+    # THIS model's tokenizer and input limit.
     image: ghcr.io/huggingface/text-embeddings-inference:cpu-arm64-latest
     command: --model-id ${RERANK_MODEL:-BAAI/bge-reranker-base} --max-client-batch-size 64
     ports:
-      # Matches Settings.rerank_url's default (http://localhost:8081) — that default is
-      # for running ingestion-service bare-metal against this compose stack, which needs
-      # a host-published port since it calls TEI directly rather than through litellm.
-      # Without this mapping the default pointed at nothing.
+      # Not used by ingestion-service any more (it goes through litellm), and kept for
+      # poking TEI's own /rerank and /health by hand when a proxied call misbehaves —
+      # being able to ask the backend directly is what tells a route problem apart from a
+      # model problem.
       - "8081:80"
     volumes:
       - tei-rerank-cache:/data
@@ -275,7 +289,9 @@ services:
       # revert; nothing else changes and dense/hybrid behaviour is untouched.
       #
       # The cost is latency: median search 0.23s -> 2.75s (p95 3.94s) on CPU.
-      RERANK_URL: "http://tei-rerank:80"
+      # No URL here: the reranker is reached through LITELLM_BASE_URL like the embedding
+      # model, and RERANK_ROUTE (default "rerank-local") picks the entry in
+      # IngestionService/litellm/config.yaml that resolves to tei-rerank.
       RERANK_ENABLED: "true"
       RERANK_CANDIDATES: "30"
     depends_on:
