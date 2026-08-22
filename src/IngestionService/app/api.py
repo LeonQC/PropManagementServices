@@ -9,7 +9,7 @@ from fastapi import APIRouter, HTTPException, Response
 from pgvector import Vector
 from pydantic import BaseModel, Field
 
-from . import embeddings, fusion, lexical, storage
+from . import embeddings, fusion, lexical, rerank, storage
 from .auth import Claims
 from .config import settings
 from .db import get_pool
@@ -41,6 +41,15 @@ class SearchRequest(BaseModel):
     mode: Literal["dense", "lexical", "hybrid"] | None = None
     rrfK: int | None = Field(default=None, ge=1, le=1000)
     candidateK: int | None = Field(default=None, ge=1, le=500)
+
+    # Reranking is deliberately NOT a fourth `mode`. `mode` selects which candidate
+    # generators run AND doubles as the degradation channel (a lexical failure rewrites it
+    # to "dense"), whereas this reorders whatever those generators produced. Folding it in
+    # would mean encoding a product of degraded states in one string, and would turn the
+    # three modes into six the moment reranking has to compose with each of them — which
+    # the unscoped eval arm requires. Same separation of concerns that keeps scoring and
+    # ordering apart everywhere else in this file.
+    rerank: bool | None = None
 
 
 # ---------- pgvector: the source of truth for text and for score ----------
@@ -113,6 +122,10 @@ def search(req: SearchRequest, claims: dict = Claims):
     # prefix of a larger one, which is what lets the eval harness fetch each question once
     # and truncate. See Settings.candidate_k.
     candidate_k = req.candidateK or settings.candidate_k
+    # `is None` rather than `or`: this is a boolean, so an explicit false from the caller
+    # has to be able to override a service default of true. Omitted means "service
+    # default", the same contract as `mode`.
+    do_rerank = settings.rerank_enabled if req.rerank is None else req.rerank
 
     lex_hits: list[tuple[fusion.Key, float]] = []
     degraded = False
@@ -154,15 +167,40 @@ def search(req: SearchRequest, claims: dict = Claims):
                     unresolved, settings.embedding_model_tag)
 
     lex_scores = dict(lex_hits)
+    cosine = {k: float(row[5]) for k, row in by_key.items()}
     fused: dict[fusion.Key, float] = {}
+    # Note the absent [:req.topK] in all three branches: truncation happens once, at the
+    # end, after every reordering stage has run. Truncating here would cap what the
+    # reranker can see at topK and make its depth topK-dependent, breaking the prefix
+    # property the eval harness's fetch cache rests on.
     if mode == "dense":
-        ranked = dense_order[:req.topK]
+        ranked = dense_order
     elif mode == "lexical":
-        ranked = lex_order[:req.topK]
+        ranked = lex_order
     else:
         fused = fusion.rrf([dense_order, lex_order], rrf_k)
-        cosine = {k: float(by_key[k][5]) for k in fused}
-        ranked = fusion.order(fused, cosine)[:req.topK]
+        ranked = fusion.order(fused, cosine)
+
+    rerank_scores: dict[fusion.Key, float] = {}
+    if do_rerank:
+        # Fixed depth, never max(rerank_candidates, topK) — see Settings.rerank_candidates.
+        pool = ranked[:settings.rerank_candidates]
+        try:
+            scored = rerank.score(req.query, [by_key[k][4] for k in pool])
+            rerank_scores = dict(zip(pool, scored))
+            # The tail past the rerank depth keeps its fused order, so a topK deeper than
+            # rerank_candidates still returns topK chunks rather than silently short ones.
+            ranked = rerank.order(pool, rerank_scores, cosine) + ranked[len(pool):]
+        except Exception as ex:  # noqa: BLE001 — degrade, but never silently
+            # Same contract as the lexical fallback above: the fused ordering is still a
+            # good ordering, so the question is answered, but the response says so and the
+            # eval harness refuses to score a run containing it. `mode` is deliberately
+            # left alone here — it describes which retrievers ran, and they all ran; the
+            # `rerank: false` field is what says which stage dropped out.
+            log.error("Rerank failed (%s) — keeping the fused ordering.", ex)
+            degraded, do_rerank = True, False
+
+    ranked = ranked[:req.topK]
 
     chunks = []
     for position, key in enumerate(ranked, start=1):
@@ -180,6 +218,10 @@ def search(req: SearchRequest, claims: dict = Claims):
             "rank": position,
             "lexScore": round(lex_scores[key], 4) if key in lex_scores else None,
             "fusedScore": round(fused[key], 6) if fused else None,
+            # Cross-encoder relevance, when a reranker ran. Diagnostic only, exactly like
+            # the two above: the ordering it produced is already expressed by `rank`, and
+            # putting it anywhere near `score` would break the cosine calibration.
+            "rerankScore": round(rerank_scores[key], 6) if key in rerank_scores else None,
         })
 
     return envelope({
@@ -187,6 +229,10 @@ def search(req: SearchRequest, claims: dict = Claims):
         "embeddingModel": settings.embedding_model_tag,
         "mode": mode,
         "degraded": degraded,
+        # The stage that ACTUALLY ran, not the one requested — same semantics as `mode`.
+        # A caller that asked for reranking and got `false` back knows the fused ordering
+        # is what it is holding.
+        "rerank": do_rerank,
         "chunks": chunks,
     })
 
@@ -249,6 +295,19 @@ def health():
                 required.add("opensearch")
             else:
                 checks["opensearch"] += " (advisory: mode=dense)"
+
+    if settings.rerank_enabled:
+        # Only probed when reranking is on. The container is profile-gated and absent from
+        # a default `docker compose up`, so probing it unconditionally would report an
+        # error on every healthy dev stack. Required once enabled, for the same reason
+        # OpenSearch is required once the mode needs it: a stage that is configured on and
+        # silently failing is worse than one that is off.
+        try:
+            rerank.ping()
+            checks["rerank"] = "ok"
+        except Exception as ex:  # noqa: BLE001
+            checks["rerank"] = f"error: {ex}"
+            required.add("rerank")
 
     status = 200 if all(checks.get(k) == "ok" for k in required) else 503
     return Response(content=json.dumps(envelope(checks)), media_type="application/json", status_code=status)

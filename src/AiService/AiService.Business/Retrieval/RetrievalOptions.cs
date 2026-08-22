@@ -27,8 +27,15 @@ public class RetrievalOptions
     /// narrow — the extra rows cost one index scan and give the filters room to work.</summary>
     public int FetchTopK { get; set; } = 20;
 
-    /// <summary>How many chunks survive into the prompt, after filtering and dedupe.</summary>
-    public int MaxContextChunks { get; set; } = 8;
+    /// <summary>How many chunks survive into the prompt, after filtering and dedupe.
+    ///
+    /// <para>12, raised from 8 when cross-encoder reranking shipped. The sweep in
+    /// docs/retrieval-eval.md found this to be the single variable that moves recall
+    /// (0.713 at 5, 0.800 at 8, 0.887 at 12 on dense), and reranking turned out to be its
+    /// complement rather than its substitute: reranking at 8 reaches 0.975, the same as
+    /// 12 without reranking, while the two together reach 1.000 with zero recall lost
+    /// between fetch and prompt.</para></summary>
+    public int MaxContextChunks { get; set; } = 12;
 
     /// <summary>Absolute cosine floor. Below this a chunk is noise; if nothing clears
     /// it, the service answers "not in this deal's documents" without calling Claude.</summary>

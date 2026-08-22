@@ -67,7 +67,7 @@ def main(argv: list[str]) -> int:
     print("\n  'zero' is the unbiased stratum. A mode that only wins on 'full' is winning "
           "\n  because the question repeats the answer's label, not because it retrieves better.\n")
 
-    header = f"  {'config':<46}" + "".join(f"{k:>14}" for k in ("zero", "partial", "full", "all"))
+    header = f"  {'config':<54}" + "".join(f"{k:>14}" for k in ("zero", "partial", "full", "all"))
     print(header)
     print("  " + "-" * (len(header) - 2))
     for result in results:
@@ -78,7 +78,7 @@ def main(argv: list[str]) -> int:
             sel = [rows[q] for q in subset if q in rows]
             cells.append(f"{sum(r['hitKept'] for r in sel)/len(sel):.2f} (n={len(sel)})"
                          if sel else "-")
-        print(f"  {result['config']:<46}" + "".join(f"{c:>14}" for c in cells))
+        print(f"  {result['config']:<54}" + "".join(f"{c:>14}" for c in cells))
     return 0
 
 

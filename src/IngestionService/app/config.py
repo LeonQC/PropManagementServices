@@ -46,6 +46,29 @@ class Settings(BaseSettings):
 
     lexical_min_should_match: str | None = None
 
+    # --- cross-encoder reranking (HuggingFace TEI) ---
+    rerank_url: str = "http://localhost:8081"
+
+    # 10s against a measured worst case of 1.2s for 32 pairs of the longest chunks in the
+    # corpus. Generous rather than tight on purpose: the fallback is "no rerank", not a
+    # failed request, so a slow reranker should be allowed to finish rather than degrade a
+    # search that would otherwise have succeeded.
+    rerank_timeout: float = 10.0
+
+    # Defaults OFF so that a bare checkout, or any deployment without a tei-rerank
+    # container, behaves exactly as it did before reranking existed rather than degrading
+    # every search. Compose turns it on — that is where the deployment decision lives, the
+    # same split as search_mode above.
+    rerank_enabled: bool = False
+
+    # Rerank depth. MUST stay independent of the request's topK, for exactly the reason
+    # candidate_k above must: the eval harness caches one ranked list per question and
+    # truncates it to simulate smaller topK values, which is only valid if a shorter
+    # request returns a prefix of a longer one. `max(rerank_candidates, topK)` would break
+    # that silently. 30 covers a deal's whole haystack (~17 chunks, max 33) while capping
+    # unscoped latency below candidate_k.
+    rerank_candidates: int = 30
+
     jwks_url: str = "http://localhost:5300/auth/v1/.well-known/jwks.json"
     jwt_issuer: str = "proptrack-auth"
     jwt_audience: str = "proptrack"

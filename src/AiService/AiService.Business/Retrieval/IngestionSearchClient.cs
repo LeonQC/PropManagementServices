@@ -33,7 +33,12 @@ public record RetrievedChunk(
     [property: JsonPropertyName("lexScore")] double? LexScore = null,
     /// <summary>Reciprocal-rank-fusion score, hybrid mode only. Diagnostic: the ordering
     /// it produced is already expressed by <see cref="Rank"/>.</summary>
-    [property: JsonPropertyName("fusedScore")] double? FusedScore = null);
+    [property: JsonPropertyName("fusedScore")] double? FusedScore = null,
+    /// <summary>Cross-encoder relevance, when ingestion-service reranked. Diagnostic, for
+    /// the same reason as the two above — the ordering is already in <see cref="Rank"/>,
+    /// and this service deliberately ranks on nothing it computes itself. Null whenever
+    /// reranking did not run, which is the default.</summary>
+    [property: JsonPropertyName("rerankScore")] double? RerankScore = null);
 
 /// <summary>Raised when retrieval fails upstream; the controller turns this into a 502.</summary>
 public class RetrievalException(string message, Exception? inner = null) : Exception(message, inner);

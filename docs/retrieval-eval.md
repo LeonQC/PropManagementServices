@@ -344,6 +344,14 @@ effect being measured.
 those failures don't retrieve both chunks even at top-20, which is a ranking limitation
 rather than a filtering one.
 
+> **Status, as of the reranking section below.** `MaxContextChunks 8 → 12` shipped, but only
+> once reranking made it worth the context: on its own it buys 0.938 → 0.975, and combined
+> with the cross-encoder it reaches 1.000. **`MinScore 0.15 → 0.20` has still not shipped**,
+> so off-domain abstention remains 0.90 rather than 1.00 in every table in this document.
+> That recommendation is unaffected by anything measured since — `MinScore` moves recall by
+> exactly 0.000 across all 36 sweep configurations and all reranking arms — and it is a
+> one-line change still worth making.
+
 ---
 
 # Hybrid retrieval (pgvector + OpenSearch BM25)
@@ -689,3 +697,512 @@ The generation half, which requires ai-service to be restarted with the matching
 ```bash
 scripts/.venv/bin/python scripts/eval_ragas.py --mode hybrid --regenerate
 ```
+
+---
+
+# Cross-encoder reranking (TEI) and diversity reranking
+
+## Pre-registration
+
+*Written before any rerank arm had been scored. Two of the tables below come from
+simulations run against the committed artifacts and the live embedding store rather than
+from a shipped code path — deliberately, because a mechanism that can be falsified offline
+should be falsified before it is built.*
+
+### What the committed data already fixes about the outcome
+
+Re-reading [`eval-results-modes.json`](../scripts/eval-results-modes.json) at the shipped
+config (hybrid, `rrf=10`, `k=8`, `fetch=20`):
+
+| | |
+|---|---|
+| `recall@fetch` | **1.000** — every gold is retrieved |
+| `recall@final` | **0.938** |
+| questions whose gold is fetched and then out-ranked | **exactly 5 of 80** |
+| slice those five belong to | **all 5 are `cross-document`** |
+
+So the ceiling for *any* reordering stage, of any kind, is **+0.062 overall** and
+cross-document 0.75 → 1.00. That is the entire prize. Stated plainly:
+
+> This experiment tests whether a cross-encoder can move five specific chunks up by one to
+> eight positions. It cannot test recall, because on this haystack nothing is missed.
+
+All five retrieve their *first* gold at rank 4/7/7/7/12 and need the *second* at depth
+9/9/10/13/16. They are questions of the form *"What occupancy does this deal report, and do
+the documents agree?"*, which need the OM chunk **and** the rent-roll chunk.
+
+### Hypothesis
+
+Holding `MinScore=0.15`, `RelativeFloor=0.55`, `MaxContextChunks=8`, `FetchTopK=20` fixed,
+cross-encoder reranking of the top-30 fused candidates raises `recall@final` from 0.938
+toward 1.000 and lowers `cross-document` `meanDepthToSatisfy` from **6.15**. The mechanism
+is that a cross-encoder reads query and chunk *jointly*, so "the rent roll's occupancy
+figure" and "the OM's occupancy figure" are both scored as direct answers, where bi-encoder
+cosine and BM25 both bury the second under the surrounding narrative.
+
+### Controls, expected to stay flat
+
+1. **`recall@fetch`** — already 1.000 and cannot move. An arm that "improves" it has a bug.
+2. **`hybrid k=12`**, which already scores **0.975** (cross-doc 0.90) by the trivial
+   expedient of allowing four more chunks, at **8,087** average context characters against
+   k=8's **6,125** (+32%). *Reranking must beat 0.975 at ≤6,125 chars to be worth a
+   container.* Matching 0.975 at k=12's cost is a negative result.
+3. **`lexical k=8`**, which already scores **0.950** (cross-doc **0.90**) — better than
+   shipped hybrid on both. It is not shipped because
+   [the lexical-bias analysis](../scripts/analyze_lexical_bias.py) shows the eval's
+   snippet-containment criterion favours term overlap. The reranker faces the same audit:
+   **it must win in the `zero` lexical-overlap stratum, or it has not demonstrated
+   retrieval quality** — a cross-encoder is a semantic matcher, so winning only where the
+   question already hands over the tokens would mean it is doing BM25's job worse.
+
+### Guard rails
+
+1. **Off-domain `abstainRate`, currently 0.90.** A cross-encoder assigns *relative*
+   relevance and will confidently rank the least-bad chunk first for *"best recipe for
+   sourdough bread?"*. The only thing preventing that from destroying abstention is that
+   `score` stays cosine and those chunks die at `MinScore`. This is why `rerankScore` is a
+   new diagnostic field that never overwrites `score` — the same invariant, for the same
+   reason, as the fused score.
+2. **The `RelativeFloor` interaction.** `ApplyRelevanceFloor` filters on cosine *before*
+   ordering by rank, so a chunk the reranker promotes to rank 1 can still be dropped by
+   `0.55 × best`. Measured in advance across all ten gold chunks in the five target
+   questions: every one clears the floor, worst margin 0.318 against a 0.259 floor (+23%).
+   **Predicted not to bind.** The `--no-floors --rerank` arm checks it; if reranking gains
+   materially more at `rel=0.00`, the floor is capping the reranker and that is a finding.
+3. **Latency, with a rule committed before the measurement.** If p95 rerank latency at
+   `rerank_candidates=30` exceeds **5 s**, the arm stays eval-only and `RERANK_ENABLED`
+   ships `false` regardless of what the recall numbers say. A five-second answer is a worse
+   product than a 0.938-recall one.
+
+### Held constant across arms
+
+`MaxContextChunks`, for the reason the hybrid pre-registration gives: it is the variable
+that most moves recall (by 0.087–0.174) and would swamp the effect being measured.
+`rerank_candidates` is likewise fixed at 30 and is **not** derived from `topK` — deriving it
+would break the prefix property the harness's fetch cache depends on.
+
+### The diversity arm, and its pre-registered expected null
+
+The second arm is **pre-registered as an expected negative**, on evidence gathered before it
+was built. Simulated over the real `document_chunks` embeddings — pairwise similarity
+computed by pgvector's own operator, so the arithmetic is the one the retrieval path uses —
+for all five target questions, reporting `depthToSatisfy`:
+
+| question | base | MMR λ=0.3 | λ=0.5 | λ=0.7 | λ=0.9 | quota=1 | quota=2 |
+|---|---|---|---|---|---|---|---|
+| cross-occupancy-3dbd02 | 13 | 20 | 20 | 20 | 17 | 10 | 13 |
+| cross-occupancy-ddbf23 | 10 | 19 | 20 | 20 | 19 | 10 | 10 |
+| cross-occupancy-41c91f | 16 | 20 | 20 | 20 | 19 | 16 | 15 |
+| cross-cap-rate-72bed4 | 9 | 16 | 19 | 18 | 13 | 13 | 18 |
+| cross-cap-rate-58684a | 9 | 17 | 18 | 17 | 13 | 12 | 17 |
+| **fixed at k=8** | — | **0/5** | **0/5** | **0/5** | **0/5** | **0/5** | **0/5** |
+
+MMR is worse than the baseline ordering in **20 of 20 cells**. The failure is structural,
+not a tuning miss. Every one of these questions asks whether two documents **agree** about a
+figure, so the chunk that must be promoted states *the same fact* as one already selected
+and is therefore its *nearest* neighbour. MMR is defined to demote exactly that.
+**A cross-document-agreement question is a redundancy-seeking task, and MMR is a
+redundancy-penalising operator.** They point in opposite directions.
+
+The corroborating measurement: the surviving top-8 already spans 4–7 distinct documents out
+of ~6.3 per deal, so there is no concentration for a quota to break up — all a quota can do
+is demote the correct document's second-best chunk.
+
+That table regenerates from live data with
+[`analyze_diversity_sim.py`](../scripts/analyze_diversity_sim.py), which needs no diversity
+code on the server because both operators are pure re-orderings of a ranked list.
+
+Only the cheap per-document quota is therefore implemented, and it is run **once** to check
+the prediction rather than swept. No λ sweep: the table above *is* the λ sweep, and building
+a production code path whose effect has already been measured as negative would be
+backwards. If the cross-encoder arm later reveals a case where content redundancy genuinely
+is the problem, full MMR is a fifteen-line pgvector self-join away.
+
+### Pre-committed outcome
+
+If reranking does not beat **0.975** (the `k=12` control) at k=8's context cost, that is
+reported as the result and `RERANK_ENABLED` stays `false`. If it wins overall but not in the
+`zero` lexical-overlap stratum, it is reported as a lexical-bias artifact rather than a win.
+If the diversity arm is neutral-or-negative as predicted, both the prediction and its
+confirmation are reported, and the flag is **removed** rather than left as dead
+configuration. On a corpus where the reordering ceiling is five questions, a measured
+negative — arrived at before building the container — is the more useful artifact.
+
+## Retrieval results: reranking
+
+Same corpus, same 100 questions, filters fixed at the production `min=0.15 / rel=0.55`.
+The only variables are the rerank and diversity stages.
+
+| config | R@fetch (control) | **R@final** | MRR | depth | cross-doc | chars | off-domain abstain |
+|---|---|---|---|---|---|---|---|
+| hybrid rrf=10 `k=8` (shipped) | 1.000 | **0.938** | 0.724 | 3.1 | 0.75 | 6,125 | 0.90 |
+| **hybrid rrf=10 +rerank `k=8`** | 1.000 | **0.975** | **0.794** | **2.4** | **0.90** | 6,125 | 0.90 |
+| hybrid rrf=10 `k=12` (baseline) | 1.000 | 0.975 | 0.724 | 3.1 | 0.90 | 8,087 | 0.90 |
+| dense +rerank `k=8` | 1.000 | 0.975 | 0.794 | 2.4 | 0.90 | 6,125 | 0.90 |
+| lexical `k=8` | 0.988 | 0.950 | 0.742 | 2.6 | 0.90 | 5,867 | 0.90 |
+| hybrid rrf=10 +diversify `k=8` | 0.963 | 0.925 | 0.722 | 2.9 | 0.70 | 6,125 | 0.90 |
+| hybrid rrf=10 +rerank +diversify `k=8` | 1.000 | 0.975 | 0.794 | 2.5 | 0.90 | 6,125 | 0.90 |
+
+Reranker: `BAAI/bge-reranker-base` on the `tei-rerank` container, top-30 fused candidates.
+
+### The hypothesis named five questions, and all five moved
+
+The pre-registration identified exactly five recoverable questions before any rerank code
+existed. Every one of them is fixed, and not marginally:
+
+| question | depth before | depth after |
+|---|---|---|
+| cross-occupancy-3dbd02 | 13 | **4** |
+| cross-occupancy-ddbf23 | 10 | **3** |
+| cross-occupancy-41c91f | 16 | **5** |
+| cross-cap-rate-72bed4 | 9 | **3** |
+| cross-cap-rate-58684a | 9 | **3** |
+
+Against **two regressions**, both `cross-asking-price` (depth 4 → 9 and 6 → 11), which is
+why `cross-document` lands at 0.90 rather than 1.00: 15/20 → 18/20, five fixed and two
+broken. Across the whole `cross-document` slice, depth improves on 14 questions, worsens on
+5 and is unchanged on 1. Mean depth over all 80 positive questions falls 2.84 → 2.31.
+
+Both guard rails held. Off-domain abstention is **0.90 in every arm**, unchanged — the
+reranker happily assigns a relative ordering to sourdough-recipe chunks, and they are
+discarded anyway because `score` stayed on the cosine scale and they sit at ~0.07. Same
+mechanism that protected abstention through the hybrid change, working a second time for a
+second reordering stage. That is the argument for the `score`-stays-cosine invariant paying
+rent rather than being a nice idea.
+
+### The result that matters more than the table: the model *was* the experiment
+
+The first full A/B, run with `cross-encoder/ms-marco-MiniLM-L6-v2` (90 MB, the obvious
+CPU-friendly default), reported this:
+
+| config | R@final | cross-doc | depth |
+|---|---|---|---|
+| hybrid rrf=10 `k=8` | 0.938 | 0.75 | 3.1 |
+| hybrid rrf=10 +rerank (MiniLM) `k=8` | **0.900** | **0.60** | 3.4 |
+
+Reranking made everything **worse**, systematically: on `cross-document`, depth worsened on
+13 questions and improved on 2. Taken at face value that is a clean negative result, and it
+was nearly written up as one.
+
+It was an artifact of the model. Printing the actual scores shows why:
+
+```
+rank  cosine     rerank  gold  text
+   1   0.482   0.000588        ... Non-Disclosure Agreement · June 21, ...
+   2   0.477   0.000138        2. Non-Disclosure Obligations Recipient agrees to: ...
+   6   0.434   0.000030    G1  ... Offering Memorandum · February 23, 2 ...
+   9   0.465   0.000016    G2  Rent Roll Summary | Total leasable SF | 145,000 SF | ...
+```
+
+**Every score is ~1e-4.** The model is not ranking the chunks badly; it is declining to
+discriminate at all, and what reaches the top is noise — here, the boilerplate header of a
+non-disclosure agreement. The same model scores a clean synthetic sentence
+(*"Occupancy stands at 76.80% per the offering memorandum"*) at **0.996**, so it is not
+broken: MS MARCO-trained MiniLM is simply out of distribution on real CRE chunks, which are
+markdown tables, document headers and legal boilerplate rather than web prose.
+
+`BAAI/bge-reranker-base` (1.11 GB) on the identical query puts **both** gold chunks at ranks
+1 and 2. Same corpus, same candidates, same code path, opposite conclusion.
+
+The generalisable point, and the reason this is written up rather than quietly fixed:
+**"does reranking help?" is not a well-formed question — reranker choice dominates the
+answer, and a small model's null result looks exactly like a null result for the
+technique.** Had the sweep been run once with the sensible-looking default, this document
+would now contain a confident and wrong finding that cross-encoder reranking does not help
+deal-scoped RAG. The tell was not in the recall numbers; it was in the absolute scores,
+which are only visible because `rerankScore` is returned as a diagnostic field.
+
+### Reranking makes the lexical retriever redundant here
+
+`dense +rerank` and `hybrid +rerank` are **identical on every metric** — 0.975 / 0.794 /
+2.4 / 0.90. Once a cross-encoder reads the candidates, BM25's contribution to the *ordering*
+disappears entirely, because on a deal-scoped haystack both retrievers hand over the same
+~17 chunks and only the order differed. Fusion was doing the reranker's job badly; with a
+reranker in place, it is doing nothing at all.
+
+This does not retire hybrid retrieval: BM25's contribution was always to *candidate
+generation* at the margins (`--fetch-k 5`: dense 0.713 vs hybrid 0.875 recall@fetch), and
+that mechanism is untouched. But it does mean that on the shipped configuration, the RRF
+stage is now redundant with the reranker, and if latency ever needs cutting, the honest
+place to look is the OpenSearch query rather than the reranker.
+
+### The diversity arm: prediction confirmed, and it is worse than neutral
+
+Pre-registered as an expected null. Measured: **0.925 against the control's 0.938**, with
+`cross-document` falling 0.75 → **0.70**. Not neutral — actively harmful, in the slice it
+was built to help.
+
+It also does something the pre-registration did not anticipate, visible in the control
+column: `recall@fetch` drops from 1.000 to **0.963**. Reordering happens over the 30-chunk
+candidate pool and the response is then truncated to `topK`, so demoting a document's third
+chunk can push it out of the returned list altogether. Three questions lose a gold chunk
+that way (`cross-cap-rate-f4d3f7`, `-72bed4`, `-58684a`, all depth 8-9 → absent). A
+reordering stage that can *remove* a candidate is a strictly worse instrument than one that
+cannot, and that is an argument against quota-style diversity independent of the scores.
+
+Composed with reranking (`+rr +div`) it is neutral-to-slightly-negative: identical R@final
+and cross-doc, marginally worse depth (2.4 → 2.5). The reranker's ordering is good enough
+that the quota has nothing left to fix.
+
+Per the pre-committed outcome, **the diversity flag is removed rather than left as dead
+configuration**, and this section is the record of why.
+
+### Secondary: reranking fails on the unscoped haystack, where it was predicted to shine
+
+The pre-registration expected the cross-deal arm to be where reranking earns its keep — 11
+of the 19 fetched golds are lost to ranking there. The opposite happened:
+
+| | dense | hybrid rrf=10 | hybrid +rerank | lexical |
+|---|---|---|---|---|
+| no `dealId` filter — R@fetch | 0.188 | 0.237 | **0.200** | 0.237 |
+| no `dealId` filter — R@final | 0.087 | 0.100 | **0.062** | 0.138 |
+
+Reranking makes the unscoped arm *worse*, and — the diagnostic detail — it drags
+`recall@fetch` down with it, from 0.237 to 0.200. A reordering stage lowering a fetch-level
+metric means it is demoting true golds out of the returned `topK` entirely.
+
+The mechanism follows directly from what the corpus is. Unscoped, the competing chunks are
+the *same templated document type for a different property*: the rent roll of Columbus
+Retail Plaza and the rent roll of SoDo Office Tower are near-identical prose differing in a
+property name that often is not in the chunk at all. A cross-encoder scores query-chunk
+relevance, and on that criterion those chunks are genuinely indistinguishable — so it
+reorders them essentially at random, destroying the weak but real signal that cosine and
+BM25 had. **A reranker cannot recover an identity the chunk text does not carry.**
+
+This sharpens the most transferable finding in this document rather than contradicting it.
+The `dealId` filter, not the retriever, is what makes recall look good — and now: *nor can a
+reranker substitute for it*. For a future cross-deal assistant, that argues for metadata
+filtering and query understanding ahead of any amount of reranking sophistication.
+
+### The `RelativeFloor` interaction, as predicted
+
+Pre-registered prediction: the floors do not cap the reranker. Measured with
+`--no-floors --rerank`: **0.96**, against **0.975** with the production floors. Reranking
+gains nothing from removing them — it is marginally *worse* without, because more low-cosine
+chunks enter the context budget and displace gold. Off-domain abstention collapses 0.90 →
+0.00 in that arm, which is the previously-measured behaviour of the ablation and confirms
+the floors are still the only thing doing that job.
+
+So the trap that made hybrid a no-op on its first attempt does not fire here, and the
+prediction that it would not is confirmed rather than assumed.
+
+### Latency
+
+Measured over 40 deal-scoped questions on an otherwise idle stack, end-to-end
+`/ingestion/v1/search`:
+
+| | median | p95 | max |
+|---|---|---|---|
+| hybrid, no rerank | 0.23s | 0.51s | 0.99s |
+| hybrid + rerank | **2.75s** | **3.94s** | 5.31s |
+
+p95 of 3.94s clears the pre-committed 5-second rule, but only just, and the median cost is
+the honest number to look at: a search goes from a fifth of a second to nearly three. On top
+of Claude generation, that is a materially slower answer for +0.037 recall.
+
+### Reranking does add beyond the cheap baseline
+
+The pre-registration set the bar as "beat `k=12`'s 0.975 at `k=8`'s context cost", which
+framed the reranker and the context budget as substitutes. Measured, they are complements:
+
+| config | R@final | single-fact | table | cross-doc | chars | search latency (median) |
+|---|---|---|---|---|---|---|
+| hybrid `k=8` (shipped) | 0.938 | 0.88 | 1.00 | 0.75 | 6,125 | 0.23s |
+| hybrid `k=12` | 0.975 | 0.97 | 1.00 | 0.90 | 8,087 | 0.23s |
+| hybrid +rerank `k=8` | 0.975 | 0.97 | 1.00 | 0.90 | 6,125 | 2.75s |
+| **hybrid +rerank `k=12`** | **1.000** | **1.00** | **1.00** | **1.00** | 8,712 | 2.75s |
+
+At `k=8` reranking exactly *matches* the cheap baseline — same recall, same cross-doc, 24%
+less context. At `k=12` it reaches **1.000 on every positive slice**, with `filter cost`
+(recall lost between fetch and prompt) at **0.000**: everything retrieved now survives into
+the prompt. Off-domain abstention stays 0.90 and `unanswerable` stays 0.00, so the two
+guard-rail slices are unmoved.
+
+Read against the pre-registration, this is a split verdict and worth stating as one. The
+literal pre-committed bar — beat 0.975 at ≤6,125 chars — is **not** met: at that context
+budget reranking ties. The bar's premise was that the two levers were alternatives, and that
+premise turned out to be wrong, which is why the `k=12` row exists. What the data supports
+is the weaker, honest claim: **reranking is worth it in combination with a larger context
+budget, not as a substitute for one**, and it costs 2.5s of median search latency to get
+there.
+
+## Generation results (RAGAS), with reranking
+
+Retrieval improving is not the same as answers improving. Full 100-question run through the
+real `/ai/v1/deals/{id}/ask` endpoint on the shipped configuration, free deterministic tier,
+`complete: true` with full per-slice coverage:
+
+| metric | dense | hybrid | **hybrid + rerank, k=12** |
+|---|---|---|---|
+| **answer states the expected value** | 0.825 | 0.950 | **0.988** |
+| NonLLMContextRecall | 0.838 | 0.944 | **1.000** |
+| NonLLMContextPrecisionWithReference | 0.624 | 0.695 | **0.786** |
+
+The first row is the one that is not a retrieval metric in disguise: a deterministic check
+that the answer text contains the expected figure. **79 of 80 answerable questions now state
+the right number**, against 66 before hybrid and 76 after it.
+
+Precision rising to 0.786 alongside recall is worth noting on its own. `MaxContextChunks
+8 → 12` on its own would be expected to *lower* precision — more chunks, same amount of
+gold. It rises because the reranker is putting the gold chunks at the top of a longer list
+rather than merely lengthening the list.
+
+### The cross-harness check, at its most informative
+
+`NonLLMContextRecall` is **1.000** and `eval_retrieval.py`'s recall@final is **1.000** —
+exact agreement, from two independent implementations (one a Python mirror of the C#, one a
+third-party library).
+
+Both previous arms carried a small, *explained* gap in the same direction: RAGAS ran +0.037
+above the deterministic harness for dense and +0.031 for hybrid, because `cross-document`
+questions carry two gold references and RAGAS awards 0.5 for retrieving one where
+`eval_retrieval.py` scores strict set-recall and awards 0. That gap can only exist while
+some cross-document question is half-retrieved. At 1.000 there are none left, so the two
+metrics converge exactly — which is a much stronger check than the earlier near-agreement,
+because the *mechanism* for the discrepancy is now measurably absent rather than merely
+small.
+
+> **One arm, not two.** The comparison column is the previously-cached hybrid run, which was
+> generated at `rrf_k=60` and `MaxContextChunks=8`. It is therefore not a clean control for
+> reranking alone: the +0.038 in the headline row is reranking *plus* `k=12` *plus* `rrf_k`
+> 60 → 10. The retrieval sweep separates those cleanly (reranking at fixed `k=8` is
+> 0.938 → 0.975; `k=12` alone is 0.975; both is 1.000), and regenerating the control was
+> judged not worth another 100 generation calls to re-derive a decomposition the
+> deterministic harness already gives.
+
+## How it is built
+
+Reranking is a third stage on the same contract hybrid established, not a new mode.
+
+- **Stage order** — fuse, then rerank, then truncate **once** at the end
+  ([`app/api.py`](../src/IngestionService/app/api.py)). Truncating before the reranker would
+  cap what it can see at `topK` and make its depth `topK`-dependent, which silently breaks
+  the eval harness's fetch cache.
+- **`rerank` is an orthogonal boolean, not a fourth `mode`.** `mode` selects which candidate
+  generators run *and* doubles as the degradation channel — a lexical failure rewrites it to
+  `dense`. Folding reranking in would mean encoding a product of degraded states in one
+  string, and would turn three modes into six the moment reranking has to compose with each.
+- **Score contract, unchanged for the second time** — `score` stays cosine, reranking sets
+  only `rank`, and `rerankScore` is diagnostic. This is what kept off-domain abstention at
+  0.90 through the change, and it is the second stage in a row that the invariant has
+  protected.
+- **Depth** — `rerank_candidates=30`, a fixed setting, never derived from `topK`. Covers a
+  deal's whole haystack (~17 chunks, max 33) and caps unscoped latency below `candidate_k`.
+- **Model server** — a `tei-rerank` TEI container, called directly with `httpx` rather than
+  through the LiteLLM proxy that fronts embeddings. LiteLLM does have a TEI rerank provider,
+  but its transform hard-codes `"truncate": false` with no override, and this corpus has
+  544-token chunks against the model's 512-token limit — that path returns HTTP 422 and
+  drops the whole batch, intermittently, depending on what a query retrieves. Measured, not
+  assumed. `app/rerank.py` therefore always sends `truncate: true`.
+- **Image tag** — `cpu-arm64-latest`. `cpu-latest` publishes `linux/amd64` only, so on an
+  Apple Silicon host it runs under Rosetta. The pre-existing `tei` service had the same bug
+  and was fixed in the same change; nobody had noticed because that profile had never been
+  started.
+- **Degradation** — a rerank failure reuses the lexical fallback's machinery exactly: log,
+  set `degraded`, keep the fused ordering, and let the response say so. `mode` is left alone
+  because every retriever did run; the new `rerank: false` field is what names the stage
+  that dropped out.
+
+Nothing changed in ai-service beyond the `MaxContextChunks` value.
+`RetrievalService.ApplyRelevanceFloor` already filtered on cosine and ordered by the
+server's `rank`, so it picked up the reranked ordering for free — the edit hybrid forced is
+the reason reranking needed none.
+
+## Recommended change (reranking)
+
+`RERANK_ENABLED=true` on ingestion-service with `RERANK_MODEL=BAAI/bge-reranker-base`, and
+`Retrieval__MaxContextChunks 8 → 12` on ai-service.
+
+Recall@final **0.938 → 1.000**, `cross-document` **0.75 → 1.00**, `single-fact` 0.88 → 1.00,
+mean depth-to-satisfy 2.84 → 2.31, recall lost between fetch and prompt **0.19 → 0.00**.
+Off-domain abstention unchanged at 0.90 and `unanswerable` unchanged at 0.00, so the
+feature's ability to decline is untouched. End to end, the share of questions whose answer
+states the expected figure goes **0.950 → 0.988** — 79 of 80.
+
+The cost, stated plainly: an always-on 1.1GB model container, and median search latency
+**0.23s → 2.75s** (p95 3.94s) on CPU. A full Deal Q&A round trip measures ~10.5s against
+~8s before. Reverting is `RERANK_ENABLED=false`; nothing else changes, and dense mode is
+still byte-identical to the pre-hybrid baseline —
+[`check_dense_regression.py`](../scripts/check_dense_regression.py) is what proves it, and
+it passes with reranking enabled server-side because the harness now sends `rerank`
+explicitly on every request rather than inheriting the deployment default.
+
+The end-to-end effect on the question that opens this document's cross-document slice —
+*"What occupancy does this deal report, and do the documents agree?"* on SoDo Office Tower,
+previously a failure whose second source sat at depth 13:
+
+> The IC Memorandum and Offering Memorandum both report occupancy of **76.80%** … However,
+> the Rent Roll reports a different figure: **86.7%** … These sources disagree by roughly
+> 9.9 percentage points.
+
+Two things are deliberately **not** recommended:
+
+- **Dropping the RRF stage**, even though `dense +rerank` and `hybrid +rerank` are identical
+  on every deal-scoped metric. BM25's contribution is candidate generation at the margins
+  (`--fetch-k 5`: dense 0.713 vs hybrid 0.875 recall@fetch), which this comparison does not
+  exercise, and removing it would be optimising against a measurement that was never taken.
+- **Reranking on any cross-deal path.** It is actively harmful unscoped (0.100 → 0.062).
+
+## Reproducing the reranking comparison
+
+The reranker starts with the stack; no profile needed. First start pulls ~1.1GB.
+
+```bash
+docker compose up -d tei-rerank && curl -s localhost:5500/health
+```
+
+The no-regression gate. `--max-chunks 8` is required now that the harness default tracks the
+shipped `MaxContextChunks=12`, because the frozen baseline is a k=8 artifact:
+
+```bash
+python3 scripts/eval_retrieval.py --mode dense --max-chunks 8 --out /tmp/regress.json && python3 scripts/check_dense_regression.py /tmp/regress.json
+```
+
+The A/B itself, then the unscoped haystack and the floors ablation:
+
+```bash
+python3 scripts/eval_retrieval.py --sweep-rerank --out scripts/eval-results-rerank.json
+```
+
+```bash
+python3 scripts/eval_retrieval.py --sweep-rerank --no-deal-scope --out scripts/eval-results-rerank-unscoped-bge.json
+```
+
+```bash
+python3 scripts/eval_retrieval.py --mode hybrid --rerank --no-floors --out scripts/eval-results-rerank-nofloors.json
+```
+
+```bash
+python3 scripts/analyze_lexical_bias.py scripts/eval-results-rerank.json
+```
+
+To reproduce the model comparison — the most important single result in this section —
+restart the reranker on the small model and re-run the sweep:
+
+```bash
+RERANK_MODEL=cross-encoder/ms-marco-MiniLM-L6-v2 docker compose up -d tei-rerank
+```
+
+Run outputs stay gitignored as regeneratable, as everywhere else in this document. The
+MiniLM comparison reproduces via the `RERANK_MODEL` override above. The diversity arms are
+the one thing `--sweep-rerank` can no longer produce, since the stage was deleted — so what
+is committed is the *simulation* rather than the run output:
+
+```bash
+python3 scripts/analyze_diversity_sim.py
+```
+
+[`analyze_diversity_sim.py`](../scripts/analyze_diversity_sim.py) reconstructs both
+operators as pure re-orderings of a normal hybrid search — MMR over pgvector's own pairwise
+cosine, and the per-document quota — and reprints the lambda table above from live data. It
+needs no diversity code on the server, which is the point: 4KB that regenerates the evidence
+beats 250KB of frozen JSON that nothing reads.
+
+One harness property worth knowing, because it is the third instance of the same bug class:
+`search()` now sends `rerank` on **every** request, true or false, and refuses a response
+whose `rerank` field disagrees with what was asked. Omitting the flag would hand the
+decision to the server's `RERANK_ENABLED`, so the moment reranking was enabled in compose
+every control arm would silently have become a reranked arm — an A/B comparing a thing to
+itself, reported as "reranking changed nothing". Same lesson as the fetch-cache key and the
+silent `degraded` fallback: **the dangerous failure is not the one that errors, it is the
+one that returns a plausible number over the wrong population.**
