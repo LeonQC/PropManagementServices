@@ -46,8 +46,11 @@ class Settings(BaseSettings):
 
     lexical_min_should_match: str | None = None
 
-    # --- cross-encoder reranking (HuggingFace TEI) ---
-    rerank_url: str = "http://localhost:8081"
+    # --- cross-encoder reranking (via the LiteLLM proxy) ---
+    # A LiteLLM `model_list` entry, not a URL: tei-rerank's address is known only to the
+    # proxy. Named `_route` because docker-compose.yml already uses RERANK_MODEL for
+    # tei-rerank's --model-id, which is a different thing.
+    rerank_route: str = "rerank-local"
 
     # 10s against a measured worst case of 1.2s for 32 pairs of the longest chunks in the
     # corpus. Generous rather than tight on purpose: the fallback is "no rerank", not a

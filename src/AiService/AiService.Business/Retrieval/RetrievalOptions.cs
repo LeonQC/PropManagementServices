@@ -38,8 +38,16 @@ public class RetrievalOptions
     public int MaxContextChunks { get; set; } = 12;
 
     /// <summary>Absolute cosine floor. Below this a chunk is noise; if nothing clears
-    /// it, the service answers "not in this deal's documents" without calling Claude.</summary>
-    public double MinScore { get; set; } = 0.15;
+    /// it, the service answers "not in this deal's documents" without calling Claude.
+    ///
+    /// <para>CALIBRATED PER EMBEDDING MODEL, and not portable — cosine has no absolute
+    /// meaning across models. 0.375 for <c>embed-local</c> (bge-m3); 0.15 was the value
+    /// for <c>embed-openai</c>, whose scale runs far lower. Carrying 0.15 onto bge-m3
+    /// measured off-domain abstention at 0.00 — nothing errors, recall stays at 1.000, and
+    /// the service simply starts answering questions it should decline. Changing
+    /// EMBEDDING_MODEL means re-sweeping this with scripts/eval_retrieval.py; the numbers
+    /// and both models' score distributions are in docs/retrieval-eval.md.</para></summary>
+    public double MinScore { get; set; } = 0.375;
 
     /// <summary>Relative floor: drop chunks scoring below this fraction of the best
     /// hit. Catches the weak tail of an otherwise good result set, which an absolute

@@ -1088,14 +1088,45 @@ Reranking is a third stage on the same contract hybrid established, not a new mo
   protected.
 - **Depth** — `rerank_candidates=30`, a fixed setting, never derived from `topK`. Covers a
   deal's whole haystack (~17 chunks, max 33) and caps unscoped latency below `candidate_k`.
-- **Model server** — a `tei-rerank` TEI container, called directly with `httpx` rather than
-  through the LiteLLM proxy that fronts embeddings. LiteLLM does have a TEI rerank provider,
-  but its transform hard-codes `"truncate": false` with no override, and this corpus has
-  544-token chunks against the model's 512-token limit — that path returns HTTP 422 and
-  drops the whole batch, intermittently, depending on what a query retrieves. Measured, not
-  assumed. `app/rerank.py` therefore always sends `truncate: true`.
+- **Model server** — a `tei-rerank` TEI container, reached through the LiteLLM proxy
+  (`rerank-local`) like every other model, with `RERANK_ROUTE` naming the entry.
+
+  It did not start that way, and the correction is the useful part. LiteLLM's rerank
+  transform hard-codes `"truncate": false` and exposes no override, so a chunk over the
+  model's 512-token window returns HTTP 422 and drops its whole batch. The original write-up
+  said this corpus held 544-token chunks and that the proxied path therefore failed
+  intermittently, and the first fix was to bypass the proxy and send `truncate: true` to TEI
+  directly.
+
+  **That 544 figure was wrong, and the failure it described never happened.** Re-measured
+  across all 1,147 chunks with the reranker's own tokenizer: median 214, p95 337, **max
+  350, zero over the cap**. The chunk cited as the 544-token worst case — 2,089 characters
+  — is 319 tokens. The number came from estimating tokens at ~3.8 chars each; dense CRE
+  text here runs about 6.5. Worth recording as a methodology note: a token count estimated
+  from a character count is not a measurement, and this one drove a design decision.
+
+  A narrower version of the concern is real: `app/chunking.py` sizes chunks at "300 tokens"
+  using tiktoken's `gpt-4o` encoding, which is not the tokenizer of the model that enforces
+  the limit. Sizing them with the reranker's own tokenizer was implemented and then
+  **reverted**, because the measured margin does not justify the coupling — it added a
+  `transformers` import and a tokenizer bake into the ingestion image to protect a gap that
+  is already wide.
+- **Chunk size — unchanged at 300 tiktoken tokens**, with the mismatch documented in
+  `app/chunking.py` rather than engineered away. The ratio of bge tokens to tiktoken tokens
+  across all 1,147 chunks: median 1.08, p95 1.27, max 1.43 — and that max is a 14-token
+  form-field fragment of underscores, not a real chunk. Among chunks at the 300 target the
+  worst is 350 (~1.17x). **Crossing 512 needs 1.71x.**
+
+  The margin narrows fast if `chunk_size` rises: at 400 it takes only 1.28x, which is
+  inside the observed p95. So the number is safe where it sits and should not be raised
+  without re-measuring. The mechanism to watch is in that 1.43 outlier — SentencePiece
+  fragments underscore runs, long numeric strings, and non-Latin text much harder than
+  cl100k, so document types unlike these templated CRE PDFs are what would change the
+  answer.
+- **No re-ingest was run.** Nothing in the corpus violates the limit, so re-chunking 428
+  documents would have spent hours of Docling time to reproduce what is already there.
 - **Image tag** — `cpu-arm64-latest`. `cpu-latest` publishes `linux/amd64` only, so on an
-  Apple Silicon host it runs under Rosetta. The pre-existing `tei` service had the same bug
+  Apple Silicon host it runs under Rosetta. The pre-existing `tei-embedding` service had the same bug
   and was fixed in the same change; nobody had noticed because that profile had never been
   started.
 - **Degradation** — a rerank failure reuses the lexical fallback's machinery exactly: log,
@@ -1206,3 +1237,153 @@ every control arm would silently have become a reranked arm — an A/B comparing
 itself, reported as "reranking changed nothing". Same lesson as the fetch-cache key and the
 silent `degraded` fallback: **the dangerous failure is not the one that errors, it is the
 one that returns a plausible number over the wrong population.**
+
+
+# Local embeddings (BAAI/bge-m3 via TEI)
+
+Embeddings moved off `text-embedding-3-small` and onto `bge-m3`, served by the
+`tei-embedding` container through the same LiteLLM proxy. The motivation was cost and data
+residency, not quality: nothing about the OpenAI path was failing.
+
+The finding worth carrying forward is not about either model. It is that **`MinScore` is
+calibrated per embedding model and does not survive a model change** — and that its failure
+mode is silent.
+
+## Pre-registration
+
+Declared before running anything:
+
+- **Primary metric** — recall@final on the positive slices, and `abstainRate` on
+  `off-domain`. A model swap must not trade one for the other.
+- **Prediction** — bge-m3 matches on recall. Cosine *scale* was expected to shift, since
+  cosine has no absolute meaning across models, but the `MinScore` consequence was not
+  anticipated before the numbers came back.
+- **Same harness, same 100 questions, same arm**: `--mode hybrid --rerank`, `k=12`,
+  `rel=0.55`. Only `EMBEDDING_MODEL` and `--min-score` vary.
+
+## Results: matched A/B
+
+Both arms are `hybrid + rerank`, `k=12`, `rel=0.55`, on the same 100 questions.
+
+| model | MinScore | positive recall@final | off-domain abstain |
+|---|---|---|---|
+| embed-openai | 0.15 (shipped) | **1.000** | 0.90 |
+| embed-openai | 0.25 | 0.970 | **1.00** |
+| embed-local | 0.15 | **1.000** | 0.00 |
+| embed-local | 0.30 | **1.000** | 0.50 |
+| embed-local | **0.375** | 0.988 | **1.00** |
+| embed-local | 0.45 | 0.750 | **1.00** |
+
+At the operating point that matters — full off-domain abstention — bge-m3 keeps **0.988**
+positive recall against text-embedding-3-small's **0.970**. The local model is not a
+compromise on this corpus.
+
+**Neither model reaches 1.00 recall and 1.00 abstention simultaneously.** That is a
+property of an absolute cosine floor, not of either model: the floor that finally excludes
+every off-domain question also clips the weakest genuinely-relevant chunk out of some
+cross-document answers. At 0.375 the loss is confined to `cross-document` (1.00 → 0.95);
+`single-fact` and `table-lookup` stay at 1.00.
+
+Top-score distributions, which is where the whole calibration lives:
+
+| slice | embed-openai | embed-local |
+|---|---|---|
+| positive (min) | 0.270 | 0.406 |
+| off-domain (max) | 0.185 | 0.340 |
+| clean gap | 0.185 – 0.270 | 0.340 – 0.406 |
+| off-domain (avg top) | 0.094 | 0.291 |
+| unanswerable (avg top) | 0.316 | 0.457 |
+
+The gaps are comparable in width. They simply sit at different places on the number line,
+which is the entire reason 0.15 stopped working.
+
+## Why 0.15 failed silently
+
+Carried onto bge-m3 unchanged, `MinScore = 0.15` measured **0.00** off-domain abstention.
+"How do I bake sourdough bread?" scores 0.39 against this corpus under bge-m3 and sails
+past a 0.15 floor; under text-embedding-3-small the same question scored 0.09.
+
+Nothing errors when this happens. Recall stays at 1.000, every dashboard stays green, and
+the only symptom is that Deal Q&A starts confidently answering questions it has no business
+answering — from chunks that are, by construction, the closest thing in a rent roll to a
+bread recipe. **This is the fourth instance of the same bug class this document records:
+the dangerous failure is not the one that errors, it is the one that returns a plausible
+number over the wrong population.**
+
+The `unanswerable` slice abstains at 0.00 under *both* models and every threshold that
+preserves recall. That is expected and unchanged: those questions are about the right
+property, so their chunks legitimately score high. Declining them is the generation model's
+job, not this threshold's.
+
+## A methodology error worth recording
+
+The first threshold recommendation (0.35–0.40 "holds recall at 1.00") was **wrong**, and
+the way it was wrong is instructive.
+
+It came from computing the tradeoff offline from the `topScore` field saved per question —
+cheap, no re-fetching, and it correctly modelled *whole-question* abstention: a question
+drops out entirely when its best chunk falls below the floor. But `MinScore` also filters
+chunks *within* questions that still get answered, and that effect is invisible in
+`topScore`. Cross-document questions need a second supporting chunk, and that one can sit
+below the floor while the top one clears it.
+
+Measured against the harness, 0.375 gives 0.988, not 1.000. The offline shortcut was a
+model of the metric rather than the metric, and it was optimistic in exactly the direction
+that would have let the error ship unnoticed. Sweep with the harness before believing a
+threshold.
+
+## How it is built
+
+- **`tei-embedding`** (renamed from `tei`, to sit parallel with `tei-rerank`) serves bge-m3
+  and is reached only through LiteLLM's `embed-local` route. `EMBEDDING_DIMENSIONS` stays
+  1024: bge-m3 is natively 1024-dim, and `drop_params` discards the `dimensions` argument
+  that only the OpenAI route understands.
+- **Memory is the real constraint.** Measured resident: bge-m3 4.0GB, bge-reranker-base
+  3.7GB, rest of the stack ~3GB. On an 8GB Docker VM the two TEI containers cannot coexist
+  — starting one OOM-kills the other (exit 137) mid-warmup, and reranking degrades with a
+  "timed out" log line that reads like a code fault. 12GB is the working figure.
+- **[`app/reembed.py`](../src/IngestionService/app/reembed.py)** recomputes vectors from
+  chunk text already in Postgres: 1,147 chunks in ~8 minutes, against the hours a full
+  re-ingest costs. This is only valid because **chunking did not change** — chunk text,
+  page numbers and indices do not depend on the embedding model, and only the vectors do.
+  If the chunker ever changes, this tool is the wrong one: it would carry stale boundaries
+  forward under a new tag.
+- **Both tags coexist.** The unique key is
+  `(document_id, chunk_index, embedding_model)`, so `embed-local@1024` rows were added
+  beside `embed-openai@1024` rather than replacing them. Re-embed *before* flipping
+  `EMBEDDING_MODEL` and there is no window where search returns empty, and reverting is a
+  config flip rather than a second migration.
+- **OpenSearch needs no rebuild.** `lexical.py` deliberately keeps `embedding_model` out of
+  its mapping, because chunking is model-independent and the lexical index is about text.
+
+## Limitations
+
+- **Generation quality is unmeasured under bge-m3.** No RAGAS run was made, so faithfulness
+  and answer relevance carry over from the OpenAI arm on assumption. Retrieval recall being
+  equal is suggestive, not conclusive.
+- The `embed-openai --min-score 0.30` arm was not completed (the run exceeded a command
+  timeout). It would not change the conclusion — recall falls monotonically as the floor
+  rises — but the frontier is drawn from two points on that side, not three.
+- 100 questions over one templated CRE corpus. The clean gap between on- and off-domain
+  scores is a property of this corpus's homogeneity as much as of either model, and a more
+  varied corpus should be expected to narrow it.
+
+## Reproducing
+
+```bash
+# 1. bring up the local embedding model (needs ~12GB allocated to Docker)
+docker compose --profile local-embeddings up -d tei-embedding
+
+# 2. populate the new tag while search is still served from the old one
+docker compose exec ingestion-service python -m app.reembed --model embed-local
+
+# 3. flip EMBEDDING_MODEL to embed-local in docker-compose.yml, then
+docker compose --profile local-embeddings up -d ingestion-service
+
+# 4. measure — and sweep the floor with the harness, not offline
+python3 scripts/eval_retrieval.py --mode hybrid --rerank --min-score 0.375
+python3 scripts/eval_retrieval.py --sweep --mode hybrid --rerank
+```
+
+Swap `embed-local` for `embed-openai` in steps 3–4 to reproduce the other arm; both tags
+are already in the database, so no re-embedding is needed to go back.
