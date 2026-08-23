@@ -173,37 +173,21 @@ services:
       - ./src/IngestionService/litellm/config.yaml:/etc/litellm/config.yaml:ro
 
   tei-embedding:
-    # Optional zero-cost embeddings:
-    #   docker compose --profile local-embeddings up -d tei-embedding
+    # Local embeddings: docker compose --profile local-embeddings up -d tei-embedding
     # First start downloads the ~2.3GB BAAI/bge-m3 model into the cache volume.
+    # Named for its task, to sit parallel with tei-rerank below.
     #
-    # Named for its task, not its software, to sit parallel with tei-rerank below: both are
-    # TEI, and which model each serves is the only thing that distinguishes them. The bare
-    # `tei` this used to be read as "the TEI one" and made the reranker look like a variant
-    # of it rather than its sibling.
+    # cpu-arm64-latest, not cpu-latest: the `cpu-latest` tag publishes linux/amd64 ONLY,
+    # so on an Apple Silicon host it runs under Rosetta emulation.
     #
-    # cpu-arm64-latest, not cpu-latest: the `cpu-latest` tag publishes linux/amd64 ONLY
-    # (verified against the registry manifest), so on an Apple Silicon host it runs under
-    # Rosetta emulation. This went unnoticed because the profile has never been started —
-    # the image had never even been pulled.
+    # MEMORY: bge-m3 4.0GB + bge-reranker-base 3.7GB + ~3GB of stack. On an 8GB Docker VM
+    # the two TEI containers cannot coexist — one OOM-kills the other (exit 137) mid-warmup
+    # and reranking degrades with a misleading "timed out". Allocate 12GB.
     #
-    # MEMORY — read before starting this profile. Measured resident: bge-m3 4.0GB,
-    # bge-reranker-base 3.7GB, rest of the stack ~3GB. On an 8GB Docker VM the two TEI
-    # containers cannot coexist: starting this one OOM-kills tei-rerank (exit 137) or
-    # itself, mid-warmup, and reranking silently degrades. Give Docker Desktop 12-16GB
-    # before enabling local embeddings.
-    #
-    # --max-batch-tokens caps TEI's warmup allocation, which is what makes bge-m3 loadable
-    # at all under pressure: it pre-allocates for that value (default 16384) against an
-    # 8192-token window, and chunks here are ~300 tokens, so the default is pure waste.
-    # Lowering it costs sequential passes, not correctness. Note this does NOT help
-    # tei-rerank — that one sits at 3.7GB regardless, its footprint being weights and ONNX
-    # arena rather than batch buffers.
-    #
-    # --max-client-batch-size must stay >= embeddings.py's _BATCH (64), or TEI rejects
-    # every real ingest request outright. It bounds inputs per REQUEST; --max-batch-tokens
-    # bounds what those get split into for inference. Different knobs, and only the second
-    # is the memory one.
+    # --max-batch-tokens caps warmup allocation (default 16384 against an 8192-token
+    # window, for ~300-token chunks); lowering it costs passes, not correctness. It does
+    # NOT help tei-rerank, whose footprint is weights, not buffers. --max-client-batch-size
+    # must stay >= embeddings.py's _BATCH (64) or TEI rejects every ingest request.
     image: ghcr.io/huggingface/text-embeddings-inference:cpu-arm64-latest
     command: --model-id BAAI/bge-m3 --max-batch-tokens 2048 --max-client-batch-size 64 --auto-truncate
     profiles: ["local-embeddings"]
@@ -221,13 +205,10 @@ services:
     # ingestion-service degrades every search and fails its health gate. First start
     # downloads ~1.1GB into the cache volume.
     #
-    # MEMORY: this is the largest container in the stack — ~3.7GB resident, roughly half
-    # of an 8GB Docker VM. Observed getting OOM-killed (exit 137) mid-search with the full
-    # stack up, which surfaces as `degraded: true` and a "Rerank failed (timed out)" log
-    # line rather than an obvious crash, because the request hangs at the proxy until
-    # rerank_timeout. If reranking degrades for no apparent reason, check
-    # `docker compose ps -a` for an exited tei-rerank before suspecting the code, and give
-    # Docker Desktop more RAM.
+    # MEMORY: ~3.7GB, the largest container here. It has been OOM-killed (exit 137)
+    # mid-search under an 8GB VM, which surfaces as `degraded: true` and a "Rerank failed
+    # (timed out)" log line rather than a crash. Check `docker compose ps -a` for an exited
+    # tei-rerank before suspecting the code.
     #
     # bge-reranker-base, not the smaller ms-marco-MiniLM-L6-v2 that was tried first. The
     # model choice was NOT a detail: MiniLM scores every chunk in this corpus at ~1e-4 —
@@ -271,36 +252,20 @@ services:
       S3_SECRET_KEY: "minioadmin"
       S3_BUCKET: "proptrack-documents"
       LITELLM_BASE_URL: "http://litellm:4000"
-      # Switching this to "embed-local" moves embeddings to the local bge-m3 TEI container
-      # — zero API cost, nothing leaving the host, at ~4GB resident and CPU-bound ingest.
-      # The route is verified working (1024-dim through the proxy); what gates it is memory.
+      # NOT a hot swap: this is half of Settings.embedding_model_tag, stored on every
+      # chunk row and filtered on at query time, so flipping it retags the corpus and the
+      # old rows go unreachable — search returns empty, not an error.
       #
-      # NOT a hot swap. This value is half of Settings.embedding_model_tag, which is stored
-      # on every chunk row and filtered on at query time, so flipping it retags the corpus
-      # from embed-openai@1024 to embed-local@1024 and every existing chunk goes unreachable
-      # the moment the service restarts. Search returns empty, not an error.
-      #
-      # Full procedure. Note the order: re-embedding runs BEFORE the flip, which is what
-      # makes the switch zero-downtime — the new tag is fully populated while search is
-      # still being served from the old one, so the flip is instant and reversible.
-      #   1. Give Docker Desktop 12-16GB (see the MEMORY note on tei-embedding).
+      # Procedure (re-embed BEFORE the flip, so there is no empty window):
+      #   1. Docker needs ~12GB (see MEMORY on tei-embedding).
       #   2. docker compose --profile local-embeddings up -d tei-embedding
       #   3. docker compose exec ingestion-service python -m app.reembed --model embed-local
-      #      Minutes, not hours: chunk text is already stored and does not depend on the
-      #      embedding model, so only the vectors are recomputed. A full
-      #      seed_deal_documents.py --wipe re-ingest is needed only if CHUNKING changed.
       #   4. Flip this value; docker compose up -d ingestion-service
-      #   5. RECALIBRATE RetrievalOptions.MinScore. Cosine scale is model-specific, so the
-      #      absolute floor does not survive a model change: 0.15 was right for
-      #      embed-openai and measured 0.00 off-domain abstention on bge-m3, where the
-      #      correct value is 0.375. Skipping this does not fail anything — it just stops
-      #      Deal Q&A declining questions it has no business answering.
-      #
-      # OpenSearch needs no rebuild: lexical.py keeps embedding_model out of its mapping,
-      # so the BM25 index is model-independent. Reverting is step 4 in reverse plus the
-      # matching MinScore — reembed leaves the old tag's rows in place.
-      # EMBEDDING_DIMENSIONS stays 1024: bge-m3 is natively 1024-dim, and litellm's
-      # drop_params discards the `dimensions` arg that only the OpenAI route understands.
+      #   5. Re-sweep RetrievalOptions.MinScore — 0.15 (embed-openai) measured 0.00
+      #      off-domain abstention on bge-m3, where 0.375 is correct. Silent if skipped.
+      # Reversing is step 4 backwards plus the matching MinScore: reembed leaves the old
+      # tag's rows in place. OpenSearch needs no rebuild (lexical.py is model-independent).
+      # EMBEDDING_DIMENSIONS stays 1024: bge-m3 is natively 1024-dim.
       EMBEDDING_MODEL: "embed-local"
       EMBEDDING_DIMENSIONS: "1024"
       JWKS_URL: "http://auth-service:8080/auth/v1/.well-known/jwks.json"

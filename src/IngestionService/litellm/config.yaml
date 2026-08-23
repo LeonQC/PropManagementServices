@@ -50,18 +50,12 @@ model_list:
   # Served by the tei-rerank container; LiteLLM's HuggingFace rerank provider
   # speaks TEI's `/rerank` and fronts it as the Cohere-shaped `/v1/rerank`.
   #
-  # This route did not exist at first, and why it can exist now is worth
-  # keeping: LiteLLM's rerank transform hard-codes `"truncate": false` and
-  # exposes no parameter to override it, so any chunk over the model's
-  # 512-token input window 422s and takes its whole batch with it. The corpus
-  # was thought to hold 544-token chunks, which ruled this route out; measured,
-  # its worst is 350, so the route is fine.
-  #
-  # That safety is margin, not enforcement — app/chunking.py sizes chunks in
-  # tiktoken, which is not this model's tokenizer. The mismatch is measured and
-  # accepted; the numbers are in the comment there. Changing the model here
-  # means re-checking that margin against the new model's limit — the two files
-  # are coupled whether or not they look it.
+  # LiteLLM's rerank transform hard-codes `"truncate": false` with no override, so a
+  # chunk over the model's 512-token window 422s and takes its whole batch with it. The
+  # corpus was thought to hold 544-token chunks, which ruled this route out; measured, its
+  # worst is 350. That safety is margin, not enforcement — app/chunking.py sizes in
+  # tiktoken, which is not this model's tokenizer (see the note there). Changing the model
+  # here means re-checking that margin.
   - model_name: rerank-local
     litellm_params:
       model: huggingface/BAAI/bge-reranker-base

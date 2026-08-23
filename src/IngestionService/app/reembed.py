@@ -1,29 +1,20 @@
 """Re-embed existing chunks under a different embedding model.
 
     docker compose exec ingestion-service python -m app.reembed --model embed-local
-    docker compose exec ingestion-service python -m app.reembed --model embed-local --dry-run
 
-Switching EMBEDDING_MODEL does not migrate anything by itself. `embedding_model_tag` is
-stored on every chunk row and filtered on at query time, so the flip alone makes the whole
-corpus unreachable — search returns empty, not an error. This is what fills the new tag in.
+Switching EMBEDDING_MODEL does not migrate anything: `embedding_model_tag` is stored on
+every chunk row and filtered on at query time, so the flip alone makes the corpus
+unreachable. This fills the new tag in.
 
-No re-parsing and no re-chunking: chunk text, page numbers and chunk indices are already in
-`document_chunks`, and none of them depend on the embedding model. Only the vectors do.
-That is the difference between this and a re-ingest — minutes of embedding calls instead of
-hours of Docling — and it holds precisely as long as the chunker has not changed. If it
-HAS, this script is the wrong tool: it would carry the old chunk boundaries forward under a
-new tag and quietly misrepresent them as current.
+No re-parsing and no re-chunking — chunk text, page numbers and indices are already in
+`document_chunks` and none of them depend on the embedding model. That is what makes this
+minutes rather than the hours a re-ingest costs, and it holds ONLY while the chunker is
+unchanged; if chunking changed, this would carry stale boundaries forward under a new tag.
 
-Rows are added, not replaced. The unique key is (document_id, chunk_index, embedding_model),
-so the old tag's rows stay put and both models coexist — which makes the switch reversible
-by flipping EMBEDDING_MODEL back, with no second migration. Run this BEFORE flipping the
-config and there is no window where search is empty at all:
-
-    1. python -m app.reembed --model embed-local      (search still served by the old tag)
-    2. set EMBEDDING_MODEL=embed-local, restart        (new tag is already populated)
-
-OpenSearch needs nothing: lexical.py deliberately keeps `embedding_model` out of its
-mapping, because chunking is model-independent and the lexical index is about text.
+Rows are added, not replaced (the unique key includes embedding_model), so both models
+coexist and reverting is a config flip. Run this BEFORE flipping EMBEDDING_MODEL and there
+is no window where search returns empty. OpenSearch needs nothing: lexical.py keeps
+embedding_model out of its mapping.
 """
 
 import argparse

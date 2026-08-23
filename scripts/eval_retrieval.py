@@ -50,10 +50,8 @@ FETCH_TOP_K = 20
 # check_dense_regression.py's frozen baseline is a k=8 artifact, so the gate command has to
 # pass --max-chunks 8 explicitly — see docs/retrieval-eval.md.
 MAX_CONTEXT_CHUNKS = 12
-# 0.375 for embed-local (bge-m3). Calibrated per embedding model and NOT portable — see
-# the long note on RetrievalOptions.MinScore. Was 0.15 under embed-openai
-# (text-embedding-3-small), whose cosine scale is far lower; carrying that value onto
-# bge-m3 measured off-domain abstention at 0.00.
+# 0.375 for embed-local (bge-m3); was 0.15 under embed-openai. Calibrated per embedding
+# model and NOT portable — see RetrievalOptions.MinScore.
 MIN_SCORE = 0.375
 RELATIVE_FLOOR = 0.55
 MAX_CONTEXT_CHARS = 24_000

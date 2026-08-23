@@ -47,15 +47,9 @@ class Settings(BaseSettings):
     lexical_min_should_match: str | None = None
 
     # --- cross-encoder reranking (via the LiteLLM proxy) ---
-    # A LiteLLM `model_list` entry, not a URL — the same contract as embedding_model
-    # above, and for the same reason: which container serves the reranker is decided in
-    # litellm/config.yaml. There is no rerank_url any more; tei-rerank's address is known
-    # only to the proxy.
-    #
-    # Named `_route` rather than `_model` on purpose: docker-compose.yml already uses
-    # RERANK_MODEL for tei-rerank's --model-id (the MiniLM A/B override documented in
-    # docs/retrieval-eval.md), and those are two different things. One env var meaning a
-    # proxy route here and a HuggingFace model id there is a trap worth not setting.
+    # A LiteLLM `model_list` entry, not a URL: tei-rerank's address is known only to the
+    # proxy. Named `_route` because docker-compose.yml already uses RERANK_MODEL for
+    # tei-rerank's --model-id, which is a different thing.
     rerank_route: str = "rerank-local"
 
     # 10s against a measured worst case of 1.2s for 32 pairs of the longest chunks in the
