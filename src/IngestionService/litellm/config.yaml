@@ -13,11 +13,11 @@ model_list:
 
   # Phase 2 (zero-cost path): HuggingFace TEI serving BAAI/bge-m3 (natively
   # 1024-dim) via its OpenAI-compatible /v1/embeddings. Start with:
-  #   docker compose --profile local-embeddings up -d tei
+  #   docker compose --profile local-embeddings up -d tei-embedding
   - model_name: embed-local
     litellm_params:
       model: openai/bge-m3
-      api_base: http://tei:80/v1
+      api_base: http://tei-embedding:80/v1
       api_key: none
 
   # ── The RAGAS judge, for scripts/eval_ragas.py ───────────────────────────

@@ -50,7 +50,11 @@ FETCH_TOP_K = 20
 # check_dense_regression.py's frozen baseline is a k=8 artifact, so the gate command has to
 # pass --max-chunks 8 explicitly — see docs/retrieval-eval.md.
 MAX_CONTEXT_CHUNKS = 12
-MIN_SCORE = 0.15
+# 0.375 for embed-local (bge-m3). Calibrated per embedding model and NOT portable — see
+# the long note on RetrievalOptions.MinScore. Was 0.15 under embed-openai
+# (text-embedding-3-small), whose cosine scale is far lower; carrying that value onto
+# bge-m3 measured off-domain abstention at 0.00.
+MIN_SCORE = 0.375
 RELATIVE_FLOOR = 0.55
 MAX_CONTEXT_CHARS = 24_000
 
@@ -467,7 +471,7 @@ def main() -> int:
         # Grid chosen around the production values. RelativeFloor gets the widest
         # range because it is the constant most likely to be dropping good chunks:
         # at a top score of 0.50 the current 0.55 kills everything below 0.275.
-        for min_score, rel, k in itertools.product((0.10, 0.15, 0.20), (0.0, 0.35, 0.55, 0.70), (5, 8, 12)):
+        for min_score, rel, k in itertools.product((0.30, 0.375, 0.45), (0.0, 0.35, 0.55, 0.70), (5, 8, 12)):
             configs.append(Config(min_score, rel, k, mode=args.mode, rrf_k=args.rrf_k,
                                   **common, **staged))
     elif args.sweep_rerank:

@@ -38,8 +38,35 @@ public class RetrievalOptions
     public int MaxContextChunks { get; set; } = 12;
 
     /// <summary>Absolute cosine floor. Below this a chunk is noise; if nothing clears
-    /// it, the service answers "not in this deal's documents" without calling Claude.</summary>
-    public double MinScore { get; set; } = 0.15;
+    /// it, the service answers "not in this deal's documents" without calling Claude.
+    ///
+    /// <para>CALIBRATED PER EMBEDDING MODEL — this number is not portable, and changing
+    /// EMBEDDING_MODEL without revisiting it silently disables off-domain abstention.
+    /// Cosine similarity has no absolute meaning across models; each has its own scale,
+    /// and this threshold only works when it sits in that model's gap between on-domain
+    /// and off-domain top scores.</para>
+    ///
+    /// <para>0.375 for <c>embed-local</c> (BAAI/bge-m3, the current default). Measured
+    /// over the 100-question set: positive slices bottom out at 0.406, off-domain tops
+    /// out at 0.340, so anything in 0.35-0.40 holds positive recall at 1.00 while
+    /// abstaining on 100% of off-domain questions. 0.375 is the middle of that plateau.</para>
+    ///
+    /// <para>0.15 was the value for <c>embed-openai</c> (text-embedding-3-small), which
+    /// runs on a markedly lower scale: positives bottom out at 0.270 and off-domain tops
+    /// out at 0.185. On that model 0.15 abstained on 90% of off-domain questions — 0.25
+    /// would have reached 100%, which is worth knowing if OpenAI embeddings are ever
+    /// restored. Carrying 0.15 onto bge-m3 was measured to drop off-domain abstention to
+    /// 0.00: sourdough-recipe questions score 0.39 there and sail past it.</para>
+    ///
+    /// <para>Neither model abstains on the <c>unanswerable</c> slice by retrieval alone —
+    /// those questions are about the right property, so their chunks legitimately score
+    /// high. Declining them is the generation model's job, not this threshold's.</para>
+    ///
+    /// <para>To recalibrate after a model change: run
+    /// <c>scripts/eval_retrieval.py --mode hybrid --rerank</c>, then read `topScore` per
+    /// slice out of the results JSON — the whole threshold curve can be computed from it
+    /// without re-fetching.</para></summary>
+    public double MinScore { get; set; } = 0.375;
 
     /// <summary>Relative floor: drop chunks scoring below this fraction of the best
     /// hit. Catches the weak tail of an otherwise good result set, which an absolute
