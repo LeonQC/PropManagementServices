@@ -5,9 +5,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 
-from . import lexical
 from .api import _meta, router
-from .config import settings
 from .db import init_db
 from .kafka_io import consume_loop
 
@@ -20,11 +18,6 @@ _stop = threading.Event()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
-    # Best-effort: depends_on orders container start, not readiness, and OpenSearch needs
-    # ~20-30s before it answers. ensure_index() retries and then gives up quietly — a dead
-    # OpenSearch degrades hybrid to dense, it does not take the service down.
-    if settings.lexical_enabled or settings.search_mode != "dense":
-        lexical.ensure_index()
     thread = threading.Thread(target=consume_loop, args=(_stop,), name="kafka-consumer", daemon=True)
     thread.start()
     log.info("ingestion-service started.")

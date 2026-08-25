@@ -21,7 +21,7 @@ import statistics
 import sys
 from pathlib import Path
 
-DEFAULT = Path("scripts/eval-results-modes.json")
+DEFAULT = Path("scripts/eval-results-rerank.json")
 QUESTIONS = Path("scripts/eval-questions.json")
 
 # Function words plus domain words that appear in nearly every question, so "overlap"

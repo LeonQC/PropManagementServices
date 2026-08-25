@@ -77,13 +77,12 @@ public class RetrievalService(
         var best = chunks.Max(c => c.Score);
         var relative = best * _options.RelativeFloor;
         // Filter on cosine, order on the server's rank. These are two separate decisions
-        // and conflating them was what made hybrid retrieval a no-op here: the floors are
-        // calibrated on the cosine scale and must stay on it, but the *ordering* belongs to
-        // whoever retrieved — in hybrid mode that is the RRF fusion, and since
-        // TakeWithinBudget keeps a prefix of this list, re-sorting by score would silently
-        // discard the fused ranking and rebuild the dense one.
+        // and conflating them would make reranking a no-op here: the floors are calibrated
+        // on the cosine scale and must stay on it, but the *ordering* belongs to whoever
+        // retrieved — and since TakeWithinBudget keeps a prefix of this list, re-sorting by
+        // score would silently discard the reranked ordering and rebuild the cosine one.
         //
-        // Rank is null from a pre-hybrid server; the sentinel then collapses this to
+        // Rank is null from a server that predates it; the sentinel then collapses this to
         // exactly the previous score ordering.
         return [.. chunks.Where(c => c.Score >= _options.MinScore && c.Score >= relative)
                          .OrderBy(c => c.Rank ?? int.MaxValue)
@@ -117,9 +116,10 @@ public class RetrievalService(
     /// </summary>
     private static List<ContextChunk> RestoreReadingOrder(IReadOnlyList<RetrievedChunk> chunks)
     {
-        // A document leads by its best-ranked chunk. This was Max(Score); with fusion the
-        // server's rank is the authority on "best", and Min(rank) is its spelling of it.
-        // Score remains the tie-break, which keeps dense mode byte-identical to before.
+        // A document leads by its best-ranked chunk. This was Max(Score); once a reordering
+        // stage exists the server's rank is the authority on "best", and Min(rank) is its
+        // spelling of it. Score remains the tie-break, which keeps unreranked retrieval
+        // byte-identical to before.
         var documentRank = chunks
             .GroupBy(c => c.DocumentId)
             .ToDictionary(g => g.Key, g => g.Min(c => c.Rank ?? int.MaxValue));

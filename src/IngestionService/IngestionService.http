@@ -36,10 +36,10 @@ Content-Type: application/json
   "topK": 3
 }
 
-### Hybrid — pgvector + OpenSearch BM25, fused with RRF
-# `mode` is dense | lexical | hybrid; omitted, SEARCH_MODE decides. `score` is cosine in
-# every mode (back-filled for chunks only BM25 found), so the ai-service floors keep
-# working; `rank` carries the fused order, `lexScore`/`fusedScore` are diagnostic.
+### Reranked — cross-encoder reorders the cosine candidates
+# `rerank` omitted uses the service default (RERANK_ENABLED); pass it explicitly to A/B
+# both arms against one running stack. `score` stays cosine either way so the ai-service
+# floors keep working; `rank` carries the reranked order and `rerankScore` is diagnostic.
 POST {{IngestionService_HostAddress}}/ingestion/v1/search
 Authorization: Bearer {{token}}
 Content-Type: application/json
@@ -48,13 +48,10 @@ Content-Type: application/json
   "query": "What is the assessor parcel number?",
   "dealId": "e06e3cce-2188-432b-9d9c-1ecaf62c6db2",
   "topK": 8,
-  "mode": "hybrid",
-  "rrfK": 10
+  "rerank": true
 }
 
-### Lexical only — BM25 with no vector component
-# Useful for seeing what fusion is being handed. Exact tokens (APNs, "$67,834,000",
-# "6.69%") rank far better here than in dense; paraphrased questions rank far worse.
+### The same query with reranking off — the ordering the reranker is improving on
 POST {{IngestionService_HostAddress}}/ingestion/v1/search
 Authorization: Bearer {{token}}
 Content-Type: application/json
@@ -63,13 +60,13 @@ Content-Type: application/json
   "query": "What is the assessor parcel number?",
   "dealId": "e06e3cce-2188-432b-9d9c-1ecaf62c6db2",
   "topK": 8,
-  "mode": "lexical"
+  "rerank": false
 }
 
-### Off-domain probe under hybrid — the abstention guard rail
-# BM25 WILL return chunks here (the tokens occur in the corpus). They must still come back
-# with cosine ~0.07, which is what ai-service's MinScore=0.15 rejects. If these ever
-# arrive with a high `score`, the fused score has leaked into the wrong field.
+### Off-domain probe — the abstention guard rail
+# These must come back with cosine ~0.07, which is what ai-service's MinScore=0.15
+# rejects. Reranking must never move `score`; if these ever arrive with a high `score`,
+# the cross-encoder score has leaked into the wrong field.
 POST {{IngestionService_HostAddress}}/ingestion/v1/search
 Authorization: Bearer {{token}}
 Content-Type: application/json
@@ -78,14 +75,8 @@ Content-Type: application/json
   "query": "What is the best recipe for sourdough bread?",
   "dealId": "e06e3cce-2188-432b-9d9c-1ecaf62c6db2",
   "topK": 8,
-  "mode": "hybrid"
+  "rerank": true
 }
-
-### Lexical index status — pre-flight before trusting any hybrid measurement
-# inSync=false means the backfill has not run, or a dual-write failed:
-#   docker compose exec ingestion-service python -m app.backfill --repair
-GET {{IngestionService_HostAddress}}/ingestion/v1/lexical/status
-Authorization: Bearer {{token}}
 
 ### Parsed markdown artifact for a document (what ai-service will summarise from)
 GET {{IngestionService_HostAddress}}/ingestion/v1/documents/REPLACE_WITH_DOCUMENT_ID/parsed

@@ -1,13 +1,12 @@
 #!/usr/bin/env python3
-"""Gate: dense mode must behave exactly as retrieval did before hybrid existed.
+"""Gate: unreranked retrieval must behave exactly as it did before the ranking work.
 
-Hybrid retrieval changed how ai-service and this harness *order* chunks — they now sort
-by the server's `rank` rather than re-sorting by cosine. In dense mode rank order IS
-cosine order, so the two must produce identical results. If they don't, every hybrid-vs-
-dense number downstream is uninterpretable, because the comparison would be measuring the
-plumbing change rather than BM25.
+ai-service and this harness now order chunks by the server's `rank` rather than re-sorting
+by cosine. With no reranker in play, rank order IS cosine order, so the two must produce
+identical results. If they don't, every A/B number downstream is uninterpretable, because
+the comparison would be measuring the plumbing change rather than the reranker.
 
-    python3 scripts/eval_retrieval.py --mode dense --out /tmp/regress.json
+    python3 scripts/eval_retrieval.py --out /tmp/regress.json
     python3 scripts/check_dense_regression.py /tmp/regress.json
 
 Tolerance is asymmetric, on purpose. Per-question decisions and every recall-style metric
@@ -38,7 +37,7 @@ def main(argv: list[str]) -> int:
         print(__doc__, file=sys.stderr)
         return 2
     if not BASELINE.exists():
-        print(f"Missing {BASELINE} — the frozen pre-hybrid reference. It is committed; "
+        print(f"Missing {BASELINE} — the frozen pre-ranking reference. It is committed; "
               f"restore it from git rather than regenerating it.", file=sys.stderr)
         return 2
     baseline = json.loads(BASELINE.read_text())
@@ -87,7 +86,7 @@ def main(argv: list[str]) -> int:
             print(f"  {f}", file=sys.stderr)
         return 1
 
-    print(f"GATE PASSED: dense mode reproduces {BASELINE} "
+    print(f"GATE PASSED: unreranked retrieval reproduces {BASELINE} "
           f"({len(base_rows)} questions, {len(baseline['summary'])} slices).")
     return 0
 
