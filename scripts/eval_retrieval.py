@@ -21,11 +21,10 @@ Usage:
     python3 scripts/eval_retrieval.py --limit 10           # smoke test
     python3 scripts/eval_retrieval.py --sweep              # parameter grid
     python3 scripts/eval_retrieval.py --no-floors          # ablation
-    python3 scripts/eval_retrieval.py --sweep-mode         # dense vs lexical vs hybrid
-    python3 scripts/eval_retrieval.py --sweep-mode --fetch-k 5     # truncated haystack
-    python3 scripts/eval_retrieval.py --sweep-mode --no-deal-scope # corpus-wide haystack
     python3 scripts/eval_retrieval.py --sweep-rerank       # the cross-encoder A/B
-    python3 scripts/eval_retrieval.py --mode hybrid --rerank       # one reranked arm
+    python3 scripts/eval_retrieval.py --sweep-rerank --fetch-k 5   # truncated haystack
+    python3 scripts/eval_retrieval.py --sweep-rerank --no-deal-scope # corpus-wide haystack
+    python3 scripts/eval_retrieval.py --rerank             # one reranked arm
 
 The rerank arms need the tei-rerank container up; it starts with the rest of the stack.
 """
@@ -46,7 +45,7 @@ INGESTION_URL = "http://localhost:5500"
 
 # Defaults mirror RetrievalOptions.cs. Keep them in sync — see module docstring.
 FETCH_TOP_K = 20
-# 12 since cross-encoder reranking shipped; it was 8 through the dense and hybrid eras.
+# 12 since cross-encoder reranking shipped; it was 8 before that.
 # check_dense_regression.py's frozen baseline is a k=8 artifact, so the gate command has to
 # pass --max-chunks 8 explicitly — see docs/retrieval-eval.md.
 MAX_CONTEXT_CHUNKS = 12
@@ -56,9 +55,7 @@ MIN_SCORE = 0.375
 RELATIVE_FLOOR = 0.55
 MAX_CONTEXT_CHARS = 24_000
 
-# Hybrid retrieval. Mirrors Settings.rrf_k / Settings.candidate_k in ingestion-service.
-MODES = ("dense", "lexical", "hybrid")
-RRF_K = 10
+# Mirrors Settings.candidate_k in ingestion-service.
 CANDIDATE_K = 50
 
 # Cross-encoder reranking. Mirrors Settings.rerank_candidates in ingestion-service.
@@ -88,37 +85,25 @@ def login(email: str, password: str) -> str:
 
 
 def search(token: str, question: str, deal_id: str | None, top_k: int, *,
-           mode: str | None = None, rrf_k: int | None = None,
            candidate_k: int | None = None, rerank: bool = False) -> list[dict]:
     payload = {"query": question, "dealId": deal_id, "topK": top_k}
-    if mode:
-        payload["mode"] = mode
-    if rrf_k:
-        payload["rrfK"] = rrf_k
     if candidate_k:
         payload["candidateK"] = candidate_k
     # ALWAYS sent, true or false — never omitted. Omitting it hands the decision to the
     # server's RERANK_ENABLED, so the moment reranking was turned on in compose every
     # "control" arm here would silently become a reranked arm and the A/B would compare a
-    # thing to itself. This is the same failure the fetch-cache key guards against, and it
-    # is why `mode` is sent explicitly too.
+    # thing to itself. This is the same failure the fetch-cache key guards against.
     payload["rerank"] = bool(rerank)
     data = _request("POST", f"{INGESTION_URL}/ingestion/v1/search",
                     token=token, payload=payload)["data"]
-    if data.get("degraded"):
-        # ingestion-service fell back to dense because OpenSearch errored, or the reranker
-        # was unreachable. Scoring it would silently mix arms and report "hybrid made no
-        # difference" — the exact false negative this whole comparison exists to avoid.
-        raise RuntimeError(f"ingestion-service degraded (mode={data['mode']}, "
-                           f"rerank={data.get('rerank')}): refusing to score a mixed run. "
-                           f"Are OpenSearch and tei-rerank up?")
     if rerank and not data.get("rerank"):
         # A server that predates the rerank stage — or one that ignores the flag — returns
         # a perfectly plausible un-reranked list, and the arm reads as "reranking changed
         # nothing". Same class of silent false negative as the fetch-cache key below, one
         # layer up, so it gets the same treatment: refuse rather than report.
         raise RuntimeError("requested rerank but the server did not apply it: refusing to "
-                           "score. Is ingestion-service running the reranking build?")
+                           "score. Is ingestion-service running the reranking build, "
+                           "and is tei-rerank up?")
     return data["chunks"]
 
 
@@ -127,27 +112,24 @@ def search(token: str, question: str, deal_id: str | None, top_k: int, *,
 class Config:
     def __init__(self, min_score=MIN_SCORE, relative_floor=RELATIVE_FLOOR,
                  max_chunks=MAX_CONTEXT_CHUNKS, max_chars=MAX_CONTEXT_CHARS, fetch_k=FETCH_TOP_K,
-                 mode="dense", rrf_k=RRF_K, candidate_k=CANDIDATE_K, deal_scope=True,
+                 candidate_k=CANDIDATE_K, deal_scope=True,
                  rerank=False, rerank_candidates=RERANK_CANDIDATES):
         self.min_score = min_score
         self.relative_floor = relative_floor
         self.max_chunks = max_chunks
         self.max_chars = max_chars
         self.fetch_k = fetch_k
-        self.mode = mode
-        self.rrf_k = rrf_k
         self.candidate_k = candidate_k
         self.deal_scope = deal_scope
         self.rerank = rerank
         self.rerank_candidates = rerank_candidates
 
     def label(self) -> str:
-        # Mode first so a mode sweep sorts readably. The stage tag stays terse because this
-        # string is printed in a fixed-width column in the comparison table.
-        rrf = f" rrf={self.rrf_k}" if self.mode == "hybrid" else ""
+        # The stage tag stays terse because this string is printed in a fixed-width column
+        # in the comparison table.
         scope = "" if self.deal_scope else " unscoped"
-        tag = " +rr" if self.rerank else ""
-        return (f"{self.mode}{rrf}{scope}{tag} min={self.min_score:.2f} "
+        tag = "rerank" if self.rerank else "cosine"
+        return (f"{tag}{scope} min={self.min_score:.2f} "
                 f"rel={self.relative_floor:.2f} k={self.max_chunks} fetch={self.fetch_k}")
 
     def fetch_key(self) -> tuple:
@@ -157,22 +139,14 @@ class Config:
         here in-process, which is what makes a multi-config sweep cost one search call per
         question rather than one per question per config.
 
-        mode/candidate_k/rrf_k are NOT optional here. Keying the cache by question id
-        alone — as this script did before hybrid existed — would serve the first mode's
-        ranked list to every later mode, producing three identical columns that read as
-        "hybrid changed nothing". That is the single most plausible way to get a wrong
-        answer out of this comparison.
-
-        rerank/rerank_candidates are here for exactly the same reason, and it is
-        worth being blunt about it: they reorder the list SERVER-side, so a rerank arm that
-        shared the control's cache would report "reranking changed nothing" — the identical
-        false negative, one stage later. search() carries a second, independent guard (it
+        candidate_k/deal_scope/rerank/rerank_candidates are NOT optional here, and it is
+        worth being blunt about why: they change the list SERVER-side, so a rerank arm that
+        shared the control's cache would report "reranking changed nothing" — a completely
+        plausible-looking false negative. search() carries a second, independent guard (it
         rejects a response whose `rerank` flag came back false), because this one is a
         silent omission and that one is a loud assertion.
         """
-        return (self.mode, self.candidate_k, self.deal_scope,
-                self.rrf_k if self.mode == "hybrid" else None,
-                self.rerank,
+        return (self.candidate_k, self.deal_scope, self.rerank,
                 self.rerank_candidates if self.rerank else None)
 
 
@@ -186,8 +160,8 @@ def apply_filters(chunks: list[dict], cfg: Config) -> list[dict]:
     relative = best * cfg.relative_floor
     # Filter on cosine, order on the server's rank — mirroring RetrievalService.
     # ApplyRelevanceFloor. The two are separate decisions: the floors are calibrated on the
-    # cosine scale and stay there, while the ordering is the server's, which in hybrid mode
-    # is the RRF ordering. `rank` is absent from a pre-hybrid server, and the sentinel then
+    # cosine scale and stay there, while the ordering is the server's, which after
+    # reranking is the cross-encoder's. `rank` is absent from an older server, and the sentinel then
     # collapses this to the previous pure-score ordering.
     kept = sorted((c for c in chunks if c["score"] >= cfg.min_score and c["score"] >= relative),
                   key=lambda c: (c.get("rank") or 1 << 30, -c["score"]))
@@ -251,8 +225,8 @@ def depth_to_satisfy(chunks: list[dict], question: dict) -> int | None:
     return min(found) if found else None
 
 
-def fetch_all(token: str, questions: list[dict], fetch_k: int, *, mode: str | None = None,
-              rrf_k: int | None = None, candidate_k: int | None = None,
+def fetch_all(token: str, questions: list[dict], fetch_k: int, *,
+              candidate_k: int | None = None,
               deal_scope: bool = True, rerank: bool = False) -> dict[str, list[dict]]:
     """Ranked chunks per question, fetched once per distinct Config.fetch_key().
 
@@ -276,7 +250,7 @@ def fetch_all(token: str, questions: list[dict], fetch_k: int, *, mode: str | No
             continue
         try:
             cache[q["id"]] = search(token, q["question"], q["dealId"] if deal_scope else None,
-                                    fetch_k, mode=mode, rrf_k=rrf_k, candidate_k=candidate_k,
+                                    fetch_k, candidate_k=candidate_k,
                                     rerank=rerank)
         except urllib.error.HTTPError as ex:
             detail = ex.read().decode(errors="replace")[:120]
@@ -285,12 +259,12 @@ def fetch_all(token: str, questions: list[dict], fetch_k: int, *, mode: str | No
         if i % 25 == 0:
             print(f"  fetched {i}/{len(questions)}", file=sys.stderr)
     if failures:
-        # Never return a partial cache quietly. A mode arm that lost half its questions
+        # Never return a partial cache quietly. An arm that lost half its questions
         # still produces a summary — with a different denominator — and lands in the
         # comparison table looking like a real measurement. That happened once, to an
-        # expired token on a long multi-mode sweep, and the arms silently dropped to n=25.
+        # expired token on a long sweep, and the arms silently dropped to n=25.
         raise RuntimeError(
-            f"{len(failures)} of {len(questions)} searches failed for mode={mode}: "
+            f"{len(failures)} of {len(questions)} searches failed: "
             f"refusing to score a partial arm.\n  " + "\n  ".join(failures[:5])
             + ("\n  ..." if len(failures) > 5 else ""))
     return cache
@@ -422,13 +396,10 @@ def main() -> int:
     ap.add_argument("--relative-floor", type=float, default=RELATIVE_FLOOR)
     ap.add_argument("--max-chunks", type=int, default=MAX_CONTEXT_CHUNKS)
     ap.add_argument("--fetch-k", type=int, default=FETCH_TOP_K)
-    ap.add_argument("--mode", choices=MODES, default="dense",
-                    help="retrieval mode requested from ingestion-service")
-    ap.add_argument("--rrf-k", type=int, default=RRF_K, help="RRF rank constant (hybrid only)")
     ap.add_argument("--candidate-k", type=int, default=CANDIDATE_K,
-                    help="per-source candidate depth requested from the server")
+                    help="candidate depth requested from the server")
     ap.add_argument("--rerank", action="store_true",
-                    help="ask the server to cross-encoder rerank the fused candidates")
+                    help="ask the server to cross-encoder rerank the candidates")
     ap.add_argument("--rerank-candidates", type=int, default=RERANK_CANDIDATES,
                     help="reported in the fetch key; the server's depth is RERANK_CANDIDATES")
     ap.add_argument("--sweep-rerank", action="store_true",
@@ -437,8 +408,6 @@ def main() -> int:
                     help="secondary experiment: search the whole corpus, not one deal")
     ap.add_argument("--no-floors", action="store_true", help="ablation: disable both floors")
     ap.add_argument("--sweep", action="store_true", help="run the parameter grid")
-    ap.add_argument("--sweep-mode", action="store_true",
-                    help="the mode A/B: dense vs lexical vs hybrid, filters held fixed")
     ap.add_argument("-v", "--verbose", action="store_true", help="per-question results")
     args = ap.parse_args()
 
@@ -470,84 +439,50 @@ def main() -> int:
         # range because it is the constant most likely to be dropping good chunks:
         # at a top score of 0.50 the current 0.55 kills everything below 0.275.
         for min_score, rel, k in itertools.product((0.30, 0.375, 0.45), (0.0, 0.35, 0.55, 0.70), (5, 8, 12)):
-            configs.append(Config(min_score, rel, k, mode=args.mode, rrf_k=args.rrf_k,
-                                  **common, **staged))
+            configs.append(Config(min_score, rel, k, **common, **staged))
     elif args.sweep_rerank:
-        # Six arms, NOT rerank crossed into the 11-config mode sweep. Reranking costs
-        # ~2.5s per query, so a 22-arm cross product is over an hour of wall clock to
+        # Four arms, NOT rerank crossed into the 36-config filter sweep. Reranking costs
+        # ~2.5s per query, so a full cross product is over an hour of wall clock to
         # re-measure constants the existing sweep already pinned at 0.000 effect. Each arm
         # is here to falsify a different claim.
         #
         # k=8 and k=12 are written literally rather than via MAX_CONTEXT_CHUNKS: that
         # constant tracks RetrievalOptions.cs and moved to 12 when reranking shipped, but
         # these arms are a fixed historical comparison and must not drift with it.
-        base = dict(mode="hybrid", rrf_k=args.rrf_k)
         configs += [
             # The pre-rerank control.
-            Config(MIN_SCORE, RELATIVE_FLOOR, 8, **base, **common),
+            Config(MIN_SCORE, RELATIVE_FLOOR, 8, **common),
             # The treatment, at the pre-rerank context budget.
-            Config(MIN_SCORE, RELATIVE_FLOOR, 8, **base, **common, rerank=True),
-            # The cheap baseline: k=12 buys 0.975 for +32% context and no latency. If
+            Config(MIN_SCORE, RELATIVE_FLOOR, 8, **common, rerank=True),
+            # The cheap baseline: k=12 buys recall for +32% context and no latency. If
             # reranking only matches this, it is not worth a container.
-            Config(MIN_SCORE, RELATIVE_FLOOR, 12, **base, **common),
+            Config(MIN_SCORE, RELATIVE_FLOOR, 12, **common),
             # The shipped configuration: both levers. They turned out to be complements,
             # which is the finding the k=8 rows alone would have missed.
-            Config(MIN_SCORE, RELATIVE_FLOOR, 12, **base, **common, rerank=True),
-            # Is the cross-encoder adding to BM25, or replacing it? dense+rerank matching
-            # hybrid+rerank means fusion has stopped contributing to the ordering.
-            Config(MIN_SCORE, RELATIVE_FLOOR, 8, mode="dense", rrf_k=args.rrf_k,
-                   **common, rerank=True),
-            # The uncomfortable control: pure BM25 scores 0.950 / x-doc 0.90 on a question
-            # set that analyze_lexical_bias.py shows flatters it. The reranker faces the
-            # same audit.
-            Config(MIN_SCORE, RELATIVE_FLOOR, 8, mode="lexical", rrf_k=args.rrf_k, **common),
+            Config(MIN_SCORE, RELATIVE_FLOOR, 12, **common, rerank=True),
         ]
-    elif args.sweep_mode:
-        # k=8/k=12 are literal here, like in --sweep-rerank above: MAX_CONTEXT_CHUNKS
-        # tracks the shipped RetrievalOptions value and is now 12, which would collapse
-        # these two arms into one and silently halve the sweep.
-        #
-        # Deliberately NOT the 36-config grid crossed with 3 modes. The existing sweep
-        # shows min_score and relative_floor move recall by exactly 0.000, so crossing
-        # them in would triple the runtime to re-measure a constant. Production filters
-        # are held fixed instead, because MaxContextChunks is the one variable that does
-        # move recall (by 0.087-0.174) and would swamp the mode effect being measured.
-        for mode in MODES:
-            for rrf_k in ((10, 20, 60) if mode == "hybrid" else (RRF_K,)):
-                for k in (8, 12):
-                    configs.append(Config(MIN_SCORE, RELATIVE_FLOOR, k,
-                                          mode=mode, rrf_k=rrf_k, **common))
-        # One floors-off hybrid arm. The relative floor can veto exactly the chunks BM25
-        # promotes — a cosine-0.20 chunk dies against a 0.45 best however good its RRF
-        # rank. It is not binding today (rel moves recall by 0.000), but if hybrid gains
-        # materially more here than at rel=0.55, the floor is capping fusion and that is
-        # a finding rather than a bug to paper over.
-        configs.append(Config(MIN_SCORE, 0.0, 8,
-                              mode="hybrid", rrf_k=args.rrf_k, **common, **staged))
     elif args.no_floors:
-        configs.append(Config(0.0, 0.0, args.max_chunks, mode=args.mode, rrf_k=args.rrf_k,
-                              **common, **staged))
+        configs.append(Config(0.0, 0.0, args.max_chunks, **common, **staged))
     else:
         configs.append(Config(args.min_score, args.relative_floor, args.max_chunks,
-                              mode=args.mode, rrf_k=args.rrf_k, **common, **staged))
+                              **common, **staged))
 
     # Fetch at the widest candidate depth any config asks for, once per distinct fetch
-    # key. Configs that differ only in filters share a fetch; configs that differ in mode
-    # must not (see Config.fetch_key).
+    # key. Configs that differ only in filters share a fetch; configs that differ in what
+    # the server did must not (see Config.fetch_key).
     max_fetch = max(cfg.fetch_k for cfg in configs)
     caches: dict[tuple, dict[str, list[dict]]] = {}
     for key in dict.fromkeys(cfg.fetch_key() for cfg in configs):
-        mode, candidate_k, deal_scope, rrf_k, rerank, _ = key
-        stages = "" if not rerank else " +rerank"
+        candidate_k, deal_scope, rerank, _ = key
         print(f"\nFetching ranked chunks for {len(questions)} question(s) at topK={max_fetch} "
-              f"mode={mode}{'' if rrf_k is None else f' rrf={rrf_k}'}"
-              f"{'' if deal_scope else ' unscoped'}{stages}...", file=sys.stderr)
+              f"{'rerank' if rerank else 'cosine'}"
+              f"{'' if deal_scope else ' unscoped'}...", file=sys.stderr)
         try:
-            # Fresh token per arm. Access tokens are short-lived and a mode sweep makes
+            # Fresh token per arm. Access tokens are short-lived and a sweep makes
             # one search call per question per arm, which outlives the TTL — an expiry
             # halfway through corrupts every arm after it.
             token = login(args.email, args.password)
-            caches[key] = fetch_all(token, questions, max_fetch, mode=mode, rrf_k=rrf_k,
+            caches[key] = fetch_all(token, questions, max_fetch,
                                     candidate_k=candidate_k, deal_scope=deal_scope,
                                     rerank=rerank)
         except RuntimeError as ex:
@@ -563,16 +498,10 @@ def main() -> int:
         all_results.append(result)
         print_summary(cfg.label(), summary)
 
-    if args.sweep_mode or args.sweep_rerank:
-        if args.sweep_rerank:
-            print("\n\n  === rerank comparison, production filters held fixed ===")
-            print("  The ceiling is small and known: at the shipped config only 5 of 80")
-            print("  positive questions are fetched-then-out-ranked, all cross-document.")
-            print("  Read x-doc and depth; R@final can move by at most 0.062.")
-        else:
-            print("\n\n  === mode comparison, production filters held fixed ===")
-            print("  R@fetch is a CONTROL, not an outcome: on a deal-scoped haystack of ~17")
-            print("  chunks it is saturated at 0.99 and cannot move. Read R@final and depth.")
+    if args.sweep_rerank:
+        print("\n\n  === rerank comparison, production filters held fixed ===")
+        print("  R@fetch is a CONTROL, not an outcome: on a deal-scoped haystack of ~17")
+        print("  chunks it is saturated and cannot move. Read R@final, x-doc and depth.")
         print(f"\n  {'config':<52}{'R@fetch':>9}{'R@final':>9}{'MRR':>7}"
               f"{'depth':>7}{'d<=k':>7}{'x-doc':>7}{'abstain':>9}")
         print("  " + "-" * 107)

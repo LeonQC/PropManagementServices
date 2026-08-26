@@ -44,12 +44,13 @@ CREATE TABLE IF NOT EXISTS ingestion_runs (
     finished_at     TIMESTAMPTZ
 );
 
--- Added with hybrid retrieval. These MUST be explicit ALTERs: the CREATE TABLE above is
--- IF NOT EXISTS, so on any database that already has ingestion_runs it is a no-op and new
--- columns written into its body would never appear. NULL means "ingested before the
--- lexical index existed", which is what `python -m app.backfill --repair` selects on.
-ALTER TABLE ingestion_runs ADD COLUMN IF NOT EXISTS lexical_indexed BOOLEAN;
-ALTER TABLE ingestion_runs ADD COLUMN IF NOT EXISTS lexical_error   TEXT;
+-- Dropped with the OpenSearch experiment: these tracked whether a document's chunks had
+-- been mirrored into the lexical index. Explicit DROPs rather than a silent deletion from
+-- the CREATE TABLE above, because that statement is IF NOT EXISTS and would leave the
+-- columns stranded on every database that already has them. They only ever held
+-- bookkeeping for an index that no longer exists.
+ALTER TABLE ingestion_runs DROP COLUMN IF EXISTS lexical_indexed;
+ALTER TABLE ingestion_runs DROP COLUMN IF EXISTS lexical_error;
 """
 
 pool: ConnectionPool | None = None

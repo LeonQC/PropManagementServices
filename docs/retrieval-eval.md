@@ -354,351 +354,90 @@ rather than a filtering one.
 
 ---
 
-# Hybrid retrieval (pgvector + OpenSearch BM25)
+# Hybrid retrieval (pgvector + OpenSearch BM25) — built, measured, removed
 
-## Pre-registration
+**Status: reverted.** The BM25 half was built, measured, shipped, and then taken out again
+in review. This section records what it measured and why it went, because both halves are
+worth keeping.
 
-*Written before any hybrid code existed or any hybrid number was measured. The point of
-committing this first is that the sweep data below already constrains what hybrid can
-possibly do, and it is far too easy to discover the "expected" result afterwards.*
+## Why it was removed
 
-### The correction that motivates it
+It kept a second copy of the corpus. Every chunk's text lived in `document_chunks` *and*
+in an OpenSearch `document_chunks_v1` index, dual-written on every ingest, with a backfill
+command, a sync-status endpoint, a degradation path and two extra columns on
+`ingestion_runs` to keep the copies honest. That is a lot of machinery — and a standing
+consistency problem — to carry for a ranking gain.
 
-The Limitations section above says the hybrid-BM25 idea was "solving a problem this system
-does not have." Re-reading [`eval-results-sweep.json`](../scripts/eval-results-sweep.json)
-across all 36 configurations, that verdict is **right about recall and wrong about
-ranking**.
+And by the time it was reviewed, the gain was gone. The cross-encoder A/B in the next
+section includes a `dense +rerank` arm, and it is **identical to `hybrid +rerank` on every
+metric**:
 
-| | |
-|---|---|
-| `recall@fetch` | **0.988 in all 36 configs** — not approximately, identically |
-| `recall@final` | a pure function of `MaxContextChunks`: 0.713 (k=5) / 0.800 (k=8) / 0.887 (k=12) |
-| effect of `MinScore` ∈ {0.10, 0.15, 0.20} on recall | **0.000** |
-| effect of `RelativeFloor` ∈ {0.00, 0.35, 0.55} on recall | **0.000** (only 0.70 bites, −0.013) |
-
-Right about recall: a deal-scoped query fetches ~17 of ~17 chunks, so BM25 has nothing
-left to find. Exactly one positive question out of 80 fails to retrieve its gold at
-top-20.
-
-Wrong about ranking: if the floors move recall by 0.000 and the only variable that moves
-it is *how many chunks fit*, then the entire 0.800 → 0.988 gap is chunks that **were
-retrieved and then out-ranked**. That is a problem BM25 might actually address — and it is
-the one the section above already named in its closing line, "a ranking limitation rather
-than a filtering one."
-
-So the honest statement of what is being tested:
-
-> This experiment tests whether averaging BM25 rank into cosine rank produces a better
-> top-8. It does **not** test whether BM25 finds documents dense retrieval missed, because
-> on this corpus nothing is missed.
-
-### Hypothesis
-
-Holding `MinScore=0.15`, `RelativeFloor=0.55`, `MaxContextChunks=8`, `FetchTopK=20` fixed,
-hybrid RRF ordering raises `recall@final` from **0.800** toward the `recall@fetch` ceiling
-of **0.988**. The largest movement should appear in `cross-document` (0.45) and in the
-`single-fact` failures that are lexical in character — APN lookups and asking-price
-figures, where an exact token beats a paraphrase.
-
-### Control, expected to stay flat
-
-`recall@fetch`. It cannot move by more than 0.013 — one question — on this corpus. It will
-be reported as a control, and a hybrid arm that "improves" it has not demonstrated
-anything.
-
-### Guard rail
-
-Off-domain `abstainRate`, currently 0.90 at `MinScore=0.15`. BM25 will happily return hits
-for *"best recipe for sourdough bread?"* — `proptrack_text` tokenises it into terms that
-occur in the corpus. The only thing preventing hybrid from destroying abstention is that
-those chunks' cosine is ~0.07 and dies at `MinScore`. This is the reason the fused score is
-**not** written into the `score` field: the floors are calibrated on the cosine scale and
-the feature's ability to decline depends on them. If abstention degrades anyway, that is a
-finding to report, not a footnote.
-
-### Held constant across arms
-
-`MaxContextChunks`. It is the only variable that moves recall today (by 0.087–0.174), so
-comparing modes at different values of it would swamp the mode effect entirely.
-
-### Secondary experiments, and why they are needed
-
-In deal-scoped mode dense retrieval returns the *whole* haystack, so every BM25 hit is
-also in the dense list and RRF degenerates to harmonic rank-averaging of two orderings
-over the same ~17 items. The returned *set* is identical to dense's; only the order
-changes. Given the table above, order is the only thing that matters here — but it means
-the primary run cannot observe RRF's recall mechanism at all. Two secondary runs can:
-
-- **`--fetch-k 5`** truncates the haystack for real, so the two ranked lists differ and
-  `recall@fetch` becomes a genuine outcome variable.
-- **`--no-deal-scope`** widens the haystack to all 1,147 chunks. Clearly secondary — the
-  gold labels are per-deal, so this is not the shipped feature — but it is where BM25's
-  recall contribution can show, and it demonstrates the most important thing in this whole
-  section: **the `dealId` filter, not the retriever, is what makes this feature's recall
-  look good.**
-
-### Pre-committed outcome
-
-If hybrid does not beat dense, that will be reported as the result and `SEARCH_MODE` stays
-`dense`. On a corpus where the mechanism provably cannot help recall, a measured negative
-is the more useful artifact.
-
-## Retrieval results: dense vs lexical vs hybrid
-
-Same corpus as above — 54 properties, 428 documents, 1,147 chunks — now indexed in both
-pgvector and OpenSearch. Filters fixed at the production `min=0.15 / rel=0.55`; the only
-variables are mode, `rrf_k`, and `MaxContextChunks`.
-
-| mode | R@fetch (control) | **R@final** | MRR | mean depth | cross-doc | off-domain abstain |
-|---|---|---|---|---|---|---|
-| dense (`k=8`) | 0.988 | **0.800** | 0.639 | 4.8 | 0.45 | 0.90 |
-| lexical (`k=8`) | 0.988 | **0.950** | 0.742 | 2.6 | 0.90 | 0.90 |
-| hybrid rrf=10 (`k=8`) | 1.000 | **0.938** | 0.724 | 3.1 | 0.75 | 0.90 |
-| hybrid rrf=20 (`k=8`) | 1.000 | 0.925 | 0.723 | 3.2 | 0.70 | 0.90 |
-| hybrid rrf=60 (`k=8`) | 1.000 | 0.912 | 0.720 | 3.3 | 0.70 | 0.90 |
-| dense (`k=12`) | 0.988 | 0.887 | 0.639 | 4.8 | 0.60 | 0.90 |
-| lexical (`k=12`) | 0.988 | 0.975 | 0.742 | 2.6 | 1.00 | 0.90 |
-| hybrid rrf=10 (`k=12`) | 1.000 | 0.975 | 0.724 | 3.1 | 0.90 | 0.90 |
-
-The hypothesis predicted 0.800 → toward 0.988. Measured 0.938 for hybrid at the
-pre-registered point, and the prediction that a smaller `rrf_k` would win held: 0.938 at
-`rrf_k=10` > 0.925 at 20 > 0.912 at 60, exactly as the flat-fused-score argument implied.
-Mean depth-to-satisfy fell from 4.8 to 3.1, and on `cross-document` — where the metric is
-the rank of the *second* required source — from 9.8 to 6.2. That is the mechanism working
-as intended: fusion is not finding new chunks, it is moving the needed ones above the cut.
-
-Both guard rails held. Off-domain abstention is **0.90 in every mode**, unchanged from
-dense. This is the single most important line in the table: BM25 happily returns chunks
-for *"best recipe for sourdough bread?"*, and they are discarded because `score` stayed on
-the cosine scale and those chunks score ~0.07. Had the fused score been written into
-`score`, this column would have collapsed. The `rel=0.00` arm is identical to `rel=0.55`
-(0.912 both), so the relative floor is not vetoing fusion either.
-
-### The result that matters more than the table
-
-Pure BM25 apparently beating hybrid is a suspicious shape, and it does not survive
-inspection. The eval scores a retrieval as correct when a chunk **contains the gold
-snippet** — a lexical criterion. Measuring how much of each gold snippet the question
-already contains verbatim ([`analyze_lexical_bias.py`](../scripts/analyze_lexical_bias.py)):
-
-| slice | mean share of gold-snippet tokens already in the question |
-|---|---|
-| `table-lookup` | **1.00** (20/20 fully overlapping) |
-| `cross-document` | **1.00** (20/20) |
-| `single-fact` | 0.57 (11/40) |
-
-So 51 of 80 positive questions hand BM25 every token it needs, and the comparison on those
-is partly grading the question generator. Splitting by that stratum, at `k=8`:
-
-| mode | zero overlap (n=9) | partial (n=20) | full (n=51) | all (n=80) |
+| config (`k=8`) | R@final | MRR | depth | cross-doc |
 |---|---|---|---|---|
-| dense | 0.89 | 0.80 | 0.78 | 0.80 |
-| lexical | **0.78** | 1.00 | 0.96 | 0.95 |
-| hybrid rrf=10 | **1.00** | 1.00 | 0.90 | 0.94 |
+| hybrid rrf=10 + rerank | 0.975 | 0.794 | 2.4 | 0.90 |
+| **dense + rerank** | **0.975** | **0.794** | **2.4** | **0.90** |
 
-**On the nine questions where BM25 gets no free token, pure lexical is the worst mode —
-worse than the dense baseline it appeared to beat by 15 points overall.** It stays at 0.78
-even at `k=12`, where dense reaches 1.00: giving it a bigger budget does not help, because
-the chunk it needs is not in its candidate set at all. That is the structural weakness of
-lexical retrieval — blindness to paraphrase — showing up exactly where the question set
-stops hiding it.
+Not close — the same numbers. The same holds on the unscoped haystack (0.062 both). Once a
+cross-encoder reads the query and the chunk together, whatever BM25 was contributing to the
+ordering it already had. The lexical index was paying storage, write-path complexity and a
+sync invariant for a signal that a later stage subsumed.
 
-Hybrid is the only mode that is **never worse than dense in any stratum**. That is the
-argument for fusion, and here it is measured rather than asserted. The nine-question
-stratum is small and one question moves it by 11 points, so the direction is worth more
-than the magnitude.
+If a lexical signal is ever wanted again, the cheap version is Postgres full-text search on
+the `text` column already in `document_chunks` — a `tsvector` and a GIN index, the pattern
+listings-service already uses for properties. Same store, no second copy, no sync.
 
-### Secondary: the haystack was doing the work
+### Measured after the removal
 
-| | dense | lexical | hybrid rrf=10 |
-|---|---|---|---|
-| deal-scoped, fetch=20 — R@fetch | 0.988 | 0.988 | 1.000 |
-| **fetch=5** (haystack truncated) — R@fetch | 0.713 | 0.912 | 0.875 |
-| **no `dealId` filter** (all 1,147 chunks) — R@fetch | 0.188 | 0.237 | 0.237 |
-| no `dealId` filter — R@final | 0.087 | 0.138 | 0.100 |
+Shipped config on the current stack (cosine over pgvector + `bge-reranker-base`,
+`min=0.375 / rel=0.55 / k=12`, `bge-m3` embeddings), all 100 questions:
 
-At `fetch=5` the two ranked lists genuinely differ and `recall@fetch` becomes a real
-outcome: dense 0.713 against hybrid 0.875. So BM25 *does* contribute recall, not only
-order — the primary run simply cannot show it, because there a deal-scoped fetch of 20
-already returns all ~17 chunks.
+| slice | R@fetch | R@final | MRR | depth |
+|---|---|---|---|---|
+| single-fact (40) | 1.00 | **1.00** | 0.75 | 2.1 |
+| table-lookup (20) | 1.00 | **1.00** | 1.00 | 1.0 |
+| cross-document (20) | 1.00 | **0.95** | 0.68 | 4.0 |
+| **all positive (80)** | **1.00** | **0.99** | | |
 
-The unscoped row is the most useful number in this document and the least flattering.
-Remove the `dealId` filter and every mode collapses to 0.19–0.24 recall, with
-`cross-document` at 0.00 across the board. **The metadata filter, not the retriever, is
-what makes this feature's recall look good.** Any future feature that widens the haystack —
-a Rovo-style assistant searching across deals — should expect these numbers, not the ones
-in the headline table.
+Off-domain abstention **1.00**, `unanswerable` 0.00 (unchanged — the prompt declines those,
+not the floor). Recall lost between fetch and prompt: **0.01**.
 
-## Generation results (RAGAS), dense vs hybrid
+The last hybrid+rerank measurement was 1.000 at the same context budget, so the removal
+costs at most one cross-document question — and that comparison is not clean anyway, since
+the embedding model changed to `bge-m3` in between. What it does establish is that the
+retrieval quality the OpenSearch experiment was chasing is fully present without it.
 
-Retrieval improving is not the same as answers improving. Both arms below are full
-100-question runs through the real `/ai/v1/deals/{id}/ask` endpoint, free tier only, with
-ai-service restarted between them (it has no per-request mode).
+## What it measured while it was in (kept for the record)
 
-| metric | dense | hybrid | delta |
-|---|---|---|---|
-| **answer states the expected value** | 0.825 | **0.950** | **+0.125** |
-| NonLLMContextRecall | 0.838 | 0.944 | +0.106 |
-| NonLLMContextPrecisionWithReference | 0.624 | 0.695 | +0.071 |
+Deal-scoped, 54 properties / 428 documents / 1,147 chunks, filters at `min=0.15 / rel=0.55`:
 
-The first row is the one that matters and the only one that is not a retrieval metric in
-disguise: it is a deterministic check that the answer text contains the expected figure.
-**Twelve and a half points more of the question set now gets the right number stated.**
+| mode | R@fetch (control) | R@final | MRR | depth | cross-doc | off-domain abstain |
+|---|---|---|---|---|---|---|
+| dense (`k=8`) | 0.988 | 0.800 | 0.639 | 4.8 | 0.45 | 0.90 |
+| lexical (`k=8`) | 0.988 | 0.950 | 0.742 | 2.6 | 0.90 | 0.90 |
+| hybrid rrf=10 (`k=8`) | 1.000 | 0.938 | 0.724 | 3.1 | 0.75 | 0.90 |
 
-The cross-harness check holds in both arms, which is what makes the comparison
-trustworthy: RAGAS `NonLLMContextRecall` runs +0.037 above `eval_retrieval.py`'s
-recall@final for dense and +0.031 for hybrid. Two independent implementations — one C#
-mirrored in Python, one a third-party library — move together. A gap that changed between
-arms would have meant the mirror had drifted and the whole comparison was measuring the
-harness.
+End to end, `answer states the expected value` went 0.825 → 0.950.
 
-> **Measured at `rrf_k=60`, not the recommended 10.** ai-service does not send `rrfK`, so
-> both arms used the server default at the time. `rrf_k=60` is the *weakest* hybrid
-> configuration in the retrieval sweep (0.912 against 0.938 at `rrf_k=10`), so +0.125 is a
-> lower bound rather than the expected figure. Re-running the generation arm at
-> `rrf_k=10` is the obvious next measurement; it was not worth another 100 generation calls
-> to confirm a direction the retrieval sweep already establishes three separate ways.
+Four findings from that work outlived it:
 
-### The partial arm that nearly got reported
-
-The first hybrid attempt returned **0.981** context recall and 0.963 answer-correctness —
-numbers I nearly wrote down. They were wrong. An access token expired 45 questions in, and
-the 54 that survived contained *no `cross-document` questions at all*: the run had quietly
-dropped the hardest slice and scored the easy remainder. The complete arm scores 0.944 and
-0.950.
-
-Nothing errored. The script exited 0 and printed a clean summary. The only symptom was
-`sampleCount: 54` where a full arm has 80 — which is exactly the kind of thing that gets
-skimmed past. `eval_ragas.py` now refreshes its token and retries, and writes `complete`
-and `coverageBySlice` into its output so a subset cannot be mistaken for a full run.
-
-## Recommended change (hybrid)
-
-`SEARCH_MODE=hybrid`, `RRF_K=10`, and `Retrieval__Mode=hybrid` on ai-service. At the
-production `k=8` that is recall@final 0.800 → 0.938, cross-document 0.45 → 0.75, mean depth
-4.8 → 3.1, off-domain abstention unchanged at 0.90, for one extra OpenSearch query per
-search. End to end, measured at the more conservative `rrf_k=60`, the share of questions
-whose answer states the expected figure goes 0.825 → 0.950.
-
-Reverting is one environment variable in either service; nothing else changes, because
-dense mode is byte-identical to the pre-hybrid behaviour and
-[`check_dense_regression.py`](../scripts/check_dense_regression.py) is what proves it.
-
-Not pure lexical, despite its higher headline number: it wins the stratum the question set
-biases toward and loses the one it does not, which is the wrong trade for real questions
-that paraphrase rather than quote.
-
-The end-to-end effect is visible on the question that opens this document. Same deal, same
-question, `Retrieval__Mode` flipped:
-
-> **dense** — "The excerpts don't explicitly label a 'seller asking price'…" then quotes the
-> LOI's $67,466,000 purchase price.
->
-> **hybrid** — "The Offering Memorandum lists an **asking price of $67,834,000** ($342/SF,
-> 6.69% cap rate) [S3]" and goes on to contrast it with the LOI.
-
-The OM chunk carrying that figure has a cosine score of 0.3088 — inside dense's top-20 but
-below its top-8 cut. BM25 ranks it first, RRF lifts it, and the answer changes from a
-hedge to the correct figure plus the discrepancy.
-
-## How it is built
-
-pgvector remains the source of truth. OpenSearch only *proposes* candidates: a lexical hit
-with no `document_chunks` row under the current embedding model is dropped and counted, so
-the two stores can drift without producing a wrong answer.
-
-- **Index** — `document_chunks_v1`, owned by ingestion-service
-  ([`app/lexical.py`](../src/IngestionService/app/lexical.py)), reusing search-service's
-  `proptrack_text` analyzer plus a `text.exact` subfield that skips stemming. The exact
-  subfield is what APNs, `$67,834,000` and `6.69%` need; adding one later would require a
-  full reindex, so it went in up front.
-- **Key** — `{documentId}:{chunkIndex}`, not `document_chunks.id`. The bigserial is
-  re-minted on every re-ingest (delete-then-insert), so it cannot join across stores; the
-  composite is stable and already indexed by the table's `UNIQUE` constraint.
-- **`embedding_model` is deliberately not indexed.** BM25 has no embedding dependency, and
-  one document per model per chunk would double every term's document frequency — silently
-  changing BM25 ranking as a side effect of an unrelated config change.
-- **Write path** — dual-write in `pipeline.ingest()` after the pgvector transaction
-  commits. A lexical failure never fails the run: parsing and embeddings are the expensive
-  irreversible half, indexing is cheap and replayable. The run records
-  `lexical_indexed` / `lexical_error`, and `--repair` re-indexes exactly those.
-- **Score contract** — `score` is cosine in every mode; ingestion-service back-fills a real
-  cosine value for chunks only BM25 found. Fusion sets the *order* (exposed as `rank`),
-  never the scale. `lexScore` and `fusedScore` are diagnostic.
-
-The one change this forced outside ingestion-service: `RetrievalService` used to re-sort by
-`Score` and then keep a prefix, which would have discarded the fused ordering entirely and
-rebuilt the dense one. It now filters on cosine and orders by `rank`. Without that edit the
-whole A/B would have measured nothing — dense and hybrid would have produced identical
-prompts.
-
-## Reproducing the hybrid comparison
-
-Requires the stack up and the corpus seeded, plus the chunks present in OpenSearch:
-
-```bash
-docker compose exec ingestion-service python -m app.backfill --recreate
-```
-
-Confirm the two stores agree before trusting any number — this is the pre-flight:
-
-```bash
-curl -s localhost:5500/ingestion/v1/lexical/status -H "Authorization: Bearer $TOKEN"
-```
-
-The no-regression gate. Dense mode must still reproduce the pre-hybrid baseline, which is
-what proves the `rank`-ordering change was behaviour-preserving:
-
-```bash
-python3 scripts/eval_retrieval.py --mode dense --out /tmp/regress.json && python3 scripts/check_dense_regression.py /tmp/regress.json
-```
-
-The A/B itself, then the two secondary haystacks and the bias split:
-
-```bash
-python3 scripts/eval_retrieval.py --sweep-mode --out scripts/eval-results-modes.json
-```
-
-```bash
-python3 scripts/eval_retrieval.py --sweep-mode --fetch-k 5 --out scripts/eval-results-modes-fetch5.json
-```
-
-```bash
-python3 scripts/eval_retrieval.py --sweep-mode --no-deal-scope --out scripts/eval-results-modes-unscoped.json
-```
-
-```bash
-python3 scripts/analyze_lexical_bias.py
-```
-
-Two harness properties worth knowing, because both were discovered the hard way:
-
-- The ranked-fetch cache is keyed by `(mode, candidateK, dealScope, rrfK)`, not by question
-  id alone. Keyed by id, the second mode's fetch would serve the first mode's results to
-  every arm — three identical columns reading as "hybrid changed nothing".
-- A partial arm is now a hard error, in **both** harnesses. A mode sweep makes one call per
-  question per arm, which outlives an access token — and it bit twice. In
-  `eval_retrieval.py` the unscoped arms silently dropped to n=25 and still printed a
-  summary. In `eval_ragas.py` it was worse: 45 of 100 questions 401'd, and the surviving 54
-  happened to contain **no `cross-document` questions at all** — the hardest slice — so the
-  arm scored 0.981 context recall and looked like a triumph. Both harnesses now refresh the
-  token and retry, `eval_retrieval.py` refuses to score an arm with any failed search, and
-  `eval_ragas.py` records `complete` plus per-slice coverage in its output file so a subset
-  can never be read as a full run.
-
-  This is the same class of bug as the fetch-cache key and the silent `degraded` fallback,
-  and it is the recurring lesson of this whole exercise: **on an A/B, the dangerous failure
-  is not the one that errors — it is the one that returns a plausible number over the wrong
-  population.** Every guard in these two scripts exists because that happened.
-
-The generation half, which requires ai-service to be restarted with the matching mode
-(it has no per-request mode):
-
-```bash
-scripts/.venv/bin/python scripts/eval_ragas.py --mode hybrid --regenerate
-```
-
----
+1. **The gap was ranking, not recall.** `recall@fetch` is 0.988 in all 36 sweep configs and
+   `recall@final` is a pure function of `MaxContextChunks` — `min_score` and
+   `relative_floor` move it by exactly 0.000. Everything lost is retrieved and then
+   out-ranked. That is what made a reranker the right next thing to try, and the corrected
+   note in [Limitations](#limitations) above says so.
+2. **Keep `score` on one scale.** BM25 returns hits for *"best recipe for sourdough
+   bread?"*; off-domain abstention survived at 0.90 in every mode only because `score`
+   stayed cosine and those chunks still scored ~0.07. The same discipline now protects the
+   reranker: `rank` carries the ordering, `score` never moves. This is the single most
+   reusable thing the experiment produced.
+3. **The question set flatters lexical matching.** 51 of 80 positive questions contain every
+   token of their gold snippet verbatim, because the gold criterion is snippet containment.
+   On the 9 zero-overlap questions pure BM25 scored 0.78 — *worse* than dense's 0.89 — while
+   its headline number was 0.950. [`analyze_lexical_bias.py`](../scripts/analyze_lexical_bias.py)
+   is the audit, and it applies to every future arm.
+4. **The `dealId` filter is doing the work, not the retriever.** Remove it and every mode
+   collapses to 0.19–0.24 recall with cross-document at 0.00. Any future cross-deal feature
+   should budget for those numbers, not the headline ones.
 
 # Cross-encoder reranking (TEI) and diversity reranking
 
@@ -833,9 +572,15 @@ negative — arrived at before building the container — is the more useful art
 Same corpus, same 100 questions, filters fixed at the production `min=0.15 / rel=0.55`.
 The only variables are the rerank and diversity stages.
 
+> **Measured while hybrid retrieval was still in place**, so most arms sit on RRF-fused
+> candidates. The lexical index has since been removed; the `dense +rerank` row is the one
+> that describes current behaviour, and it is identical to `hybrid +rerank` on every metric
+> — which is precisely why the removal costs nothing. See
+> [Reranking makes the lexical retriever redundant](#reranking-makes-the-lexical-retriever-redundant-here--the-finding-that-removed-it).
+
 | config | R@fetch (control) | **R@final** | MRR | depth | cross-doc | chars | off-domain abstain |
 |---|---|---|---|---|---|---|---|
-| hybrid rrf=10 `k=8` (shipped) | 1.000 | **0.938** | 0.724 | 3.1 | 0.75 | 6,125 | 0.90 |
+| hybrid rrf=10 `k=8` (then-shipped) | 1.000 | **0.938** | 0.724 | 3.1 | 0.75 | 6,125 | 0.90 |
 | **hybrid rrf=10 +rerank `k=8`** | 1.000 | **0.975** | **0.794** | **2.4** | **0.90** | 6,125 | 0.90 |
 | hybrid rrf=10 `k=12` (baseline) | 1.000 | 0.975 | 0.724 | 3.1 | 0.90 | 8,087 | 0.90 |
 | dense +rerank `k=8` | 1.000 | 0.975 | 0.794 | 2.4 | 0.90 | 6,125 | 0.90 |
@@ -912,7 +657,7 @@ would now contain a confident and wrong finding that cross-encoder reranking doe
 deal-scoped RAG. The tell was not in the recall numbers; it was in the absolute scores,
 which are only visible because `rerankScore` is returned as a diagnostic field.
 
-### Reranking makes the lexical retriever redundant here
+### Reranking makes the lexical retriever redundant here — the finding that removed it
 
 `dense +rerank` and `hybrid +rerank` are **identical on every metric** — 0.975 / 0.794 /
 2.4 / 0.90. Once a cross-encoder reads the candidates, BM25's contribution to the *ordering*
@@ -920,11 +665,18 @@ disappears entirely, because on a deal-scoped haystack both retrievers hand over
 ~17 chunks and only the order differed. Fusion was doing the reranker's job badly; with a
 reranker in place, it is doing nothing at all.
 
-This does not retire hybrid retrieval: BM25's contribution was always to *candidate
-generation* at the margins (`--fetch-k 5`: dense 0.713 vs hybrid 0.875 recall@fetch), and
-that mechanism is untouched. But it does mean that on the shipped configuration, the RRF
-stage is now redundant with the reranker, and if latency ever needs cutting, the honest
-place to look is the OpenSearch query rather than the reranker.
+**This finding is what retired hybrid retrieval.** It was written here as a caveat — BM25's
+remaining contribution is *candidate generation* at the margins (`--fetch-k 5`: dense 0.713
+vs hybrid 0.875 recall@fetch), which the reranker cannot replace because it only reorders
+what it is given. But `fetch-k 5` is not a configuration anything runs: at the shipped
+`fetch=20` a deal-scoped query already returns the entire haystack, so that margin never
+materialises. Weighed against a second full copy of the corpus, a dual-write on every
+ingest and a sync invariant to police, the lexical index was removed in review. See
+[the hybrid section](#hybrid-retrieval-pgvector--opensearch-bm25--built-measured-removed).
+
+The arms in this section were therefore measured on *fused* candidates. The `dense +rerank`
+row is the one that describes current behaviour — and it is identical, which is the whole
+point.
 
 ### The diversity arm: prediction confirmed, and it is worse than neutral
 
@@ -1158,6 +910,9 @@ still byte-identical to the pre-hybrid baseline —
 it passes with reranking enabled server-side because the harness now sends `rerank`
 explicitly on every request rather than inheriting the deployment default.
 
+(That baseline predates both the lexical index and the reranker, and unreranked retrieval
+still reproduces it exactly — which is what makes it a usable gate across all three eras.)
+
 The end-to-end effect on the question that opens this document's cross-document slice —
 *"What occupancy does this deal report, and do the documents agree?"* on SoDo Office Tower,
 previously a failure whose second source sat at depth 13:
@@ -1166,13 +921,16 @@ previously a failure whose second source sat at depth 13:
 > the Rent Roll reports a different figure: **86.7%** … These sources disagree by roughly
 > 9.9 percentage points.
 
-Two things are deliberately **not** recommended:
+One thing is deliberately **not** recommended:
 
-- **Dropping the RRF stage**, even though `dense +rerank` and `hybrid +rerank` are identical
-  on every deal-scoped metric. BM25's contribution is candidate generation at the margins
-  (`--fetch-k 5`: dense 0.713 vs hybrid 0.875 recall@fetch), which this comparison does not
-  exercise, and removing it would be optimising against a measurement that was never taken.
 - **Reranking on any cross-deal path.** It is actively harmful unscoped (0.100 → 0.062).
+
+> **Superseded:** this section originally also advised *against* dropping the RRF stage, on
+> the grounds that BM25's remaining contribution was candidate generation at the margins
+> (`--fetch-k 5`) which the comparison did not exercise. Review took the other view — that
+> margin does not exist at the shipped `fetch=20`, and a second copy of the corpus is a
+> steep price for a case nothing runs. The lexical index was removed; `dense +rerank` was
+> already measured and is identical, so the numbers above stand.
 
 ## Reproducing the reranking comparison
 
@@ -1186,7 +944,7 @@ The no-regression gate. `--max-chunks 8` is required now that the harness defaul
 shipped `MaxContextChunks=12`, because the frozen baseline is a k=8 artifact:
 
 ```bash
-python3 scripts/eval_retrieval.py --mode dense --max-chunks 8 --out /tmp/regress.json && python3 scripts/check_dense_regression.py /tmp/regress.json
+python3 scripts/eval_retrieval.py --max-chunks 8 --out /tmp/regress.json && python3 scripts/check_dense_regression.py /tmp/regress.json
 ```
 
 The A/B itself, then the unscoped haystack and the floors ablation:
@@ -1200,7 +958,7 @@ python3 scripts/eval_retrieval.py --sweep-rerank --no-deal-scope --out scripts/e
 ```
 
 ```bash
-python3 scripts/eval_retrieval.py --mode hybrid --rerank --no-floors --out scripts/eval-results-rerank-nofloors.json
+python3 scripts/eval_retrieval.py --rerank --no-floors --out scripts/eval-results-rerank-nofloors.json
 ```
 
 ```bash
@@ -1258,7 +1016,7 @@ Declared before running anything:
 - **Prediction** — bge-m3 matches on recall. Cosine *scale* was expected to shift, since
   cosine has no absolute meaning across models, but the `MinScore` consequence was not
   anticipated before the numbers came back.
-- **Same harness, same 100 questions, same arm**: `--mode hybrid --rerank`, `k=12`,
+- **Same harness, same 100 questions, same arm**: `--rerank`, `k=12`,
   `rel=0.55`. Only `EMBEDDING_MODEL` and `--min-score` vary.
 
 ## Results: matched A/B
@@ -1381,8 +1139,8 @@ docker compose exec ingestion-service python -m app.reembed --model embed-local
 docker compose --profile local-embeddings up -d ingestion-service
 
 # 4. measure — and sweep the floor with the harness, not offline
-python3 scripts/eval_retrieval.py --mode hybrid --rerank --min-score 0.375
-python3 scripts/eval_retrieval.py --sweep --mode hybrid --rerank
+python3 scripts/eval_retrieval.py --rerank --min-score 0.375
+python3 scripts/eval_retrieval.py --sweep --rerank
 ```
 
 Swap `embed-local` for `embed-openai` in steps 3–4 to reproduce the other arm; both tags

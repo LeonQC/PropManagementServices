@@ -95,8 +95,8 @@ def ask(token: str, deal_id: str, question: str) -> dict:
 
 # ---------- collecting answers ----------
 
-def retrieved_context(token: str, question: str, deal_id: str, mode: str = "dense",
-                      rrf_k: int | None = None, rerank: bool = False) -> list[str]:
+def retrieved_context(token: str, question: str, deal_id: str,
+                      rerank: bool = False) -> list[str]:
     """The chunk texts that actually reached the prompt, reconstructed.
 
     NOT the answer's citations. Citations are only the sources the model chose to
@@ -111,10 +111,9 @@ def retrieved_context(token: str, question: str, deal_id: str, mode: str = "dens
     both harnesses scoring the same quantity — which is what makes the
     NonLLMContextRecall / recall@final cross-check meaningful at all."""
     chunks = eval_retrieval.search(token, question, deal_id, eval_retrieval.FETCH_TOP_K,
-                                   mode=mode, rrf_k=rrf_k, rerank=rerank)
+                                   rerank=rerank)
     return [c["text"] for c in eval_retrieval.apply_filters(
-        chunks, eval_retrieval.Config(mode=mode, rrf_k=rrf_k or eval_retrieval.RRF_K,
-                                      rerank=rerank))]
+        chunks, eval_retrieval.Config(rerank=rerank))]
 
 
 def gold_chunk_texts(token: str, question: dict) -> list[str]:
@@ -135,12 +134,12 @@ def gold_chunk_texts(token: str, question: dict) -> list[str]:
     for gold in question.get("gold", []):
         if not gold.get("documentId"):
             continue
-        # Pinned to dense on purpose, whatever arm is being scored. This call reads the
+        # Reranking pinned off, whatever arm is being scored. This call reads the
         # index rather than ranking it, and the reference set has to be byte-identical
         # across arms — a reference that shifts with the retriever would make a
-        # dense-vs-hybrid comparison meaningless.
+        # comparison between arms meaningless.
         payload = {"query": gold["snippet"], "dealId": question["dealId"],
-                   "documentId": gold["documentId"], "topK": 20, "mode": "dense"}
+                   "documentId": gold["documentId"], "topK": 20, "rerank": False}
         try:
             chunks = _request("POST", f"{eval_retrieval.INGESTION_URL}/ingestion/v1/search",
                               token=token, payload=payload)["data"]["chunks"]
@@ -153,8 +152,8 @@ def gold_chunk_texts(token: str, question: dict) -> list[str]:
     return texts
 
 
-def collect(token: str, questions: list[dict], mode: str = "dense",
-            rrf_k: int | None = None, relogin=None, rerank: bool = False) -> list[dict]:
+def collect(token: str, questions: list[dict],
+            relogin=None, rerank: bool = False) -> list[dict]:
     """Run every question through the real endpoint and keep what RAGAS needs.
 
     This is the expensive half — one full Deal Q&A call per question, billed to
@@ -176,7 +175,7 @@ def collect(token: str, questions: list[dict], mode: str = "dense",
             try:
                 collected = (
                     ask(token, q["dealId"], q["question"]),
-                    retrieved_context(token, q["question"], q["dealId"], mode, rrf_k, rerank),
+                    retrieved_context(token, q["question"], q["dealId"], rerank),
                     gold_chunk_texts(token, q),
                 )
                 break
@@ -329,30 +328,25 @@ def answer_contains_expected(rows: list[dict]) -> tuple[float, int]:
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--questions", type=Path, default=Path("scripts/eval-questions.json"))
-    ap.add_argument("--mode", choices=eval_retrieval.MODES, default="dense",
-                    help="retrieval mode being scored. MUST match ai-service's configured "
-                         "Retrieval__Mode — ai-service has no per-request mode, so the "
-                         "answers come from whatever it was restarted with.")
-    ap.add_argument("--rrf-k", type=int, default=eval_retrieval.RRF_K)
-    # Same restart-between-arms caveat as --mode, but the container to restart is
-    # INGESTION-service (RERANK_ENABLED), not ai-service. Restarting the wrong one
-    # produces two arms that are byte-identical and look like "reranking changed
-    # nothing" — the failure this harness has already been bitten by twice.
+    # ai-service has no per-request retrieval knobs, so the answers come from whatever
+    # ingestion-service was restarted with: this flag must match RERANK_ENABLED there.
+    # Getting it wrong produces two arms that are byte-identical and look like "reranking
+    # changed nothing" — the failure this harness has already been bitten by twice.
     ap.add_argument("--rerank", action="store_true",
                     help="score the cross-encoder rerank arm. MUST match what's enabled "
                          "on ingestion-service (RERANK_ENABLED).")
-    # Cache path defaults per mode. With one shared path, running hybrid after dense
-    # rescores dense's cached answers against hybrid's contexts and reports the mixture
-    # as a hybrid result.
+    # Cache path defaults per arm. With one shared path, running the rerank arm after the
+    # control rescores the control's cached answers against the rerank arm's contexts and
+    # reports the mixture as a rerank result.
     ap.add_argument("--answers", type=Path, default=None,
                     help="cache of generated answers; reused by --repeats "
-                         "(default: eval-answers-<mode>.json)")
+                         "(default: eval-answers-<arm>.json)")
     # Default output is tier-specific. With one shared filename, a free run
     # silently overwrites the judged results — which is backwards: the cheap,
     # repeatable artifact clobbers the expensive one that cost ~1,300 judge calls
     # to produce. An explicit --out still wins.
     ap.add_argument("--out", type=Path, default=None,
-                    help="default: eval-ragas-results[-free]-<mode>.json")
+                    help="default: eval-ragas-results[-free]-<arm>.json")
     ap.add_argument("--email", default="admin@proptrack.local")
     ap.add_argument("--password", default="ChangeMe123!")
     ap.add_argument("--judge-model", default="judge-default",
@@ -377,7 +371,7 @@ def main() -> int:
         print(f"No question set at {args.questions}. Run build_eval_set.py first.", file=sys.stderr)
         return 1
 
-    suffix = f"{args.mode}-rr" if args.rerank else args.mode
+    suffix = "rerank" if args.rerank else "cosine"
     if args.answers is None:
         args.answers = Path(f"scripts/eval-answers-{suffix}.json")
 
@@ -401,7 +395,7 @@ def main() -> int:
                   f"Is the stack up? `docker compose up -d`", file=sys.stderr)
             return 1
         print(f"Asking {len(questions)} question(s) through /ai/v1/deals/.../ask...", file=sys.stderr)
-        rows = collect(token, questions, args.mode, args.rrf_k, rerank=args.rerank,
+        rows = collect(token, questions, rerank=args.rerank,
                        relogin=lambda: login(args.email, args.password))
         args.answers.write_text(json.dumps(rows, indent=2) + "\n")
         print(f"Cached {len(rows)} answer(s) to {args.answers}", file=sys.stderr)
@@ -490,8 +484,7 @@ def main() -> int:
               f"to a full run. ***", file=sys.stderr)
 
     payload = {"tier": "llm-judged" if args.llm_judge else "free",
-               "mode": args.mode,
-               "rrfK": args.rrf_k if args.mode == "hybrid" else None,
+               "rerank": args.rerank,
                "rerank": args.rerank,
                "judgeModel": args.judge_model if args.llm_judge else None,
                "sampleCount": len(dataset),

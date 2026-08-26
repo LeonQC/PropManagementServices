@@ -13,8 +13,7 @@ unchanged; if chunking changed, this would carry stale boundaries forward under 
 
 Rows are added, not replaced (the unique key includes embedding_model), so both models
 coexist and reverting is a config flip. Run this BEFORE flipping EMBEDDING_MODEL and there
-is no window where search returns empty. OpenSearch needs nothing: lexical.py keeps
-embedding_model out of its mapping.
+is no window where search returns empty.
 """
 
 import argparse

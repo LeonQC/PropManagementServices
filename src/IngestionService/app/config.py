@@ -21,30 +21,11 @@ class Settings(BaseSettings):
     embedding_model: str = "embed-openai"
     embedding_dimensions: int = 1024
 
-    # --- lexical / hybrid retrieval (OpenSearch BM25) ---
-    opensearch_url: str = "http://localhost:9200"
-    opensearch_index: str = "document_chunks_v1"
-    opensearch_timeout: float = 5.0
-
-    # Dual-write toggle. Off means the service behaves exactly as it did before hybrid
-    # existed; the index simply stops receiving new chunks.
-    lexical_enabled: bool = True
-
-    # Default mode when a request omits one: dense | lexical | hybrid.
-    search_mode: str = "dense"
-
-    # RRF's rank-smoothing constant. The conventional 60 was tuned for TREC runs of ~1000;
-    # over a deal's ~17 chunks it flattens the fused score badly (rank-1 to rank-20 weight
-    # ratio 1.31x, against 2.73x at k=10). Swept rather than assumed — see docs/retrieval-eval.md.
-    rrf_k: int = 60
-
-    # Per-source candidate depth. MUST stay independent of the request's topK: the eval
+    # Candidate depth. MUST stay independent of the request's topK: the eval
     # harness caches one ranked list per question and truncates it to simulate smaller
     # topK values, which is only valid if a shorter request returns a prefix of a longer
     # one. Deriving this from topK would make that optimisation silently wrong.
     candidate_k: int = 50
-
-    lexical_min_should_match: str | None = None
 
     # --- cross-encoder reranking (via the LiteLLM proxy) ---
     # A LiteLLM `model_list` entry, not a URL: tei-rerank's address is known only to the

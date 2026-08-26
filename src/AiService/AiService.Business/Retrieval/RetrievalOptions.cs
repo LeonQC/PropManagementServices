@@ -57,20 +57,4 @@ public class RetrievalOptions
     /// <summary>Cap on characters of chunk text placed in the prompt, as a backstop
     /// against a pathological document blowing out the context window.</summary>
     public int MaxContextChars { get; set; } = 24_000;
-
-    /// <summary>
-    /// Retrieval mode requested from ingestion-service: <c>dense</c> (pgvector cosine
-    /// only), <c>lexical</c> (OpenSearch BM25 only), or <c>hybrid</c> (both, fused with
-    /// reciprocal rank fusion). Null sends nothing and lets ingestion-service apply its
-    /// own default, which keeps the strategy a deployment decision.
-    ///
-    /// <para>Whichever mode is in force, <see cref="MinScore"/> and
-    /// <see cref="RelativeFloor"/> keep filtering on cosine similarity — ingestion-service
-    /// back-fills a real cosine score for chunks only BM25 found, so the calibration above
-    /// holds in every mode. Fusion changes the *order* chunks arrive in, never the scale
-    /// they are judged on. That separation is deliberate: it is what stops BM25's
-    /// willingness to match off-domain questions from eroding the feature's ability to
-    /// decline them.</para>
-    /// </summary>
-    public string? Mode { get; set; }
 }

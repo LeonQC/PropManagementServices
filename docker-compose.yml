@@ -286,26 +286,11 @@ services:
       # far less than the pipeline working from a cold start. The alternative is
       # adding g++ to the image, which is a much larger build for no real gain.
       TORCHDYNAMO_DISABLE: "1"
-      # Hybrid retrieval: the BM25 half. Chunks are dual-written to OpenSearch alongside
-      # pgvector, and /ingestion/v1/search fuses the two with RRF. This service owns the
-      # document_chunks_v1 index; search-service's properties/deals indices are unrelated
-      # and live in the same cluster only because it is the same dev box.
-      OPENSEARCH_URL: "http://opensearch:9200"
-      OPENSEARCH_INDEX: "document_chunks_v1"
-      # Default mode when a request omits one. Hybrid won the A/B in docs/retrieval-eval.md:
-      # recall@final 0.800 -> 0.938 and answer-states-expected-value 0.825 -> 0.950, with
-      # off-domain abstention unchanged. Set to "dense" to revert; nothing else changes.
-      SEARCH_MODE: "hybrid"
-      # 10, not the conventional 60. RRF's constant was tuned for TREC runs of ~1000
-      # results; over a deal's ~17 chunks k=60 flattens the fused score to a 1.31x
-      # rank-1-to-rank-20 ratio and the ordering stops discriminating. Swept: 0.938 (10) >
-      # 0.925 (20) > 0.912 (60).
-      RRF_K: "10"
       CANDIDATE_K: "50"
-      # Cross-encoder reranking over the top-30 fused candidates. Won the A/B in
-      # docs/retrieval-eval.md: recall@final 0.938 -> 1.000 and cross-document 0.75 -> 1.00
-      # at MaxContextChunks=12, with off-domain abstention unchanged. Set to "false" to
-      # revert; nothing else changes and dense/hybrid behaviour is untouched.
+      # Cross-encoder reranking over the top-30 candidates. Won the A/B in
+      # docs/retrieval-eval.md: it is what recovers the ranking headroom the OpenSearch
+      # experiment was chasing, without a second copy of the corpus. Set to "false" to
+      # revert; nothing else changes.
       #
       # The cost is latency: median search 0.23s -> 2.75s (p95 3.94s) on CPU.
       # No URL here: the reranker is reached through LITELLM_BASE_URL like the embedding
@@ -319,7 +304,6 @@ services:
       - minio
       - litellm
       - auth-service
-      - opensearch
       - tei-rerank
 
   search-service:
@@ -383,12 +367,6 @@ services:
       # Never bake the key into the image or commit it.
       Anthropic__ApiKey: ${ANTHROPIC_API_KEY:-}
       Anthropic__Model: "claude-sonnet-5"
-      # Retrieval strategy: dense | lexical | hybrid. Flipping this and restarting
-      # ai-service is the whole A/B — see docs/retrieval-eval.md. Requires the chunks to
-      # be present in OpenSearch (`compose exec ingestion-service python -m app.backfill`);
-      # if they are not, ingestion-service degrades to dense and says so in its response,
-      # which ai-service logs as a warning.
-      Retrieval__Mode: "hybrid"
     depends_on:
       - ai-db
       - auth-service

@@ -4,7 +4,7 @@
 This regenerates the table in docs/retrieval-eval.md that justifies NOT implementing MMR.
 The diversity stage was built, measured as harmful, and deleted, so the eval harness can no
 longer produce those arms — but the *simulation* needs nothing from the server beyond a
-normal hybrid search, because both operators are pure re-orderings of a ranked list:
+normal search, because both operators are pure re-orderings of a ranked list:
 
   - MMR:   lambda * cosine(query, chunk) - (1 - lambda) * max cosine(chunk, already-picked)
   - quota: keep the first N chunks of each document in rank order, hold back the rest
@@ -105,7 +105,7 @@ def main() -> int:
     for qid in TARGETS:
         q = questions[qid]
         chunks = ev.search(token, q["question"], q["dealId"], 20,
-                           mode="hybrid", rrf_k=ev.RRF_K, candidate_k=ev.CANDIDATE_K)
+                           candidate_k=ev.CANDIDATE_K)
         sim = sim_matrix([(c["documentId"], c["chunkIndex"]) for c in chunks])
         base = ev.depth_to_satisfy(chunks, q)
         row = f"  {qid:<26}{base if base else '-':>6}"

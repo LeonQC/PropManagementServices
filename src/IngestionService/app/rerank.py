@@ -1,14 +1,14 @@
-"""Cross-encoder reranking: the third stage of hybrid retrieval.
+"""Cross-encoder reranking: the second stage of retrieval.
 
-Dense retrieval and BM25 both score a chunk *without ever looking at the query and the
-chunk together* — cosine compares two independently-produced vectors, BM25 sums per-term
-statistics. A cross-encoder reads the concatenated pair and emits one relevance score, so
-it can tell "the occupancy figure the rent roll reports" from "a paragraph that happens to
-be about the same building". That is the whole reason for the extra hop.
+Dense retrieval scores a chunk *without ever looking at the query and the chunk together* —
+cosine compares two independently-produced vectors. A cross-encoder reads the concatenated
+pair and emits one relevance score, so it can tell "the occupancy figure the rent roll
+reports" from "a paragraph that happens to be about the same building". That is the whole
+reason for the extra hop.
 
 It reorders; it never retrieves. The candidate set is settled by the time this module is
 called, which is what keeps the contract simple: reranking can change `rank`, and nothing
-else. In particular it does NOT touch `score`, which stays cosine in every mode so that
+else. In particular it does NOT touch `score`, which stays cosine so that
 ai-service's MinScore/RelativeFloor stay calibrated and off-domain questions still abstain
 (see RetrievalOptions.cs and docs/retrieval-eval.md).
 
@@ -37,12 +37,12 @@ import logging
 
 import httpx
 
-from . import fusion
 from .config import settings
 
 log = logging.getLogger("rerank")
 
-Key = fusion.Key
+# (document_id, chunk_index) — the identity a ranked list is expressed in.
+Key = tuple[str, int]
 
 # Pairs per HTTP request. A deal holds ~17 chunks (max 33), so a deal-scoped rerank is
 # normally a single call; the batch only bites on the unscoped haystack, where the pool is
@@ -112,14 +112,14 @@ def score(query: str, texts: list[str]) -> list[float]:
 def order(keys: list[Key], scores: dict[Key, float], cosine: dict[Key, float]) -> list[Key]:
     """Rerank score descending, with a fully deterministic tie-break.
 
-    Same discipline as fusion.order() and for the same reason: an arbitrary order among
+    Deterministic on purpose: an arbitrary order among
     equal scores would make eval runs irreproducible, which quietly poisons an A/B whose
     entire signal is ordering. Cosine descending comes first so ties resolve to the
     pre-rerank behaviour; the key itself then guarantees a total order.
 
     Cross-encoder scores are far more peaked than cosine — a sigmoid output sits at 0.996
-    for a direct answer and 1e-5 for an unrelated chunk — so exact ties are rarer here than
-    in RRF. The tie-break is cheap insurance, not a load-bearing mechanism.
+    for a direct answer and 1e-5 for an unrelated chunk — so exact ties are rare. The
+    tie-break is cheap insurance, not a load-bearing mechanism.
     """
     return sorted(keys, key=lambda key: (-scores.get(key, 0.0), -cosine.get(key, 0.0),
                                          key[0], key[1]))
