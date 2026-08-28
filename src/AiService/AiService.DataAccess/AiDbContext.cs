@@ -37,6 +37,12 @@ public class AiDbContext(DbContextOptions<AiDbContext> options) : DbContext(opti
                 .HasDatabaseName("ix_ai_request_log_feature_created_at");
             e.HasIndex(l => l.EntityId)
                 .HasDatabaseName("ix_ai_request_log_entity_id");
+
+            // "What did one assistant question cost, and how many turns did it take"
+            // is a group-by over this column; without the index it is a table scan of
+            // the whole ledger to find six rows.
+            e.HasIndex(l => l.CorrelationId)
+                .HasDatabaseName("ix_ai_request_log_correlation_id");
         });
 
         base.OnModelCreating(modelBuilder);

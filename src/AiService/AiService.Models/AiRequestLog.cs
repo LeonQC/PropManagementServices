@@ -25,6 +25,16 @@ public class AiRequestLog
     /// <summary>The entity the request was scoped to — the deal id, for Deal Q&amp;A.</summary>
     public string? EntityId { get; set; }
 
+    /// <summary>
+    /// Ties together the several model turns that answer one assistant question.
+    ///
+    /// <para>Deal Q&amp;A is one call per question, so a row is a question. The assistant
+    /// is a tool-use loop, so a question is up to six rows and "how much did that
+    /// question cost" and "did the loop terminate" both stop being answerable from a
+    /// single row. Null for the single-call features, which need no grouping.</para>
+    /// </summary>
+    public string? CorrelationId { get; set; }
+
     public required int InputTokens { get; set; }
     public required int OutputTokens { get; set; }
 
