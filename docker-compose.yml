@@ -363,15 +363,23 @@ services:
       # Used to resolve document ids to file names, so answers can attribute a
       # figure to the document it came from.
       Deals__BaseUrl: "http://deals-service:8080"
+      # Backs the assistant's search tools. OpenSearch-backed, so it tolerates typos and
+      # partial names better than the Postgres deals list it mirrors.
+      Search__BaseUrl: "http://search-service:8080"
       # Supplied via the untracked .env next to this file (see .env.example).
       # Never bake the key into the image or commit it.
       Anthropic__ApiKey: ${ANTHROPIC_API_KEY:-}
       Anthropic__Model: "claude-sonnet-5"
+      # The assistant runs a tool-use loop rather than a single call, and has to hold
+      # "narrow before you retrieve" and "disclose what you capped" across six turns.
+      # Separate from Anthropic__Model so Deal Q&A's cost profile is unchanged.
+      Anthropic__AssistantModel: "claude-opus-5"
     depends_on:
       - ai-db
       - auth-service
       - ingestion-service
       - deals-service
+      - search-service
 
   opensearch:
     # Search engine backing search-service: the cross-entity index (properties today,

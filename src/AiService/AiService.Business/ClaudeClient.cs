@@ -1,6 +1,5 @@
 using System.Diagnostics;
 using AiService.DataAccess;
-using AiService.Models;
 using Anthropic.SDK;
 using Anthropic.SDK.Messaging;
 using Microsoft.Extensions.Logging;
@@ -23,7 +22,8 @@ public class ClaudeException(string message, Exception? inner = null) : Exceptio
 /// </summary>
 public class ClaudeClient(
     IOptions<AnthropicOptions> options,
-    IAiRequestLogRepository requestLog,
+    RequestLedger ledger,
+    ILoggerFactory loggerFactory,
     ILogger<ClaudeClient> logger)
 {
     private readonly AnthropicOptions _options = options.Value;
@@ -31,6 +31,23 @@ public class ClaudeClient(
     public bool IsConfigured => !string.IsNullOrWhiteSpace(_options.ApiKey);
 
     public string Model => _options.Model;
+
+    /// <summary>The model the assistant's tool-use loop runs on.</summary>
+    public string AssistantModel => _options.AssistantModel;
+
+    /// <summary>
+    /// Opens a session for one assistant question: one SDK client shared across the
+    /// loop's turns, and one correlation id shared across their ledger rows.
+    /// </summary>
+    public ClaudeSession StartSession(string feature, string? userId, string? entityId, string correlationId)
+    {
+        if (!IsConfigured)
+            throw new ClaudeException("No Anthropic API key is configured for ai-service.");
+
+        return new ClaudeSession(
+            _options, ledger, loggerFactory.CreateLogger<ClaudeSession>(),
+            _options.AssistantModel, feature, userId, entityId, correlationId);
+    }
 
     public async Task<ClaudeCompletion> CompleteAsync(
         string systemPrompt,
@@ -115,39 +132,14 @@ public class ClaudeClient(
         LogAsync(feature, userId, entityId, chunkCount: 0, 0, 0, 0, succeeded: true,
                  error: null, ct);
 
-    private async Task LogAsync(
+    private Task LogAsync(
         string feature, string? userId, string? entityId, int chunkCount,
         int inputTokens, int outputTokens, int latencyMs, bool succeeded, string? error,
-        CancellationToken ct)
-    {
-        try
-        {
-            await requestLog.AddAsync(new AiRequestLog
-            {
-                Id = "",
-                Feature = feature,
-                Model = _options.Model,
-                UserId = userId,
-                EntityId = entityId,
-                InputTokens = inputTokens,
-                OutputTokens = outputTokens,
-                LatencyMs = latencyMs,
-                CostUsd = EstimateCost(inputTokens, outputTokens),
-                ChunkCount = chunkCount,
-                Succeeded = succeeded,
-                Error = error,
-                CreatedAt = DateTime.UtcNow.ToString("O"),
-            }, ct);
-        }
-        catch (Exception ex)
-        {
-            // A failed ledger write must not turn a good answer into an error for the
-            // user. Loud in the log, invisible in the response.
-            logger.LogError(ex, "Failed to write ai_request_log row for feature {Feature}.", feature);
-        }
-    }
+        CancellationToken ct) =>
+        ledger.RecordAsync(
+            feature, _options.Model, userId, entityId, correlationId: null,
+            chunkCount, inputTokens, outputTokens, latencyMs,
+            _options.InputCostPerMillionTokens, _options.OutputCostPerMillionTokens,
+            succeeded, error, ct);
 
-    private double EstimateCost(int inputTokens, int outputTokens) =>
-        inputTokens / 1_000_000.0 * _options.InputCostPerMillionTokens +
-        outputTokens / 1_000_000.0 * _options.OutputCostPerMillionTokens;
 }

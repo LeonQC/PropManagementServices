@@ -28,6 +28,24 @@ public class AnthropicOptions
     /// </summary>
     public decimal? Temperature { get; set; }
 
+    /// <summary>
+    /// The model the Deal Assistant's tool-use loop runs on, kept separate from
+    /// <see cref="Model"/> so the two features can diverge.
+    ///
+    /// <para>Deal Q&amp;A is one call over retrieved text and Sonnet handles it well.
+    /// The assistant sequences tool calls, has to keep "structured filter before
+    /// document search" straight across six iterations, and has to volunteer that its
+    /// candidate set was capped — instruction-following under a long horizon, which is
+    /// what the stronger model buys. Flipping this is an env var, not a deploy.</para>
+    /// </summary>
+    public string AssistantModel { get; set; } = "claude-opus-5";
+
+    /// <summary>Output cap for an assistant turn. Larger than <see cref="MaxTokens"/>:
+    /// Deal Q&amp;A answers one question from one retrieval, while an assistant answer may
+    /// have to report on ten deals and disclose what it did not check, and a cap that
+    /// truncates that mid-sentence would look like the model losing the thread.</summary>
+    public int AssistantMaxTokens { get; set; } = 4096;
+
     public int TimeoutSeconds { get; set; } = 60;
 
     /// <summary>USD per million input tokens, for the cost column on ai_request_log.
@@ -37,6 +55,14 @@ public class AnthropicOptions
 
     /// <summary>USD per million output tokens.</summary>
     public double OutputCostPerMillionTokens { get; set; } = 15.0;
+
+    /// <summary>Per-million rates for <see cref="AssistantModel"/>. Separate fields
+    /// rather than a lookup: the ledger has to price a row at call time, and two
+    /// features on two models with one price pair would silently misreport whichever
+    /// one didn't own the numbers.</summary>
+    public double AssistantInputCostPerMillionTokens { get; set; } = 5.0;
+
+    public double AssistantOutputCostPerMillionTokens { get; set; } = 25.0;
 }
 
 /// <summary>Ingestion-service connection settings, bound from the "Ingestion" section.</summary>
