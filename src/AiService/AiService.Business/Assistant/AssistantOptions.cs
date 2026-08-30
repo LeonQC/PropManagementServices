@@ -26,14 +26,39 @@ public class AssistantOptions
     /// rather than implying it saw all forty.</summary>
     public int CandidateCap { get; set; } = 10;
 
-    /// <summary>Characters of tool-result text allowed into the conversation, roughly
-    /// 8k tokens. Same units as RetrievalOptions.MaxContextChars, and for the same
-    /// reason: characters are what we can actually count without a tokenizer.</summary>
-    public int MaxContextChars { get; set; } = 24_000;
+    /// <summary>
+    /// Characters of tool-result text allowed into the conversation. Same units as
+    /// RetrievalOptions.MaxContextChars, and for the same reason: characters are what we
+    /// can count without a tokenizer.
+    ///
+    /// <para>48k (~16k tokens), double the ~8k the design doc specifies. Measured: the
+    /// feature's headline question — narrow to four stalled deals, then read each one's
+    /// documents — spends ~4k characters on the structured search and ~4-6k per document
+    /// retrieval, so 24k ran out after three deals and the fourth was never read. The old
+    /// figure was written when the plan was one retrieval per answer; it does not describe
+    /// a loop that retrieves per candidate.</para>
+    ///
+    /// <para>Deliberately not larger. This is the budget that directly buys input tokens,
+    /// and input is roughly three quarters of the cost of a question — the context window
+    /// is nowhere near the limit here, the bill is.</para>
+    /// </summary>
+    public int MaxContextChars { get; set; } = 48_000;
 
-    /// <summary>Wall clock for the whole question. Checked between turns rather than
-    /// enforced mid-stream, so a long final answer is never truncated halfway.</summary>
-    public int WallClockSeconds { get; set; } = 30;
+    /// <summary>
+    /// Wall clock for the whole question. Checked between turns rather than enforced
+    /// mid-stream, so a long final answer is never truncated halfway — which also means a
+    /// turn starting just inside the budget may finish well outside it.
+    ///
+    /// <para>90, not the 30 the design doc specifies. 30 was written before the loop
+    /// existed and does not survive contact with the pattern this feature is built around:
+    /// "which industrial deals are stalling, and what do their documents say?" measured at
+    /// 64s of entirely legitimate work — one structured search plus four scoped document
+    /// retrievals, each embedding a query and running a cross-encoder. At 30s that question
+    /// returns truncated every time, having silently skipped deals it had already
+    /// identified as candidates. A budget that the feature's headline use case cannot meet
+    /// is not a safety limit, it is a guarantee of partial answers.</para>
+    /// </summary>
+    public int WallClockSeconds { get; set; } = 90;
 
     /// <summary>Client-supplied conversation turns kept, most recent first. History is
     /// sent by the client (there is no threads table in v1), so this is what stops an

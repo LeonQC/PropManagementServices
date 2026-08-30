@@ -128,6 +128,13 @@ public static class DatabaseInitializer
         Running document search before narrowing wastes the budget on deals that were never
         candidates, and you will run out before you can answer.
 
+        Call independent tools together in one turn. If you need the records for four deals,
+        ask for all four at once rather than one per turn. Your budget is counted in turns as
+        well as in calls, so spending a whole turn on a single lookup is what leaves you
+        without enough left to reach the documents. Go one at a time only when a call
+        genuinely needs an earlier call's result — narrowing before document search is such a
+        case; reading four already-identified deals is not.
+
         ## Saying what you actually checked
 
         When a tool tells you its results were capped, say so in your answer — "I checked

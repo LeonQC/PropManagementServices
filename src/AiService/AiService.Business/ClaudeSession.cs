@@ -102,6 +102,17 @@ public sealed class ClaudeSession : IDisposable
             Stream = true,
             System = [new SystemMessage(systemPrompt, null)],
             Messages = [.. messages],
+
+            // The system prompt and the six tool definitions are byte-identical on every
+            // turn of every question, and together they are the largest fixed cost in the
+            // loop — a six-turn question replays them six times at full price. Caching that
+            // prefix is one field, and it is exactly the shape prompt caching wants:
+            // stable content first, the volatile conversation after it.
+            //
+            // AutomaticToolsAndSystem, not FineGrained: the growing half is the message
+            // list, and placing breakpoints inside a conversation whose tool results arrive
+            // in a different order per question buys little and invalidates easily.
+            PromptCaching = PromptCacheType.AutomaticToolsAndSystem,
         };
 
         if (tools is { Count: > 0 })
@@ -117,6 +128,8 @@ public sealed class ClaudeSession : IDisposable
         string? stopReason = null;
         var inputTokens = 0;
         var outputTokens = 0;
+        var cacheReadTokens = 0;
+        var cacheWriteTokens = 0;
         var stopwatch = Stopwatch.StartNew();
 
         // The enumerator is stepped by hand so a mid-stream failure can be caught and
@@ -151,6 +164,16 @@ public sealed class ClaudeSession : IDisposable
             inputTokens = Math.Max(inputTokens,
                 Math.Max(e.StreamStartMessage?.Usage?.InputTokens ?? 0, e.Usage?.InputTokens ?? 0));
             outputTokens = Math.Max(outputTokens, e.Usage?.OutputTokens ?? 0);
+
+            // Cached input is reported in its own two bands and is NOT included in
+            // InputTokens, so it has to be read separately or a cache hit looks like the
+            // prompt shrank. Read is the discount; write is the turn that populated it.
+            cacheReadTokens = Math.Max(cacheReadTokens,
+                Math.Max(e.StreamStartMessage?.Usage?.CacheReadInputTokens ?? 0,
+                         e.Usage?.CacheReadInputTokens ?? 0));
+            cacheWriteTokens = Math.Max(cacheWriteTokens,
+                Math.Max(e.StreamStartMessage?.Usage?.CacheCreationInputTokens ?? 0,
+                         e.Usage?.CacheCreationInputTokens ?? 0));
             stopReason = e.Delta?.StopReason ?? e.StopReason ?? stopReason;
 
             // Tool calls arrive fully assembled on the final event — the SDK reassembles
@@ -173,7 +196,13 @@ public sealed class ClaudeSession : IDisposable
             _logger.LogWarning(
                 "Model stopped with stop_reason=tool_use but no tool calls were parsed from the stream.");
 
-        await RecordAsync(inputTokens, outputTokens, (int)stopwatch.ElapsedMilliseconds, true, null, ct);
+        await RecordAsync(inputTokens, outputTokens, (int)stopwatch.ElapsedMilliseconds, true, null, ct,
+                          cacheReadTokens, cacheWriteTokens);
+
+        if (cacheReadTokens + cacheWriteTokens > 0)
+            _logger.LogDebug(
+                "Turn cache usage: {Read} read, {Write} written, {Fresh} uncached.",
+                cacheReadTokens, cacheWriteTokens, inputTokens);
 
         yield return new ClaudeTurnEvent.Completed(new ClaudeTurn(
             text.ToString(), toolUses, stopReason,
@@ -232,12 +261,13 @@ public sealed class ClaudeSession : IDisposable
     }
 
     private Task RecordAsync(
-        int inputTokens, int outputTokens, int latencyMs, bool succeeded, string? error, CancellationToken ct) =>
+        int inputTokens, int outputTokens, int latencyMs, bool succeeded, string? error, CancellationToken ct,
+        int cacheReadTokens = 0, int cacheWriteTokens = 0) =>
         _ledger.RecordAsync(
             _feature, Model, _userId, _entityId, CorrelationId,
             chunkCount: 0, inputTokens, outputTokens, latencyMs,
             _options.AssistantInputCostPerMillionTokens, _options.AssistantOutputCostPerMillionTokens,
-            succeeded, error, ct);
+            succeeded, error, ct, cacheReadTokens, cacheWriteTokens);
 
     public void Dispose()
     {

@@ -18,14 +18,29 @@ public class RequestLedger(
     IAiRequestLogRepository requestLog,
     ILogger<RequestLedger> logger)
 {
+    /// <summary>Cached input is billed at a tenth of the base rate on read, and at a
+    /// quarter above it on write. Without these multipliers, switching prompt caching on
+    /// would silently make every cost in the ledger wrong.</summary>
+    private const double CacheReadMultiplier = 0.1;
+    private const double CacheWriteMultiplier = 1.25;
+
     public async Task RecordAsync(
         string feature, string model, string? userId, string? entityId, string? correlationId,
         int chunkCount, int inputTokens, int outputTokens, int latencyMs,
         double inputRatePerMillion, double outputRatePerMillion,
-        bool succeeded, string? error, CancellationToken ct = default)
+        bool succeeded, string? error, CancellationToken ct = default,
+        int cacheReadTokens = 0, int cacheWriteTokens = 0)
     {
         try
         {
+            // InputTokens stays the honest total of everything the model read, cached or
+            // not — a cache hit is a discount, not fewer tokens. Only the price differs,
+            // which is why the three bands are summed separately below.
+            var billedInput =
+                inputTokens / 1_000_000.0 * inputRatePerMillion
+                + cacheReadTokens / 1_000_000.0 * inputRatePerMillion * CacheReadMultiplier
+                + cacheWriteTokens / 1_000_000.0 * inputRatePerMillion * CacheWriteMultiplier;
+
             await requestLog.AddAsync(new AiRequestLog
             {
                 Id = "",
@@ -34,11 +49,10 @@ public class RequestLedger(
                 UserId = userId,
                 EntityId = entityId,
                 CorrelationId = correlationId,
-                InputTokens = inputTokens,
+                InputTokens = inputTokens + cacheReadTokens + cacheWriteTokens,
                 OutputTokens = outputTokens,
                 LatencyMs = latencyMs,
-                CostUsd = inputTokens / 1_000_000.0 * inputRatePerMillion
-                          + outputTokens / 1_000_000.0 * outputRatePerMillion,
+                CostUsd = billedInput + outputTokens / 1_000_000.0 * outputRatePerMillion,
                 ChunkCount = chunkCount,
                 Succeeded = succeeded,
                 Error = error,
