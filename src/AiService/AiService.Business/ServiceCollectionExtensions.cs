@@ -46,6 +46,13 @@ public static class ServiceCollectionExtensions
             client.Timeout = TimeSpan.FromSeconds(deals.TimeoutSeconds);
         });
 
+        var search = config.GetSection("Search").Get<SearchOptions>() ?? new SearchOptions();
+        services.AddHttpClient<SearchClient>(client =>
+        {
+            client.BaseAddress = new Uri(search.BaseUrl);
+            client.Timeout = TimeSpan.FromSeconds(search.TimeoutSeconds);
+        });
+
         services.AddScoped<RetrievalService>();
         services.AddScoped<RequestLedger>();
         services.AddScoped<ClaudeClient>();
@@ -55,6 +62,11 @@ public static class ServiceCollectionExtensions
         // Tools are registered against the interface so ToolDispatcher discovers them by
         // enumeration: adding a tool is one registration here and nothing else.
         services.AddScoped<IAssistantTool, PipelineSummaryTool>();
+        services.AddScoped<IAssistantTool, SearchDealsTool>();
+        services.AddScoped<IAssistantTool, GetDealTool>();
+        services.AddScoped<IAssistantTool, SearchPropertiesTool>();
+        services.AddScoped<IAssistantTool, SearchDealDocumentsTool>();
+        services.AddScoped<IAssistantTool, SearchAnythingTool>();
         services.AddScoped<ToolDispatcher>();
         services.AddScoped<AssistantService>();
 

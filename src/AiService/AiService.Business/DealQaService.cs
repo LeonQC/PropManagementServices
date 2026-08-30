@@ -48,7 +48,7 @@ public class DealQaService(
         // Retrieval and the document list are independent reads; the file names are
         // needed only once chunks come back, but both are scoped to the same deal and
         // neither depends on the other.
-        var retrievalTask = retrieval.RetrieveAsync(question, dealId, input.DocumentId, bearerToken, ct);
+        var retrievalTask = retrieval.RetrieveAsync(question, dealId, input.DocumentId, bearerToken, ct: ct);
         var documentsTask = documents.GetByDealAsync(dealId, bearerToken, ct);
 
         IReadOnlyList<ContextChunk> chunks;
