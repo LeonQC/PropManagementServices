@@ -139,7 +139,7 @@ public class ClaudeClient(
         ledger.RecordAsync(
             feature, _options.Model, userId, entityId, correlationId: null,
             chunkCount, inputTokens, outputTokens, latencyMs,
-            _options.InputCostPerMillionTokens, _options.OutputCostPerMillionTokens,
+            _options.RatesFor(_options.Model).InputPerMillion, _options.RatesFor(_options.Model).OutputPerMillion,
             succeeded, error, ct);
 
 }

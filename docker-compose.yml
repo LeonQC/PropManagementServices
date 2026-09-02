@@ -373,7 +373,7 @@ services:
       # The assistant runs a tool-use loop rather than a single call, and has to hold
       # "narrow before you retrieve" and "disclose what you capped" across six turns.
       # Separate from Anthropic__Model so Deal Q&A's cost profile is unchanged.
-      Anthropic__AssistantModel: "claude-opus-5"
+      Anthropic__AssistantModel: "claude-sonnet-5"
     depends_on:
       - ai-db
       - auth-service

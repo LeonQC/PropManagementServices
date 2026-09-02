@@ -100,20 +100,23 @@ public sealed class ClaudeSession : IDisposable
             Model = Model,
             MaxTokens = _options.AssistantMaxTokens,
             Stream = true,
-            System = [new SystemMessage(systemPrompt, null)],
+            System = [new SystemMessage(systemPrompt, Ephemeral())],
             Messages = [.. messages],
 
-            // The system prompt and the six tool definitions are byte-identical on every
-            // turn of every question, and together they are the largest fixed cost in the
-            // loop — a six-turn question replays them six times at full price. Caching that
-            // prefix is one field, and it is exactly the shape prompt caching wants:
-            // stable content first, the volatile conversation after it.
+            // FineGrained, not AutomaticToolsAndSystem. The automatic mode caches only the
+            // system prompt and the tool definitions — measured at ~5.6k tokens, which is
+            // 7% of a question's input. The other 93% is the conversation, and it is
+            // replayed in full on every turn: one measured question sent 77,089 input
+            // tokens to reach a final context of 19,624, so 75% of what we pay for is
+            // re-reading text the model was already shown.
             //
-            // AutomaticToolsAndSystem, not FineGrained: the growing half is the message
-            // list, and placing breakpoints inside a conversation whose tool results arrive
-            // in a different order per question buys little and invalidates easily.
-            PromptCaching = PromptCacheType.AutomaticToolsAndSystem,
+            // FineGrained keeps the automatic breakpoint on the tools and lets us put one
+            // on the newest content too (see MarkCacheBreakpoint), so each turn reads the
+            // whole prior conversation at a tenth of the price instead of full freight.
+            PromptCaching = PromptCacheType.FineGrained,
         };
+
+        MarkCacheBreakpoint(parameters.Messages);
 
         if (tools is { Count: > 0 })
         {
@@ -210,6 +213,33 @@ public sealed class ClaudeSession : IDisposable
             inputTokens, outputTokens, (int)stopwatch.ElapsedMilliseconds));
     }
 
+
+    private static CacheControl Ephemeral() => new() { Type = CacheControlType.ephemeral };
+
+    /// <summary>
+    /// Puts a single cache breakpoint on the last content block of the conversation, so the
+    /// entire prefix up to that point is cached and the next turn reads it back at a tenth
+    /// of the input price.
+    ///
+    /// <para>Existing breakpoints are cleared first, and that is not tidiness. The API
+    /// allows at most four, and the breakpoint has to move to the newest content each turn
+    /// — leaving the previous one in place would accumulate one per turn and fail the
+    /// request outright on turn five, midway through a question.</para>
+    ///
+    /// <para>The block being marked is almost always the last tool result, which is exactly
+    /// the boundary we want: everything before it is settled history, everything after it is
+    /// the model's next turn.</para>
+    /// </summary>
+    private static void MarkCacheBreakpoint(List<Message> messages)
+    {
+        foreach (var message in messages)
+            foreach (var content in message.Content ?? [])
+                content.CacheControl = null;
+
+        var lastBlock = messages.LastOrDefault()?.Content?.LastOrDefault();
+        if (lastBlock is not null) lastBlock.CacheControl = Ephemeral();
+    }
+
     /// <summary>
     /// Rebuilds the assistant turn as content blocks so it can be replayed on the next
     /// request. The tool_use blocks have to go back verbatim — the API pairs a
@@ -266,7 +296,7 @@ public sealed class ClaudeSession : IDisposable
         _ledger.RecordAsync(
             _feature, Model, _userId, _entityId, CorrelationId,
             chunkCount: 0, inputTokens, outputTokens, latencyMs,
-            _options.AssistantInputCostPerMillionTokens, _options.AssistantOutputCostPerMillionTokens,
+            _options.RatesFor(Model).InputPerMillion, _options.RatesFor(Model).OutputPerMillion,
             succeeded, error, ct, cacheReadTokens, cacheWriteTokens);
 
     public void Dispose()

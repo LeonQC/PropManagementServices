@@ -48,21 +48,40 @@ public class AnthropicOptions
 
     public int TimeoutSeconds { get; set; } = 60;
 
-    /// <summary>USD per million input tokens, for the cost column on ai_request_log.
-    /// Configurable so a price change is a config edit, and recorded per row at call
-    /// time so history isn't retroactively repriced.</summary>
-    public double InputCostPerMillionTokens { get; set; } = 3.0;
+    /// <summary>
+    /// USD per million tokens, keyed by model id. Recorded per row at call time so a
+    /// later price change never retroactively reprices history.
+    ///
+    /// <para>Keyed by <b>model</b>, not by feature. The first cut of this had one price
+    /// pair per feature, which was wrong in a way that only showed up under measurement:
+    /// pointing <see cref="AssistantModel"/> at Sonnet while the assistant's rates stayed
+    /// pinned to Opus priced every Sonnet row at 2.5x its real cost. Nothing errored — the
+    /// ledger just quietly reported the wrong number, which is the failure mode a cost
+    /// ledger exists to prevent. A rate belongs to whatever the model actually was.</para>
+    /// </summary>
+    public Dictionary<string, ModelRate> ModelRates { get; set; } = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["claude-opus-5"] = new(5.0, 25.0),
+        ["claude-sonnet-5"] = new(2.0, 10.0),
+        ["claude-haiku-4-5"] = new(1.0, 5.0),
+    };
 
-    /// <summary>USD per million output tokens.</summary>
-    public double OutputCostPerMillionTokens { get; set; } = 15.0;
+    /// <summary>Rates used when a model has no entry in <see cref="ModelRates"/>. Deliberately
+    /// the most expensive tier: an unpriced model should over-report rather than under-report,
+    /// because a bill that looks too low is one nobody investigates.</summary>
+    public ModelRate FallbackRate { get; set; } = new(5.0, 25.0);
 
-    /// <summary>Per-million rates for <see cref="AssistantModel"/>. Separate fields
-    /// rather than a lookup: the ledger has to price a row at call time, and two
-    /// features on two models with one price pair would silently misreport whichever
-    /// one didn't own the numbers.</summary>
-    public double AssistantInputCostPerMillionTokens { get; set; } = 5.0;
+    /// <summary>The rates for one model, or <see cref="FallbackRate"/> when it is unknown.</summary>
+    public ModelRate RatesFor(string model) =>
+        ModelRates.TryGetValue(model, out var rate) ? rate : FallbackRate;
+}
 
-    public double AssistantOutputCostPerMillionTokens { get; set; } = 25.0;
+/// <summary>USD per million tokens for one model. A record so a rate is replaced whole
+/// rather than half-updated when prices change.</summary>
+public record ModelRate(double InputPerMillion, double OutputPerMillion)
+{
+    // Parameterless ctor so the configuration binder can construct it from appsettings.
+    public ModelRate() : this(0, 0) { }
 }
 
 /// <summary>Ingestion-service connection settings, bound from the "Ingestion" section.</summary>

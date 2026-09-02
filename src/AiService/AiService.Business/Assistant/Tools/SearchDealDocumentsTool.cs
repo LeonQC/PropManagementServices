@@ -46,8 +46,30 @@ public class SearchDealDocumentsTool(
         before you have an answer.
 
         ARGUMENTS:
-          - question: what you want to find, in natural language. Write it as a question
-            about the content, not as keywords — retrieval is semantic.
+          - question: what you want to find, in natural language.
+
+            WRITING A GOOD QUERY MATTERS. Retrieval is semantic and matches your phrasing
+            against passage text, so:
+              * Write a full question or descriptive phrase, never bare keywords.
+              * Ask about content, not about documents. "what is the going-in cap rate and
+                occupancy" retrieves; "rent roll and appraisal" does not — document types
+                are metadata, they are not what the passages say.
+              * Use the words a document would actually use, and include both forms when a
+                term has two ("cap rate" and "capitalization rate", "NOI" and "net
+                operating income").
+              * One subject per search. A query asking about environmental risk AND lease
+                rollover AND pricing matches passages about none of them well. Run separate
+                searches instead.
+              * Search for EVIDENCE, not for CONCLUSIONS. Documents state facts; they never
+                state judgments about the deal. "why has this deal stalled" retrieves almost
+                nothing, because no appraisal contains that sentence. Ask instead for the
+                facts a stall would show up in — lease expiries, deferred maintenance,
+                environmental findings, pricing versus benchmark — and draw the conclusion
+                yourself from what comes back.
+            An empty result means nothing cleared the relevance floor. Before reporting
+            that the documents do not cover something, consider whether a differently
+            phrased query would find it — a weak query and a genuine absence look
+            identical from here.
           - dealId: restrict to one deal. Strongly preferred. Without it the search runs
             across every deal's documents at once, which is rarely what a question means.
           - topK: how many passages to return, 1-25. Leave it alone unless you specifically
