@@ -1,5 +1,4 @@
 using System.Text;
-using System.Text.RegularExpressions;
 using AiService.Business.DTOs;
 using AiService.Business.Retrieval;
 using AiService.DataAccess;
@@ -15,17 +14,13 @@ namespace AiService.Business;
 /// fields, history — arrives with the assistant in Phase 2, and the system prompt
 /// tells the model to say so rather than guess.</para>
 /// </summary>
-public partial class DealQaService(
+public class DealQaService(
     RetrievalService retrieval,
     DealDocumentsClient documents,
     ClaudeClient claude,
     IPromptTemplateRepository prompts,
     ILogger<DealQaService> logger)
 {
-    /// <summary>Matches the [S1] markers the prompt asks Claude to cite with.</summary>
-    [GeneratedRegex(@"\[S(\d{1,2})\]")]
-    private static partial Regex SourceMarker();
-
     private const string NoRelevantContentAnswer =
         "I couldn't find anything in this deal's documents that speaks to that question.";
 
@@ -53,7 +48,7 @@ public partial class DealQaService(
         // Retrieval and the document list are independent reads; the file names are
         // needed only once chunks come back, but both are scoped to the same deal and
         // neither depends on the other.
-        var retrievalTask = retrieval.RetrieveAsync(question, dealId, input.DocumentId, bearerToken, ct);
+        var retrievalTask = retrieval.RetrieveAsync(question, dealId, input.DocumentId, bearerToken, ct: ct);
         var documentsTask = documents.GetByDealAsync(dealId, bearerToken, ct);
 
         IReadOnlyList<ContextChunk> chunks;
@@ -148,8 +143,8 @@ public partial class DealQaService(
         {
             fileNames.TryGetValue(chunk.DocumentId, out var info);
             var page = chunk.PageNo is int p ? $" page=\"{p}\"" : "";
-            var type = info?.FileType is { Length: > 0 } t ? $" type=\"{Escape(t)}\"" : "";
-            var name = Escape(info?.FileName ?? "Unknown document");
+            var type = info?.FileType is { Length: > 0 } t ? $" type=\"{Grounding.Escape(t)}\"" : "";
+            var name = Grounding.Escape(info?.FileName ?? "Unknown document");
 
             sb.AppendLine($"<excerpt id=\"S{sourceNumber}\" document=\"{name}\"{type}{page}>");
             sb.AppendLine(chunk.Text.Trim());
@@ -180,11 +175,8 @@ public partial class DealQaService(
     {
         var bySource = chunks.ToDictionary(c => c.SourceNumber);
 
-        var referenced = SourceMarker().Matches(answer)
-            .Select(m => int.Parse(m.Groups[1].Value))
+        var referenced = Grounding.CitedSourceNumbers(answer)
             .Where(bySource.ContainsKey)
-            .Distinct()
-            .OrderBy(n => n)
             .Select(n => bySource[n])
             .ToList();
 
@@ -195,16 +187,7 @@ public partial class DealQaService(
             fileNames.TryGetValue(c.Chunk.DocumentId, out var info);
             return new CitationDto(
                 c.SourceNumber, c.Chunk.DocumentId, info?.FileName, c.Chunk.PageNo,
-                c.Chunk.Score, Snippet(c.Chunk.Text));
+                c.Chunk.Score, Grounding.Snippet(c.Chunk.Text));
         })];
     }
-
-    /// <summary>A short, single-line extract for the citation chip's tooltip.</summary>
-    private static string Snippet(string text)
-    {
-        var flat = string.Join(' ', text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
-        return flat.Length <= 300 ? flat : flat[..300].TrimEnd() + "…";
-    }
-
-    private static string Escape(string value) => value.Replace("\"", "'");
 }

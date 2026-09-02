@@ -24,5 +24,25 @@ public record DealAnswerResponse(
     string? Model,
     int? LatencyMs);
 
+/// <summary>
+/// One source the assistant's answer drew on. <paramref name="Kind"/> is
+/// "document", "deal" or "property", and <paramref name="Href"/> is the route the chip
+/// navigates to — computed on the server so the route shape lives in one place.
+///
+/// <para>Wider than <see cref="CitationResponse"/>'s Deal Q&amp;A counterpart because the
+/// assistant can cite a deal record or a listing, neither of which has a page number or
+/// a retrieval score.</para>
+/// </summary>
+public record AssistantCitationResponse(
+    int SourceNumber,
+    string Kind,
+    string Id,
+    string? DealId,
+    string? Title,
+    int? PageNo,
+    double? Score,
+    string? Snippet,
+    string? Href);
+
 /// <summary>Health payload: dependency reachability, so a 503 says which part is down.</summary>
 public record HealthResponse(string Status, IReadOnlyDictionary<string, string> Checks);

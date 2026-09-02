@@ -39,16 +39,31 @@ public class RetrievalService(
 {
     private readonly RetrievalOptions _options = options.Value;
 
+    /// <summary>
+    /// <paramref name="dealId"/> is nullable so the assistant can search across every
+    /// deal's documents; Deal Q&amp;A always passes one. <paramref name="maxChunks"/>
+    /// likewise overrides <see cref="RetrievalOptions.MaxContextChunks"/> only for the
+    /// assistant, where one tool call may deserve more or less coverage than a whole
+    /// single-shot answer. Both default to the shipped behaviour.
+    /// </summary>
     public async Task<IReadOnlyList<ContextChunk>> RetrieveAsync(
-        string question, string dealId, string? documentId, string bearerToken,
-        CancellationToken ct = default)
+        string question, string? dealId, string? documentId, string bearerToken,
+        int? maxChunks = null, CancellationToken ct = default)
     {
+        var keep = maxChunks ?? _options.MaxContextChunks;
+
+        // Over-fetch, then narrow. The floors need headroom to work, so a caller asking for
+        // more chunks than the configured fetch has to widen the fetch too — otherwise the
+        // filters have nothing to discard and the extra coverage is imaginary.
+        var fetch = Math.Max(_options.FetchTopK, keep * 2);
+
         var chunks = await client.SearchAsync(
-            question, dealId, documentId, _options.FetchTopK, bearerToken, ct);
+            question, dealId, documentId, fetch, bearerToken, ct);
 
         if (chunks.Count == 0)
         {
-            logger.LogInformation("No chunks at all for deal {DealId} — the deal has no ingested documents.", dealId);
+            logger.LogInformation("No chunks at all for deal {DealId} — the deal has no ingested documents.",
+                dealId ?? "(all)");
             return [];
         }
 
@@ -57,11 +72,11 @@ public class RetrievalService(
         {
             logger.LogInformation(
                 "All {Count} chunk(s) for deal {DealId} fell below the relevance floor (best score {Best:F3}).",
-                chunks.Count, dealId, chunks.Max(c => c.Score));
+                chunks.Count, dealId ?? "(all)", chunks.Max(c => c.Score));
             return [];
         }
 
-        kept = TakeWithinBudget(kept);
+        kept = TakeWithinBudget(kept, keep);
         return RestoreReadingOrder(kept);
     }
 
@@ -90,13 +105,13 @@ public class RetrievalService(
     }
 
     /// <summary>Highest-scoring chunks first, up to the count and character budget.</summary>
-    private List<RetrievedChunk> TakeWithinBudget(IEnumerable<RetrievedChunk> chunks)
+    private List<RetrievedChunk> TakeWithinBudget(IEnumerable<RetrievedChunk> chunks, int maxChunks)
     {
         List<RetrievedChunk> kept = [];
         var chars = 0;
         foreach (var chunk in chunks)
         {
-            if (kept.Count >= _options.MaxContextChunks) break;
+            if (kept.Count >= maxChunks) break;
             if (chars + chunk.Text.Length > _options.MaxContextChars && kept.Count > 0) break;
             kept.Add(chunk);
             chars += chunk.Text.Length;

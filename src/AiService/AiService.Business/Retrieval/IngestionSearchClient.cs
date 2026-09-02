@@ -58,7 +58,7 @@ public class IngestionSearchClient(HttpClient http, ILogger<IngestionSearchClien
     private record SearchEnvelope(SearchData Data);
 
     public async Task<IReadOnlyList<RetrievedChunk>> SearchAsync(
-        string query, string dealId, string? documentId, int topK, string bearerToken,
+        string query, string? dealId, string? documentId, int topK, string bearerToken,
         CancellationToken ct = default)
     {
         using var request = new HttpRequestMessage(HttpMethod.Post, "/ingestion/v1/search")

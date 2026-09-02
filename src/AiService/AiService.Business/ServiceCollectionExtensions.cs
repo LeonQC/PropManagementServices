@@ -1,3 +1,6 @@
+using AiService.Business.Assistant;
+using AiService.Business.Assistant.Clients;
+using AiService.Business.Assistant.Tools;
 using AiService.Business.Retrieval;
 using AiService.Business.Security;
 using AiService.DataAccess;
@@ -20,6 +23,8 @@ public static class ServiceCollectionExtensions
         services.Configure<IngestionOptions>(config.GetSection("Ingestion"));
         services.Configure<RetrievalOptions>(config.GetSection("Retrieval"));
         services.Configure<DealsOptions>(config.GetSection("Deals"));
+        services.Configure<SearchOptions>(config.GetSection("Search"));
+        services.Configure<AssistantOptions>(config.GetSection("Assistant"));
 
         var ingestion = config.GetSection("Ingestion").Get<IngestionOptions>() ?? new IngestionOptions();
         services.AddHttpClient<IngestionSearchClient>(client =>
@@ -35,10 +40,35 @@ public static class ServiceCollectionExtensions
             client.Timeout = TimeSpan.FromSeconds(deals.TimeoutSeconds);
         });
 
+        services.AddHttpClient<DealRecordClient>(client =>
+        {
+            client.BaseAddress = new Uri(deals.BaseUrl);
+            client.Timeout = TimeSpan.FromSeconds(deals.TimeoutSeconds);
+        });
+
+        var search = config.GetSection("Search").Get<SearchOptions>() ?? new SearchOptions();
+        services.AddHttpClient<SearchClient>(client =>
+        {
+            client.BaseAddress = new Uri(search.BaseUrl);
+            client.Timeout = TimeSpan.FromSeconds(search.TimeoutSeconds);
+        });
+
         services.AddScoped<RetrievalService>();
+        services.AddScoped<RequestLedger>();
         services.AddScoped<ClaudeClient>();
         services.AddScoped<DealQaService>();
         services.AddScoped<HealthProbe>();
+
+        // Tools are registered against the interface so ToolDispatcher discovers them by
+        // enumeration: adding a tool is one registration here and nothing else.
+        services.AddScoped<IAssistantTool, PipelineSummaryTool>();
+        services.AddScoped<IAssistantTool, SearchDealsTool>();
+        services.AddScoped<IAssistantTool, GetDealTool>();
+        services.AddScoped<IAssistantTool, SearchPropertiesTool>();
+        services.AddScoped<IAssistantTool, SearchDealDocumentsTool>();
+        services.AddScoped<IAssistantTool, SearchAnythingTool>();
+        services.AddScoped<ToolDispatcher>();
+        services.AddScoped<AssistantService>();
 
         services.Configure<JwtValidationOptions>(config.GetSection("Jwt"));
         AddJwtBearerAuth(services);
@@ -95,5 +125,12 @@ public static class ServiceCollectionExtensions
 public class DealsOptions
 {
     public string BaseUrl { get; set; } = "http://localhost:5200";
+    public int TimeoutSeconds { get; set; } = 15;
+}
+
+/// <summary>search-service connection settings, bound from the "Search" section.</summary>
+public class SearchOptions
+{
+    public string BaseUrl { get; set; } = "http://localhost:5600";
     public int TimeoutSeconds { get; set; } = 15;
 }
