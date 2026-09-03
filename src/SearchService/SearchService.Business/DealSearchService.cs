@@ -18,13 +18,15 @@ public class DealSearchService(IDealIndex index)
         string? closeDateBefore, string? closeDateAfter,
         double? offerPriceMin, double? offerPriceMax,
         double? capRateMin, double? capRateMax,
+        double? occupancyMin, double? occupancyMax,
         bool? hasOverdueTasks, int? staleDays, string? q,
         CancellationToken ct = default)
     {
         var (items, totalCount) = await index.SearchAsync(
             page, pageSize, stage, ownerId, priority, propertyType, metroArea,
             closeDateBefore, closeDateAfter, offerPriceMin, offerPriceMax,
-            capRateMin, capRateMax, hasOverdueTasks, staleDays, q, ct);
+            capRateMin, capRateMax, occupancyMin, occupancyMax,
+            hasOverdueTasks, staleDays, q, ct);
 
         // One timestamp for the whole page, so two deals can't be evaluated either side of
         // midnight — the repository takes the same care with its single `now`.

@@ -67,6 +67,8 @@ public record DealQuery(
     double? OfferPriceMax = null,
     double? CapRateMin = null,
     double? CapRateMax = null,
+    double? OccupancyMin = null,
+    double? OccupancyMax = null,
     bool? HasOverdueTasks = null,
     int? StaleDays = null,
     string? Q = null);

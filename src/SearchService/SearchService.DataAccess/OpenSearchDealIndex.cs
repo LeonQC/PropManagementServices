@@ -132,6 +132,8 @@ public sealed class OpenSearchDealIndex(
         double? offerPriceMax = null,
         double? capRateMin = null,
         double? capRateMax = null,
+        double? occupancyMin = null,
+        double? occupancyMax = null,
         bool? hasOverdueTasks = null,
         int? staleDays = null,
         string? q = null,
@@ -201,6 +203,13 @@ public sealed class OpenSearchDealIndex(
             filter.Add(NumericRange("offerPrice", offerPriceMin, offerPriceMax));
         if (capRateMin.HasValue || capRateMax.HasValue)
             filter.Add(NumericRange("projectedCapRate", capRateMin, capRateMax));
+
+        // Occupancy is a FRACTION on the snapshot, like the cap rates above: 0.70 is 70%.
+        // Deals whose snapshot carries no occupancy are excluded by the range rather than
+        // treated as zero — "unknown" is not "empty", and counting it as 0% would sweep
+        // every un-surveyed deal into a low-occupancy answer.
+        if (occupancyMin.HasValue || occupancyMax.HasValue)
+            filter.Add(NumericRange("occupancyRate", occupancyMin, occupancyMax));
 
         // Overdue = the deal has an open task due before today. Postgres asks that of the
         // child rows; here it's a range over the earliest open due date the snapshot carried,
