@@ -41,8 +41,10 @@ public class SearchDealsTool(SearchClient search, IOptions<AssistantOptions> opt
           - capRateMin / capRateMax are FRACTIONS, not percentages. 6.5% is 0.065.
             Passing 6.5 matches nothing and returns an empty result, not an error.
           - offerPriceMin / offerPriceMax are whole dollars, e.g. 25000000.
-          - occupancy is NOT filterable here. It is returned on each deal, so filter the
-            results yourself after retrieving them, and say so if that changes the count.
+          - occupancyMin / occupancyMax are FRACTIONS too. 70% occupancy is 0.70.
+            Filter here rather than retrieving deals and sorting them yourself: the filter
+            runs across every matching deal, where your own filtering can only see the page
+            you were given, and would silently miss the rest.
 
         VOCABULARY — these values are exact and case-sensitive downstream:
           - stage: {DealVocabulary.List(DealVocabulary.Stages)}
@@ -76,6 +78,8 @@ public class SearchDealsTool(SearchClient search, IOptions<AssistantOptions> opt
             "metroArea":       {"type": "string",  "description": "Formatted '<City> Metro', e.g. 'Denver Metro'."},
             "capRateMin":      {"type": "number",  "description": "FRACTION, not percent. 6.5% is 0.065."},
             "capRateMax":      {"type": "number",  "description": "FRACTION, not percent. 6.5% is 0.065."},
+            "occupancyMin":    {"type": "number",  "description": "FRACTION, not percent. 70% is 0.70."},
+            "occupancyMax":    {"type": "number",  "description": "FRACTION, not percent. 70% is 0.70."},
             "offerPriceMin":   {"type": "number",  "description": "Whole dollars."},
             "offerPriceMax":   {"type": "number",  "description": "Whole dollars."},
             "closeDateBefore": {"type": "string",  "description": "yyyy-MM-dd."},
@@ -97,8 +101,8 @@ public class SearchDealsTool(SearchClient search, IOptions<AssistantOptions> opt
     {
         var args = ToolArguments.Read(Name, input,
             "q", "stage", "priority", "propertyType", "metroArea", "capRateMin", "capRateMax",
-            "offerPriceMin", "offerPriceMax", "closeDateBefore", "closeDateAfter",
-            "staleDays", "hasOverdueTasks", "ownerId", "limit");
+            "occupancyMin", "occupancyMax", "offerPriceMin", "offerPriceMax",
+            "closeDateBefore", "closeDateAfter", "staleDays", "hasOverdueTasks", "ownerId", "limit");
 
         var limit = args.Count("limit", _options.CandidateCap, 1, 25);
 
@@ -119,6 +123,8 @@ public class SearchDealsTool(SearchClient search, IOptions<AssistantOptions> opt
         // tool error naming the correct form.
         Add("capRateMin", Invariant(args.Number("capRateMin", 0, 1)));
         Add("capRateMax", Invariant(args.Number("capRateMax", 0, 1)));
+        Add("occupancyMin", Invariant(args.Number("occupancyMin", 0, 1)));
+        Add("occupancyMax", Invariant(args.Number("occupancyMax", 0, 1)));
         Add("offerPriceMin", Invariant(args.Number("offerPriceMin", 0, 1e12)));
         Add("offerPriceMax", Invariant(args.Number("offerPriceMax", 0, 1e12)));
 

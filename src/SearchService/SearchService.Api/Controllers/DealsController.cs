@@ -35,6 +35,8 @@ public class DealsController(DealSearchService service) : ApiControllerBase
         [FromQuery] double? offerPriceMax,
         [FromQuery] double? capRateMin,
         [FromQuery] double? capRateMax,
+        [FromQuery] double? occupancyMin,
+        [FromQuery] double? occupancyMax,
         [FromQuery] bool? hasOverdueTasks,
         [FromQuery] int? staleDays,
         [FromQuery] string? q,
@@ -48,7 +50,8 @@ public class DealsController(DealSearchService service) : ApiControllerBase
         var (items, totalCount) = await service.SearchAsync(
             page, pageSize, stage, ownerId, priority, propertyType, metroArea,
             closeDateBefore, closeDateAfter, offerPriceMin, offerPriceMax,
-            capRateMin, capRateMax, hasOverdueTasks, staleDays, q, ct);
+            capRateMin, capRateMax, occupancyMin, occupancyMax,
+            hasOverdueTasks, staleDays, q, ct);
 
         return Success(new PaginatedResponse<DealResponse>(
             items.Select(MapToResponse).ToList(), totalCount, page, pageSize));

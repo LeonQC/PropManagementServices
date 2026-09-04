@@ -80,6 +80,16 @@ public class DealRepository(DealsDbContext db) : IDealRepository
         if (filters.CapRateMax.HasValue)
             query = query.Where(d => d.ProjectedCapRate <= filters.CapRateMax.Value);
 
+        // Occupancy is a FRACTION on the deal snapshot, like the cap rates above: 0.70 is
+        // 70%. A deal with no occupancy recorded is excluded rather than treated as zero —
+        // EF renders the comparison as NULL, which is not true, and that is the behaviour
+        // we want: "unknown" must not answer a low-occupancy question.
+        if (filters.OccupancyMin.HasValue)
+            query = query.Where(d => d.OccupancyRate >= filters.OccupancyMin.Value);
+
+        if (filters.OccupancyMax.HasValue)
+            query = query.Where(d => d.OccupancyRate <= filters.OccupancyMax.Value);
+
         // Overdue is a property of the deal's tasks, so it filters in SQL rather than
         // after paging — otherwise the total count and the page would disagree.
         if (filters.HasOverdueTasks == true)

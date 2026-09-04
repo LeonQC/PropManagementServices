@@ -15,8 +15,8 @@ public class DealService(IDealRepository repo, IEventPublisher eventPublisher, D
         var (items, totalCount) = await repo.GetAllAsync(page, pageSize, new DealQuery(
             filters.Stage, filters.OwnerId, filters.Priority, filters.PropertyType, filters.MetroArea,
             filters.CloseDateBefore, filters.CloseDateAfter, filters.OfferPriceMin, filters.OfferPriceMax,
-            filters.CapRateMin, filters.CapRateMax, filters.HasOverdueTasks, filters.StaleDays,
-            filters.Q), ct);
+            filters.CapRateMin, filters.CapRateMax, filters.OccupancyMin, filters.OccupancyMax,
+            filters.HasOverdueTasks, filters.StaleDays, filters.Q), ct);
         return (items.Select(MapToDto).ToList(), totalCount);
     }
 

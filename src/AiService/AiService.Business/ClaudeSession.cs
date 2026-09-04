@@ -1,10 +1,10 @@
 using System.Diagnostics;
 using System.Text;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using Anthropic.SDK;
 using Anthropic.SDK.Messaging;
 using Microsoft.Extensions.Logging;
-using Function = Anthropic.SDK.Common.Function;
 using Tool = Anthropic.SDK.Common.Tool;
 
 namespace AiService.Business;
@@ -133,6 +133,11 @@ public sealed class ClaudeSession : IDisposable
         var outputTokens = 0;
         var cacheReadTokens = 0;
         var cacheWriteTokens = 0;
+
+        // The tool_use block currently being assembled, and its arguments as they arrive
+        // in input_json_delta fragments.
+        (string Id, string Name)? pendingToolUse = null;
+        var pendingArguments = new StringBuilder();
         var stopwatch = Stopwatch.StartNew();
 
         // The enumerator is stepped by hand so a mid-stream failure can be caught and
@@ -179,10 +184,27 @@ public sealed class ClaudeSession : IDisposable
                          e.Usage?.CacheCreationInputTokens ?? 0));
             stopReason = e.Delta?.StopReason ?? e.StopReason ?? stopReason;
 
-            // Tool calls arrive fully assembled on the final event — the SDK reassembles
-            // the input_json_delta fragments itself, so there is nothing to accumulate here.
-            if (e.ToolCalls is { Count: > 0 } calls)
-                toolUses = [.. calls.Select(ToToolUse)];
+            // Tool-use blocks are assembled here rather than read from
+            // MessageResponse.ToolCalls, which keeps only the LAST tool_use block of a
+            // turn: feed it a turn containing three parallel calls and it reports one.
+            //
+            // That silently capped the assistant at a single tool call per turn. It never
+            // surfaced as an error because the assistant message we replay is rebuilt from
+            // whatever survived here, so the conversation stayed internally consistent —
+            // one tool_use, one tool_result — and simply did less work than the model asked
+            // for. It looked exactly like a model that refuses to batch.
+            //
+            // The block boundary is positional: a content_block_start ends whichever block
+            // was open, and so does the end of the stream.
+            if (e.ContentBlock is { } block)
+            {
+                CompleteToolUse(ref pendingToolUse, pendingArguments, toolUses);
+                if (block.Type == "tool_use")
+                    pendingToolUse = (block.Id ?? "", block.Name ?? "");
+            }
+
+            if (e.Delta?.PartialJson is { Length: > 0 } fragment)
+                pendingArguments.Append(fragment);
 
             if (e.Delta?.Text is { Length: > 0 } delta)
             {
@@ -192,6 +214,9 @@ public sealed class ClaudeSession : IDisposable
                 yield return new ClaudeTurnEvent.TextDelta(delta);
             }
         }
+
+        // The final block has no successor to close it.
+        CompleteToolUse(ref pendingToolUse, pendingArguments, toolUses);
 
         stopwatch.Stop();
 
@@ -240,6 +265,42 @@ public sealed class ClaudeSession : IDisposable
         if (lastBlock is not null) lastBlock.CacheControl = Ephemeral();
     }
 
+
+    /// <summary>
+    /// Closes the tool-use block being assembled and appends it to <paramref name="toolUses"/>.
+    /// A no-op when no block is open, so it is safe to call at every block boundary.
+    ///
+    /// <para>Arguments arrive as JSON text fragments. A block with no fragments at all is a
+    /// call with no arguments — <c>pipeline_summary</c> is exactly that — so an empty
+    /// buffer means an empty object, not a malformed call. Unparseable JSON yields a null
+    /// input, which ToolDispatcher reports back to the model as a tool error it can retry
+    /// rather than an exception that ends the question.</para>
+    /// </summary>
+    private static void CompleteToolUse(
+        ref (string Id, string Name)? pending, StringBuilder arguments, List<ClaudeToolUse> toolUses)
+    {
+        if (pending is not { } block)
+        {
+            arguments.Clear();
+            return;
+        }
+
+        var raw = arguments.ToString();
+        JsonNode? input;
+        try
+        {
+            input = raw.Length == 0 ? new JsonObject() : JsonNode.Parse(raw);
+        }
+        catch (JsonException)
+        {
+            input = null;
+        }
+
+        toolUses.Add(new ClaudeToolUse(block.Id, block.Name, input));
+        pending = null;
+        arguments.Clear();
+    }
+
     /// <summary>
     /// Rebuilds the assistant turn as content blocks so it can be replayed on the next
     /// request. The tool_use blocks have to go back verbatim — the API pairs a
@@ -257,37 +318,6 @@ public sealed class ClaudeSession : IDisposable
         if (content.Count == 0) content.Add(new TextContent { Text = "" });
 
         return new Message { Role = RoleType.Assistant, Content = content };
-    }
-
-    /// <summary>
-    /// Normalises the SDK's tool-call arguments.
-    ///
-    /// <para><c>Function.Arguments</c> is not the object it looks like: the SDK hands back
-    /// a JSON <em>string</em> node whose content is the argument JSON, so it has to be
-    /// parsed a second time. Both shapes are handled because relying on that staying true
-    /// would turn an SDK upgrade into every tool call silently arriving with no
-    /// arguments.</para>
-    /// </summary>
-    private static ClaudeToolUse ToToolUse(Function call)
-    {
-        JsonNode? input = null;
-        try
-        {
-            input = call.Arguments switch
-            {
-                JsonValue value when value.TryGetValue<string>(out var raw) =>
-                    raw.Trim().Length == 0 ? new JsonObject() : JsonNode.Parse(raw),
-                { } node => node,
-                _ => new JsonObject(),
-            };
-        }
-        catch (System.Text.Json.JsonException)
-        {
-            // Leave input null; the dispatcher reports it to the model as a bad-argument
-            // tool error, which it can retry, rather than failing the whole question.
-        }
-
-        return new ClaudeToolUse(call.Id ?? "", call.Name ?? "", input);
     }
 
     private Task RecordAsync(

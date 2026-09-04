@@ -44,6 +44,8 @@ public interface IDealIndex
         double? offerPriceMax = null,
         double? capRateMin = null,
         double? capRateMax = null,
+        double? occupancyMin = null,
+        double? occupancyMax = null,
         bool? hasOverdueTasks = null,
         int? staleDays = null,
         string? q = null,
