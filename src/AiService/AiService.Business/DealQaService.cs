@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text;
 using AiService.Business.DTOs;
 using AiService.Business.Retrieval;
@@ -19,6 +20,7 @@ public class DealQaService(
     DealDocumentsClient documents,
     ClaudeClient claude,
     IPromptTemplateRepository prompts,
+    RequestLedger ledger,
     ILogger<DealQaService> logger)
 {
     private const string NoRelevantContentAnswer =
@@ -27,12 +29,50 @@ public class DealQaService(
     private const string NoDocumentsAnswer =
         "This deal doesn't have any documents to search yet. Upload one and I'll be able to answer questions about it.";
 
+    /// <summary>
+    /// Answers the question and closes it out in ai_question_log.
+    ///
+    /// <para>A thin wrapper around <see cref="AnswerAsync"/> purely so the question row is
+    /// written once, on every path — the answering method has seven returns, and a ledger
+    /// write copied to each of them is a ledger write that will eventually be forgotten at
+    /// one of them.</para>
+    ///
+    /// <para>Unlike the assistant this is one model call, so wall clock and model time are
+    /// close — but not equal, and the gap is the retrieval this method awaits before any
+    /// call is made. That gap is the whole reason the figure is worth storing.</para>
+    /// </summary>
     public async Task<ServiceResult<DealAnswerDto>> AskAsync(
         string dealId,
         AskDealQuestionDto input,
         string bearerToken,
         string? userId,
         CancellationToken ct = default)
+    {
+        // Deal Q&A is one call per question, so a correlation id groups a single row today.
+        // It exists so cost-per-question is the same join for both features rather than a
+        // special case for whichever one happens to loop.
+        var correlationId = Guid.NewGuid().ToString();
+        var stopwatch = Stopwatch.StartNew();
+
+        var result = await AnswerAsync(dealId, input, bearerToken, userId, correlationId, ct);
+
+        stopwatch.Stop();
+        await ledger.RecordQuestionAsync(
+            PromptFeatures.DealQa, result.Succeeded ? claude.Model : null, userId, dealId, correlationId,
+            (int)stopwatch.ElapsedMilliseconds, iterations: 1, toolCalls: 0,
+            truncated: false, truncationReason: null,
+            result.Succeeded, result.Code, ct);
+
+        return result;
+    }
+
+    private async Task<ServiceResult<DealAnswerDto>> AnswerAsync(
+        string dealId,
+        AskDealQuestionDto input,
+        string bearerToken,
+        string? userId,
+        string correlationId,
+        CancellationToken ct)
     {
         var question = input.Question?.Trim() ?? "";
         if (question.Length == 0)
@@ -72,7 +112,7 @@ public class DealQaService(
         // catch the obvious cases, and the system prompt handles the rest.
         if (chunks.Count == 0)
         {
-            await claude.LogSkippedCallAsync(PromptFeatures.DealQa, userId, dealId, ct);
+            await claude.LogSkippedCallAsync(PromptFeatures.DealQa, userId, dealId, correlationId, ct);
 
             // Only claim the deal has no documents when deals-service actually said so.
             // If the list is unavailable, the weaker "nothing relevant" message is the
@@ -101,7 +141,8 @@ public class DealQaService(
         try
         {
             completion = await claude.CompleteAsync(
-                template.SystemPrompt, userMessage, PromptFeatures.DealQa, userId, dealId, chunks.Count, ct);
+                template.SystemPrompt, userMessage, PromptFeatures.DealQa, userId, dealId, chunks.Count,
+                correlationId, ct);
         }
         catch (ClaudeException ex)
         {

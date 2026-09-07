@@ -7,6 +7,7 @@ public class AiDbContext(DbContextOptions<AiDbContext> options) : DbContext(opti
 {
     public DbSet<PromptTemplate> PromptTemplates => Set<PromptTemplate>();
     public DbSet<AiRequestLog> AiRequestLogs => Set<AiRequestLog>();
+    public DbSet<AiQuestionLog> AiQuestionLogs => Set<AiQuestionLog>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -43,6 +44,23 @@ public class AiDbContext(DbContextOptions<AiDbContext> options) : DbContext(opti
             // the whole ledger to find six rows.
             e.HasIndex(l => l.CorrelationId)
                 .HasDatabaseName("ix_ai_request_log_correlation_id");
+        });
+
+        modelBuilder.Entity<AiQuestionLog>(e =>
+        {
+            e.ToTable("ai_question_log");
+
+            // Unique, not merely indexed: one row per question is the invariant that makes
+            // a percentile over total_latency_ms mean what it says. A duplicate would
+            // weight one question twice and nothing else in the schema would notice.
+            e.HasIndex(q => q.CorrelationId)
+                .HasDatabaseName("ix_ai_question_log_correlation_id")
+                .IsUnique();
+
+            // Mirrors ix_ai_request_log_feature_created_at: latency is read per feature
+            // over a window, never across the whole table.
+            e.HasIndex(q => new { q.Feature, q.CreatedAt })
+                .HasDatabaseName("ix_ai_question_log_feature_created_at");
         });
 
         base.OnModelCreating(modelBuilder);

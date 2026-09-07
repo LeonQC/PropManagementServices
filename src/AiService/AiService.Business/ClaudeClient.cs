@@ -56,6 +56,7 @@ public class ClaudeClient(
         string? userId,
         string? entityId,
         int chunkCount,
+        string? correlationId = null,
         CancellationToken ct = default)
     {
         if (!IsConfigured)
@@ -100,7 +101,7 @@ public class ClaudeClient(
             var text = response.Message?.ToString() ?? response.FirstMessage?.Text ?? "";
             var usage = response.Usage;
 
-            await LogAsync(feature, userId, entityId, chunkCount,
+            await LogAsync(feature, userId, entityId, correlationId, chunkCount,
                 usage?.InputTokens ?? 0, usage?.OutputTokens ?? 0,
                 (int)stopwatch.ElapsedMilliseconds, succeeded: true, error: null, ct);
 
@@ -115,7 +116,7 @@ public class ClaudeClient(
 
             // Type and message only — never response content, which may echo the
             // retrieved document text this table deliberately doesn't store.
-            await LogAsync(feature, userId, entityId, chunkCount, 0, 0,
+            await LogAsync(feature, userId, entityId, correlationId, chunkCount, 0, 0,
                 (int)stopwatch.ElapsedMilliseconds, succeeded: false,
                 error: $"{ex.GetType().Name}: {ex.Message}", ct);
 
@@ -128,16 +129,18 @@ public class ClaudeClient(
     /// everything, so the question was answered for free. Logged so the ledger shows
     /// the whole question volume, not just the billable part.
     /// </summary>
-    public Task LogSkippedCallAsync(string feature, string? userId, string? entityId, CancellationToken ct = default) =>
-        LogAsync(feature, userId, entityId, chunkCount: 0, 0, 0, 0, succeeded: true,
+    public Task LogSkippedCallAsync(
+        string feature, string? userId, string? entityId, string? correlationId = null,
+        CancellationToken ct = default) =>
+        LogAsync(feature, userId, entityId, correlationId, chunkCount: 0, 0, 0, 0, succeeded: true,
                  error: null, ct);
 
     private Task LogAsync(
-        string feature, string? userId, string? entityId, int chunkCount,
+        string feature, string? userId, string? entityId, string? correlationId, int chunkCount,
         int inputTokens, int outputTokens, int latencyMs, bool succeeded, string? error,
         CancellationToken ct) =>
         ledger.RecordAsync(
-            feature, _options.Model, userId, entityId, correlationId: null,
+            feature, _options.Model, userId, entityId, correlationId,
             chunkCount, inputTokens, outputTokens, latencyMs,
             _options.RatesFor(_options.Model).InputPerMillion, _options.RatesFor(_options.Model).OutputPerMillion,
             succeeded, error, ct);
