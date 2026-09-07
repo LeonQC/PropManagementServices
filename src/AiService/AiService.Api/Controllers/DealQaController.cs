@@ -23,6 +23,7 @@ namespace AiService.Api.Controllers;
 public class DealQaController(DealQaService service) : ApiControllerBase
 {
     [HttpPost("ask")]
+    [AiRateLimit(AiRateLimitGroup.DealQa)]
     public async Task<IActionResult> Ask(
         string dealId, [FromBody] AskDealQuestionRequest request, CancellationToken ct)
     {

@@ -43,5 +43,9 @@ public static class ErrorCodes
     public const string AiUnavailable = "AI_UNAVAILABLE";     // 503
 
     /// <summary>Retrieval failed against ingestion-service — 502, an upstream fault.</summary>
-    public const string RetrievalFailed = "RETRIEVAL_FAILED"; // 502
+    public const string RetrievalFailed = "RETRIEVAL_FAILED";
+
+    /// <summary>The caller is asking faster than their budget allows. Emitted by the rate
+    /// limiter middleware, and available here so a service can reach the same status.</summary>
+    public const string RateLimited = "RATE_LIMITED"; // 502
 }
