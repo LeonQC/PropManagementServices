@@ -1,0 +1,40 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+    <!-- xUnit1051 wants TestContext.Current.CancellationToken threaded through every
+         awaited call. These tests deliberately exercise the same default-token overloads
+         the middleware uses, and the timing tests are sub-second; the guidance would add
+         an argument to almost every line here to guard against a hang that cannot
+         happen. -->
+    <NoWarn>$(NoWarn);xUnit1051</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- The subject under test is middleware, so the test project needs the same
+         ASP.NET Core surface the Api compiles against (HttpContext, Endpoint,
+         DefaultHttpContext) without being a web project itself. -->
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\AiService.Api\AiService.Api.csproj" />
+    <!-- Referenced directly, not through the Api: AiService.Api sets
+         DisableTransitiveProjectReferences, and ErrorCodes lives in Business. -->
+    <ProjectReference Include="..\AiService.Business\AiService.Business.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
+    <PackageReference Include="xunit.v3" Version="1.0.0" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.0.0" />
+    <!-- A real Redis for the store tests. The thing being verified is that a Lua
+         script is atomic against concurrent clients, and no in-memory fake can be
+         wrong in the ways a real server is right. -->
+    <PackageReference Include="Testcontainers.Redis" Version="4.1.0" />
+  </ItemGroup>
+
+</Project>

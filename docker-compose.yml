@@ -341,6 +341,28 @@ services:
     volumes:
       - ai-db-data:/var/lib/postgresql/data
 
+  ai-rate-limit-redis:
+    # Shared state for ai-service's per-user rate limits, and nothing else — hence the
+    # name. Two replicas with in-process counters give every user double the intended
+    # budget — measured at exactly double on both limits. See RateLimitOptions.
+    #
+    # No volume on purpose. Every key here is a sliding-window log or a concurrency
+    # lease, both scoped to a five-minute window and both carrying a TTL, so persisting
+    # them across a restart would restore state that is about to expire anyway. A cold
+    # Redis costs one window of over-permissiveness and saves a durability story nobody
+    # needs.
+    image: redis:7-alpine
+    # Keep the default RDB snapshotting off to match that: no dump file, no fork pauses.
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    ports:
+      # Dev only — for redis-cli MONITOR / ZRANGE while watching a limit behave.
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
   ai-service:
     # Claude-backed features (design doc §6.4). Phase 1 is Deal Q&A: retrieval from
     # ingestion-service, one Claude call, an answer with page citations.
@@ -368,10 +390,12 @@ services:
       Search__BaseUrl: "http://search-service:8080"
       # Supplied via the untracked .env next to this file (see .env.example).
       # Never bake the key into the image or commit it.
-      # Per-user limits on the two endpoints that spend money. In-process, so they are
-      # correct only while this service runs as a single container — see RateLimitOptions.
-      # Set RateLimit__Enabled=false to let scripts/eval_ragas.py run unthrottled.
+      # Per-user limits on the two endpoints that spend money, held in Redis so they stay
+      # correct with this service scaled past one replica — see RateLimitOptions.
+      # Set RateLimit__Enabled=false to let scripts/eval_ragas.py run unthrottled; that
+      # also skips the Redis connection entirely, so the container is not needed for it.
       RateLimit__Enabled: ${AI_RATE_LIMIT_ENABLED:-true}
+      ConnectionStrings__Redis: "ai-rate-limit-redis:6379"
       Anthropic__ApiKey: ${ANTHROPIC_API_KEY:-}
       Anthropic__Model: "claude-sonnet-5"
       # The assistant runs a tool-use loop rather than a single call, and has to hold
@@ -380,6 +404,7 @@ services:
       Anthropic__AssistantModel: "claude-sonnet-5"
     depends_on:
       - ai-db
+      - ai-rate-limit-redis
       - auth-service
       - ingestion-service
       - deals-service
