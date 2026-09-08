@@ -1,3 +1,4 @@
+using AiService.Api.Infrastructure;
 using AiService.Business;
 using Microsoft.OpenApi;
 
@@ -9,6 +10,7 @@ builder.Services.AddControllers();
 // The Api never registers a DbContext or repository directly.
 builder.Services.AddBusiness(builder.Configuration);
 
+builder.Services.AddAiRateLimiting(builder.Configuration);
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {
@@ -41,6 +43,11 @@ app.UseSwaggerUI();
 
 app.UseAuthentication();
 app.UseAuthorization();
+
+// After authorization, not before: the limiter partitions on the "sub" claim, so the
+// principal has to exist by the time it runs. It also means an unauthenticated caller is
+// already a 401 and never consumes anyone's budget.
+app.UseRateLimiter();
 
 app.MapControllers();
 

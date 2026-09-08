@@ -26,6 +26,7 @@ namespace AiService.Api.Controllers;
 public class AssistantController(AssistantService assistant) : ApiControllerBase
 {
     [HttpPost("ask")]
+    [AiRateLimit(AiRateLimitGroup.Assistant)]
     public async Task Ask([FromBody] AskRequest request, CancellationToken ct)
     {
         // Failures before the first byte are ordinary enveloped errors with a real status
@@ -119,6 +120,7 @@ public class AssistantController(AssistantService assistant) : ApiControllerBase
         ErrorCodes.Unauthorized => StatusCodes.Status401Unauthorized,
         ErrorCodes.Forbidden => StatusCodes.Status403Forbidden,
         ErrorCodes.NotFound => StatusCodes.Status404NotFound,
+        ErrorCodes.RateLimited => StatusCodes.Status429TooManyRequests,
         ErrorCodes.RetrievalFailed => StatusCodes.Status502BadGateway,
         ErrorCodes.AiUnavailable => StatusCodes.Status503ServiceUnavailable,
         _ => StatusCodes.Status400BadRequest,

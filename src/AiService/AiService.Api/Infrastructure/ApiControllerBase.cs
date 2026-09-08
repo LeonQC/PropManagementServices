@@ -45,6 +45,7 @@ public abstract class ApiControllerBase : ControllerBase
             ErrorCodes.Unauthorized => StatusCodes.Status401Unauthorized,
             ErrorCodes.Forbidden => StatusCodes.Status403Forbidden,
             ErrorCodes.NotFound => StatusCodes.Status404NotFound,
+            ErrorCodes.RateLimited => StatusCodes.Status429TooManyRequests,
             ErrorCodes.RetrievalFailed => StatusCodes.Status502BadGateway,
             ErrorCodes.AiUnavailable => StatusCodes.Status503ServiceUnavailable,
             _ => StatusCodes.Status400BadRequest,

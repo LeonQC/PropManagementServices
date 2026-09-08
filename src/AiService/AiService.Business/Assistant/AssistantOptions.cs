@@ -68,3 +68,16 @@ public class AssistantOptions
     /// <summary>Longest question accepted, matching Deal Q&amp;A's limit.</summary>
     public int MaxQuestionChars { get; set; } = 2_000;
 }
+
+/// <summary>
+/// Which budget stopped a question short, as stored in ai_question_log.truncation_reason.
+/// One constant per property of <see cref="AssistantOptions"/> that can end the loop, because
+/// "truncated" on its own does not tell you which limit to raise.
+/// </summary>
+public static class TruncationReasons
+{
+    public const string WallClock = "wall_clock";
+    public const string Iterations = "iterations";
+    public const string ToolCalls = "tool_calls";
+    public const string ContextChars = "context_chars";
+}

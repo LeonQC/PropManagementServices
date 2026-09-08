@@ -55,6 +55,7 @@ public class AssistantService(
     ClaudeClient claude,
     ToolDispatcher tools,
     IPromptTemplateRepository prompts,
+    RequestLedger ledger,
     IOptions<AssistantOptions> options,
     ILogger<AssistantService> logger)
 {
@@ -66,15 +67,23 @@ public class AssistantService(
         string? userId,
         [EnumeratorCancellation] CancellationToken ct = default)
     {
+        // Both are taken before validation so that a question rejected at the door is
+        // still one identifiable, timed row in ai_question_log. An outage that never
+        // reaches the model is exactly the thing the ledger should make visible.
+        var correlationId = Guid.NewGuid().ToString();
+        var stopwatch = Stopwatch.StartNew();
+
         var question = input.Question?.Trim() ?? "";
         if (question.Length == 0)
         {
+            await RecordRejectionAsync(correlationId, input, userId, stopwatch, ErrorCodes.Validation, ct);
             yield return new AssistantEvent.Failed(ErrorCodes.Validation, "A question is required.");
             yield break;
         }
 
         if (question.Length > _options.MaxQuestionChars)
         {
+            await RecordRejectionAsync(correlationId, input, userId, stopwatch, ErrorCodes.Validation, ct);
             yield return new AssistantEvent.Failed(
                 ErrorCodes.Validation,
                 $"That question is too long — {_options.MaxQuestionChars} characters or fewer.");
@@ -83,6 +92,7 @@ public class AssistantService(
 
         if (!claude.IsConfigured)
         {
+            await RecordRejectionAsync(correlationId, input, userId, stopwatch, ErrorCodes.AiUnavailable, ct);
             yield return new AssistantEvent.Failed(
                 ErrorCodes.AiUnavailable, "The assistant is unavailable: no model API key is configured.");
             yield break;
@@ -92,15 +102,14 @@ public class AssistantService(
         if (template is null)
         {
             logger.LogError("No active prompt template for feature {Feature}.", PromptFeatures.DealAssistant);
+            await RecordRejectionAsync(correlationId, input, userId, stopwatch, ErrorCodes.AiUnavailable, ct);
             yield return new AssistantEvent.Failed(
                 ErrorCodes.AiUnavailable, "The assistant is not configured on this server.");
             yield break;
         }
 
-        var correlationId = Guid.NewGuid().ToString();
         var registry = new SourceRegistry();
         var context = new ToolContext(bearerToken, input.DealId, input.DocumentId, registry);
-        var stopwatch = Stopwatch.StartNew();
 
         List<Message> messages = [.. History(input), new Message(RoleType.User, BuildQuestion(question, input))];
 
@@ -114,6 +123,11 @@ public class AssistantService(
         var toolCalls = 0;
         var contextChars = 0;
         var truncated = false;
+
+        // Which budget bound first. The flag alone cannot say, and the four budgets call
+        // for four different fixes — a wall-clock stop means the tools are slow, a
+        // context stop means the results are fat.
+        string? truncationReason = null;
         var owesAnswer = false;
 
         while (iterations < _options.MaxIterations)
@@ -122,6 +136,7 @@ public class AssistantService(
             {
                 logger.LogInformation("Assistant question {CorrelationId} hit the wall clock.", correlationId);
                 truncated = true;
+                truncationReason ??= TruncationReasons.WallClock;
                 break;
             }
 
@@ -150,6 +165,11 @@ public class AssistantService(
                 if (failure is not null)
                 {
                     logger.LogWarning(failure, "Assistant question {CorrelationId} failed mid-turn.", correlationId);
+                    stopwatch.Stop();
+                    await ledger.RecordQuestionAsync(
+                        PromptFeatures.DealAssistant, session.Model, userId, input.DealId, correlationId,
+                        (int)stopwatch.ElapsedMilliseconds, iterations, toolCalls,
+                        truncated, truncationReason, succeeded: false, ErrorCodes.AiUnavailable, ct);
                     yield return new AssistantEvent.Failed(
                         ErrorCodes.AiUnavailable,
                         "The assistant is temporarily unavailable. Try again in a moment.");
@@ -199,6 +219,7 @@ public class AssistantService(
                 if (toolCalls >= _options.MaxToolCalls)
                 {
                     truncated = true;
+                    truncationReason ??= TruncationReasons.ToolCalls;
                     results.Add(Result(call.Id,
                         $"Tool-call budget exhausted ({_options.MaxToolCalls} calls). Answer from what you " +
                         "already have, and say plainly that you stopped short of checking everything.", isError: true));
@@ -214,6 +235,7 @@ public class AssistantService(
                 if (contextChars + text.Length > _options.MaxContextChars)
                 {
                     truncated = true;
+                    truncationReason ??= TruncationReasons.ContextChars;
                     var room = Math.Max(0, _options.MaxContextChars - contextChars);
                     text = room < 200
                         ? "Context budget exhausted; this result was not read. Answer from what you already have " +
@@ -236,6 +258,7 @@ public class AssistantService(
                 logger.LogInformation(
                     "Assistant question {CorrelationId} hit the iteration cap.", correlationId);
                 truncated = true;
+                truncationReason ??= TruncationReasons.Iterations;
             }
         }
 
@@ -288,11 +311,36 @@ public class AssistantService(
 
         logger.LogInformation(
             "Assistant question {CorrelationId} finished: {Iterations} iteration(s), {ToolCalls} tool call(s), " +
-            "{Sources} source(s), truncated={Truncated}, {Elapsed}ms.",
-            correlationId, iterations, toolCalls, registry.Count, truncated, stopwatch.ElapsedMilliseconds);
+            "{Sources} source(s), truncated={Truncated} ({Reason}), {Elapsed}ms.",
+            correlationId, iterations, toolCalls, registry.Count, truncated,
+            truncationReason ?? "-", stopwatch.ElapsedMilliseconds);
+
+        // The same figure the `done` event carries below, persisted rather than only
+        // streamed: ai_request_log knows model time per turn, and nothing else knows how
+        // long the user waited.
+        await ledger.RecordQuestionAsync(
+            PromptFeatures.DealAssistant, session.Model, userId, input.DealId, correlationId,
+            (int)stopwatch.ElapsedMilliseconds, iterations, toolCalls,
+            truncated, truncationReason, succeeded: true, error: null, ct);
 
         yield return new AssistantEvent.Done(
             session.Model, iterations, toolCalls, (int)stopwatch.ElapsedMilliseconds, truncated);
+    }
+
+    /// <summary>
+    /// Closes out a question that was refused before any model call — no model, no turns,
+    /// no tool calls. Recorded anyway so the ledger counts every question asked, not only
+    /// the ones that got as far as spending money.
+    /// </summary>
+    private Task RecordRejectionAsync(
+        string correlationId, AskInput input, string? userId, Stopwatch stopwatch, string code,
+        CancellationToken ct)
+    {
+        stopwatch.Stop();
+        return ledger.RecordQuestionAsync(
+            PromptFeatures.DealAssistant, model: null, userId, input.DealId, correlationId,
+            (int)stopwatch.ElapsedMilliseconds, iterations: 0, toolCalls: 0,
+            truncated: false, truncationReason: null, succeeded: false, code, ct);
     }
 
     private static ToolResultContent Result(string toolUseId, string text, bool isError) => new()

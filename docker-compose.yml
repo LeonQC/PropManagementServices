@@ -368,6 +368,10 @@ services:
       Search__BaseUrl: "http://search-service:8080"
       # Supplied via the untracked .env next to this file (see .env.example).
       # Never bake the key into the image or commit it.
+      # Per-user limits on the two endpoints that spend money. In-process, so they are
+      # correct only while this service runs as a single container — see RateLimitOptions.
+      # Set RateLimit__Enabled=false to let scripts/eval_ragas.py run unthrottled.
+      RateLimit__Enabled: ${AI_RATE_LIMIT_ENABLED:-true}
       Anthropic__ApiKey: ${ANTHROPIC_API_KEY:-}
       Anthropic__Model: "claude-sonnet-5"
       # The assistant runs a tool-use loop rather than a single call, and has to hold
