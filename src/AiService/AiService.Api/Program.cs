@@ -47,7 +47,7 @@ app.UseAuthorization();
 // After authorization, not before: the limiter partitions on the "sub" claim, so the
 // principal has to exist by the time it runs. It also means an unauthenticated caller is
 // already a 401 and never consumes anyone's budget.
-app.UseRateLimiter();
+app.UseAiRateLimiter();
 
 app.MapControllers();
 

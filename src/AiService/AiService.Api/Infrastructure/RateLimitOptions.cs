@@ -4,15 +4,20 @@ namespace AiService.Api.Infrastructure;
 /// Per-user limits on the two endpoints that spend money, from the "RateLimit" config
 /// section.
 ///
-/// <para><b>In-process, not Redis.</b> Architecture §3.5 specifies a Redis-backed limiter,
-/// and this is deliberately not that. ai-service runs as a single container, so a counter
-/// in memory is the same counter every request sees, and
-/// <c>Microsoft.AspNetCore.RateLimiting</c> ships in the shared framework — no new
-/// dependency, no new thing to be down. Redis earns its place at exactly one trigger:
-/// <b>the moment ai-service runs more than one instance</b>. Two replicas holding
-/// independent in-process counters give every user double the intended limit, silently,
-/// and the limit stops meaning anything. Scale this service out and this class must be
-/// replaced before the replicas ship, not after.</para>
+/// <para><b>Redis-backed, because the counter has to be shared.</b> This was in-process
+/// (<c>Microsoft.AspNetCore.RateLimiting</c>) for as long as ai-service ran as a single
+/// container, and the trigger for replacing it was named in advance: the moment a second
+/// replica exists, each one holds its own counter and every limit multiplies by the
+/// replica count. That is measured, not assumed: two replicas behind a round-robin
+/// balancer let one user spend 60 permits against a limit of 30, and run 4 questions at
+/// once against a concurrency limit of 2 — exactly double, both times.</para>
+///
+/// <para><b>Fails closed.</b> If Redis cannot be reached the request is refused rather
+/// than admitted. The usual advice is the opposite — a broken safety rail should not take
+/// the road with it — but that assumes the limited thing is cheap. Every admitted request
+/// here is a Claude call at up to $0.097, bounding that spend is the limiter's entire
+/// job, and an outage is exactly when nobody is watching the ledger. Going dark on two
+/// endpoints is bounded and immediately visible; an unbounded bill is neither.</para>
 ///
 /// <para><b>Partitioned by user, never by IP.</b> Everyone here shares an office egress
 /// address, so an IP partition would have the first analyst to ask three questions throttle
@@ -34,9 +39,16 @@ public class RateLimitOptions
     /// <summary>
     /// Off switch. scripts/eval_ragas.py drives bulk sequential questions under one
     /// account and is the first thing any per-user limit breaks; an eval run should not
-    /// require a code change to get through.
+    /// require a code change to get through. Off also means no Redis connection is
+    /// opened at all, so an eval run does not need the container either.
     /// </summary>
     public bool Enabled { get; set; } = true;
+
+    /// <summary>
+    /// Prefix for every key this service writes, so a shared Redis stays legible and
+    /// <c>SCAN MATCH ai:rl:*</c> finds exactly this feature's keys and nothing else.
+    /// </summary>
+    public string KeyPrefix { get; set; } = "ai:rl";
 
     /// <summary>
     /// The assistant. Measured over 15 questions on 2026-09-07: P50 6.5s, P95 57.4s, and
@@ -57,6 +69,9 @@ public class RateLimitOptions
         WindowSeconds = 300,
         ConcurrentRequests = 1,
         BusyRetryAfterSeconds = 60,
+        // Assistant:WallClockSeconds is 90; see EndpointLimit.LeaseTtlSeconds for why
+        // this is comfortably above it rather than equal to it.
+        LeaseTtlSeconds = 120,
     };
 
     /// <summary>
@@ -75,6 +90,9 @@ public class RateLimitOptions
         WindowSeconds = 300,
         ConcurrentRequests = 2,
         BusyRetryAfterSeconds = 12,
+        // One Claude call behind a 60s Anthropic timeout plus retrieval, so a question
+        // cannot outlive this even in the worst case.
+        LeaseTtlSeconds = 90,
     };
 }
 
@@ -89,15 +107,21 @@ public class EndpointLimit
     /// <summary>Requests allowed per <see cref="WindowSeconds"/>, per user.</summary>
     public int PermitLimit { get; set; }
 
-    /// <summary>Length of the window in seconds.</summary>
-    public int WindowSeconds { get; set; }
-
     /// <summary>
-    /// Segments the sliding window is divided into. Sliding rather than fixed because a
-    /// fixed window lets a user spend a full window on each side of a boundary — twice the
-    /// intended budget in a few seconds, which at up to $0.09 a question is real money.
+    /// Length of the window in seconds. Sliding rather than fixed because a fixed window
+    /// lets a user spend a full window on each side of a boundary — twice the intended
+    /// budget in a few seconds, which at up to $0.09 a question is real money.
+    ///
+    /// <para>There is no <c>SegmentsPerWindow</c> any more. It existed because
+    /// <c>SlidingWindowRateLimiter</c> approximates the window with a ring of counters
+    /// and needed to be told how many; six meant budget came back in 50-second lumps
+    /// rather than continuously. Redis holds a log of request timestamps instead, which
+    /// is the same idea with the segment count taken to infinity: a permit returns at the
+    /// exact instant the request that spent it turns 300 seconds old. Thirty timestamps
+    /// per user is nothing to store, and it is what makes the Retry-After on a window
+    /// rejection an exact figure rather than a guess.</para>
     /// </summary>
-    public int SegmentsPerWindow { get; set; } = 6;
+    public int WindowSeconds { get; set; }
 
     /// <summary>
     /// Questions this user may have in flight at once. Queue depth is deliberately zero
@@ -108,12 +132,28 @@ public class EndpointLimit
     public int ConcurrentRequests { get; set; }
 
     /// <summary>
-    /// How long to advertise in Retry-After when the <em>concurrency</em> limiter rejects.
+    /// How long a concurrency slot stays claimed if nobody gives it back.
+    ///
+    /// <para>The normal path releases in a <c>finally</c>, so this only matters when the
+    /// instance holding the slot stops existing — SIGKILL, an OOM, a container replaced
+    /// mid-question. Without it that user's permit is gone until someone flushes Redis by
+    /// hand, and the failure looks like "the assistant stopped working for one person",
+    /// which is a miserable thing to debug.</para>
+    ///
+    /// <para>Set it above the endpoint's own wall-clock ceiling, not equal to it: the two
+    /// ways of being wrong are not symmetric. Too long, and a user waits out the tail of
+    /// a lease nobody holds. Too short, and a request that is still legitimately running
+    /// has its slot taken from under it and a second one joins it — the limit quietly
+    /// stops holding while everything appears to work.</para>
+    /// </summary>
+    public int LeaseTtlSeconds { get; set; } = 120;
+
+    /// <summary>
+    /// What to advertise in Retry-After when the <em>concurrency</em> limiter rejects.
     /// Nothing can know when the question ahead will finish, so this is an estimate: set it
     /// from the endpoint's measured P95, which is the honest answer to "when should I come
-    /// back". The window's own wait is derived from <see cref="WindowSeconds"/> and
-    /// <see cref="SegmentsPerWindow"/> rather than configured — see RateLimiting.RetryAfter
-    /// for why neither is read from the lease.
+    /// back". A window rejection does not use this — Redis can say exactly when the oldest
+    /// request falls out of the window, so that number is computed rather than configured.
     /// </summary>
     public int BusyRetryAfterSeconds { get; set; } = 30;
 }

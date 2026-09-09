@@ -6,6 +6,10 @@
 
   <ItemGroup>
     <PackageReference Include="Swashbuckle.AspNetCore" Version="10.2.0" />
+    <!-- Backs the per-user rate limits, which have to be shared across replicas.
+         Referenced by the Api rather than by Business: limiting is a transport
+         concern and lives entirely in Infrastructure alongside the middleware. -->
+    <PackageReference Include="StackExchange.Redis" Version="2.8.24" />
   </ItemGroup>
 
   <PropertyGroup>
