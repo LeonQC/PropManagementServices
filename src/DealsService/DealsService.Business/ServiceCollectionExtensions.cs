@@ -24,7 +24,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<DealDocumentService>();
 
         // Inbound event consumers (background services).
-        services.AddHostedService<AiDealScoreReadyConsumer>();
+        services.AddHostedService<AiDealRationaleReadyConsumer>();
 
         services.Configure<JwtValidationOptions>(config.GetSection("Jwt"));
         AddJwtBearerAuth(services);

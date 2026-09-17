@@ -46,6 +46,26 @@ model_list:
       model: openai/gpt-4o-mini
       api_key: os.environ/OPENAI_API_KEY
 
+  # ── The DEAL-SCORE RATIONALE, for the ai-service worker ──────────────────
+  # Generation for the scoring worker rides here rather than going to the Anthropic
+  # SDK directly like Deal Q&A does, so swapping the model — or pointing it at a
+  # local one — is this file rather than a code change. The task is narrow: restate
+  # numbers it is handed as one or two sentences, with no retrieval and no judgement.
+  #
+  # The judge-independence rule above does NOT apply to this route. That rule exists
+  # because scoring Anthropic's output with an Anthropic judge measures self-preference;
+  # nothing judges the rationale, so sharing a provider with the judge is harmless.
+  # Do not "fix" this to a different provider for symmetry.
+  #
+  # 4.1-mini over 4o-mini as the default: the job is almost entirely instruction
+  # adherence (a word budget, and never inventing a figure), which is where the older
+  # line is weakest. Both are priced in WorkerOptions.ModelRates so either can be
+  # measured without the cost ledger silently reporting the wrong number.
+  - model_name: rationale-default
+    litellm_params:
+      model: openai/gpt-4.1-mini
+      api_key: os.environ/OPENAI_API_KEY
+
   # ── The CROSS-ENCODER RERANKER, for /ingestion/v1/search ─────────────────
   # Served by the tei-rerank container; LiteLLM's HuggingFace rerank provider
   # speaks TEI's `/rerank` and fronts it as the Cohere-shaped `/v1/rerank`.

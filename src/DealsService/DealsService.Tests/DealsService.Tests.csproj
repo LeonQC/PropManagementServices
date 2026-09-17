@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+    <!-- Matches AiService.Tests: these are pure-function tests with no I/O to cancel, and
+         threading TestContext.Current.CancellationToken through them would add an argument
+         per line to guard against a hang that cannot happen. -->
+    <NoWarn>$(NoWarn);xUnit1051</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- DealScore and DealHealth both live in DataAccess, beside the repository that
+         assembles DealWithTaskStats. No database is needed to test either: they are pure
+         functions over a Deal plus one pre-fetched aggregate. -->
+    <ProjectReference Include="..\DealsService.DataAccess\DealsService.DataAccess.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
+    <PackageReference Include="xunit.v3" Version="1.0.0" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.0.0" />
+  </ItemGroup>
+
+</Project>

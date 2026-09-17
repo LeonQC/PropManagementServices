@@ -14,7 +14,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IPromptTemplateRepository, PromptTemplateRepository>();
         services.AddScoped<IAiRequestLogRepository, AiRequestLogRepository>();
         services.AddScoped<IAiQuestionLogRepository, AiQuestionLogRepository>();
-        services.AddScoped<IAiWorkFingerprintRepository, AiWorkFingerprintRepository>();
+        services.AddScoped<IAiWorkRecordRepository, AiWorkRecordRepository>();
 
         return services;
     }

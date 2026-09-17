@@ -13,7 +13,7 @@ public static class Topics
     public const string DealSnapshot = "deal.snapshot";
 
     /// <summary>
-    /// Published. Consumed by deals-service, which writes the score onto the deal row.
+    /// Published. Consumed by deals-service, which stores the prose on the deal row.
     ///
     /// <para>Deliberately a plain event topic, not compacted: it is a stream of "this
     /// changed" notifications whose state lives on the deal, so there is nothing to
@@ -21,7 +21,7 @@ public static class Topics
     /// broker auto-creation gives the right cleanup policy here, unlike for the snapshot
     /// topics listings and deals own.</para>
     /// </summary>
-    public const string AiDealScoreReady = "ai.deal_score_ready";
+    public const string AiDealRationaleReady = "ai.deal_rationale_ready";
 }
 
 /// <summary>Consumer group ids. One per topic rather than one per service: offsets commit per

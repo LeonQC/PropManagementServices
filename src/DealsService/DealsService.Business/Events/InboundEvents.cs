@@ -7,15 +7,13 @@ namespace DealsService.Business.Events;
 /// </summary>
 
 /// <summary>
-/// ai.deal_score_ready — ai-service has scored a deal. Owned by
-/// <c>AiService.Business.Events.AiDealScoreReady</c>.
+/// ai.deal_rationale_ready — ai-service has written prose explaining a deal's score. Owned by
+/// <c>AiService.Business.Events.AiDealRationaleReady</c>.
 ///
-/// <para><paramref name="Rationale"/> is null when only the number moved. The score is a
-/// deterministic formula and free to recompute, so it is republished on small drifts, while
-/// the prose costs a model call and is regenerated only when the score moves materially. A
-/// null must therefore leave the stored rationale alone rather than clearing it.</para>
+/// <para>Carries no score. The number is a deterministic formula computed on read in this
+/// service, so there is nothing to write back and nothing that could fall out of sync; only
+/// the rationale crosses the boundary, because only the rationale costs a model call.</para>
 /// </summary>
-public record AiDealScoreReady(
+public record AiDealRationaleReady(
     string DealId,
-    double Score,
-    string? Rationale);
+    string Rationale);

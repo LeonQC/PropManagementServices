@@ -32,9 +32,13 @@ public class Deal
     public double? EquityMultiple { get; set; }
     public string? ProjectedCloseDate { get; set; }
 
-    // AI columns are first-class per the design doc; populated by a future
-    // ai-service via Kafka, never written by user requests.
-    public double? AiScore { get; set; }
+    // The score itself is NOT stored. It is a deterministic formula whose stage-momentum
+    // component moves as days pass, so a persisted copy would freeze at the last write and a
+    // stalling deal would keep scoring as though it were fresh. Derived per read instead —
+    // see DealScore, and DealHealth, which makes the same call for the same reason.
+    //
+    // These two are stored because neither can be re-derived: both cost a model call.
+    // Written only by ai-service via Kafka, never by user requests.
     public string? AiScoreRationale { get; set; }
     public string? RiskFlags { get; set; }
 

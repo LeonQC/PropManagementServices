@@ -407,10 +407,16 @@ services:
       # The scoring worker. Its own consumer group per topic, set in code — see
       # AiService.Business.Events.ConsumerGroups.
       Kafka__BootstrapServers: "kafka:9092"
-      # Slice A computes the deterministic score only; the model-written rationale
-      # arrives with the LiteLLM route in slice B.
       Worker__Enabled: ${AI_WORKER_ENABLED:-true}
-      Worker__RationaleEnabled: "false"
+      # The one setting that lets this worker spend. On: the gate has been measured, and a
+      # full pass over every scored deal costs about a cent and a half. Set
+      # AI_RATIONALE_ENABLED=false to run the stack without it — the worker still consumes
+      # and still logs what it would have written, which is how the gate was verified.
+      Worker__RationaleEnabled: ${AI_RATIONALE_ENABLED:-true}
+      # Generation for the worker goes through the proxy that already fronts embeddings,
+      # reranking and the eval judge, so the model is a config value rather than a code
+      # dependency. Deal Q&A and the assistant still call Anthropic directly.
+      LiteLlm__BaseUrl: "http://litellm:4000"
     depends_on:
       - ai-db
       - ai-rate-limit-redis
@@ -419,6 +425,7 @@ services:
       - deals-service
       - search-service
       - kafka
+      - litellm
 
   opensearch:
     # Search engine backing search-service: the cross-entity index (properties today,

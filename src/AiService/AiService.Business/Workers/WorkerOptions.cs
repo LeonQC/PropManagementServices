@@ -1,6 +1,6 @@
 namespace AiService.Business.Workers;
 
-/// <summary>Background scoring worker settings, bound from the "Worker" section.</summary>
+/// <summary>Background rationale worker settings, bound from the "Worker" section.</summary>
 public class WorkerOptions
 {
     /// <summary>
@@ -12,30 +12,54 @@ public class WorkerOptions
     public bool Enabled { get; set; } = true;
 
     /// <summary>
-    /// Whether to generate the model-written rationale prose. False through slice A, where
-    /// the worker computes and publishes the deterministic score only and never spends.
-    /// Turning it on without a configured rationale model is safe: the call is skipped.
+    /// Whether to spend on prose at all. Off is a hard stop: the worker still consumes and
+    /// still logs what it would have done, so the gate can be watched in production before it
+    /// is allowed to bill anything.
     /// </summary>
     public bool RationaleEnabled { get; set; }
 
     /// <summary>
-    /// How far the score must move from the one already on the deal before it is written
-    /// back. Guards against float noise republishing the deal for a change of 0.0000001,
-    /// which would be a write amplification loop rather than an infinite one.
-    /// </summary>
-    public double ScoreWriteEpsilon { get; set; } = 0.5;
-
-    /// <summary>
-    /// How far the score must move from the score the CURRENT rationale was written at
-    /// before the prose is regenerated. Compared against the stored
-    /// <c>AiWorkFingerprint.LastOutputScore</c>, not against the deal's present score — see
-    /// DealScoreGate for why comparing against the present score ratchets.
+    /// How far the score must move from the one the CURRENT prose was written at before it is
+    /// rewritten. Compared against the stored <c>AiWorkFingerprint.LastOutputScore</c>, not
+    /// against the deal's present score — see DealRationaleGate for why the present score
+    /// ratchets.
     /// </summary>
     public double MaterialScoreDelta { get; set; } = 5.0;
 
     /// <summary>
-    /// Stages that are never scored. A dead deal's number would be noise on a card nobody
-    /// acts on, and rescoring it on every archival comment would be pure cost.
+    /// Model calls allowed at once. One by default: the worker is a single consumer and a
+    /// cold start should drip rather than fan out across the whole pipeline at once.
     /// </summary>
-    public string[] SkipStages { get; set; } = ["Dead"];
+    public int MaxConcurrentModelCalls { get; set; } = 1;
+
+    /// <summary>Minimum gap between model calls, so a backfill spreads over minutes instead
+    /// of arriving as a burst.</summary>
+    public int MinCallIntervalMs { get; set; } = 1500;
+
+    /// <summary>Model that writes the prose, resolved by the LiteLLM proxy. Threaded through
+    /// the call rather than read at the call site, so comparing candidates is a config change
+    /// and the cost ledger records which model actually served each row.</summary>
+    public string RationaleModel { get; set; } = "rationale-default";
+
+    /// <summary>Ceiling on the generated prose. The prompt asks for roughly forty words; this
+    /// is the backstop for a model that ignores it.</summary>
+    public int MaxRationaleTokens { get; set; } = 160;
+
+    /// <summary>
+    /// USD per million tokens, keyed by model. Separate from AnthropicOptions.ModelRates
+    /// because these are LiteLLM route names rather than Anthropic model ids, and because the
+    /// two are configured independently.
+    ///
+    /// <para>Keyed by model rather than by feature, for the reason AnthropicOptions documents
+    /// at length: pointing a feature at a different model while its rates stayed pinned made
+    /// the ledger quietly report the wrong number, which is the one failure a cost ledger
+    /// exists to prevent. An unpriced model falls back to the 4.1-mini rate below, which is
+    /// close enough not to mislead while still being visibly a default.</para>
+    /// </summary>
+    public Dictionary<string, ModelRate> ModelRates { get; set; } = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["rationale-default"] = new(0.40, 1.60),
+        ["gpt-4.1-mini"] = new(0.40, 1.60),
+        ["gpt-4o-mini"] = new(0.15, 0.60),
+    };
 }

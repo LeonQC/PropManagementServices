@@ -101,11 +101,14 @@ public class DealService(IDealRepository repo, IEventPublisher eventPublisher, D
         // alongside it, and the snapshot carries their rollups.
         await snapshots.ReloadAndPublishAsync(created.Id, ct);
 
-        // A brand-new deal has no dwell history and no overdue tasks, so its flag set
-        // is whatever the snapshotted metrics alone imply.
+        // A brand-new deal has no dwell history and no overdue tasks, so its flags and its
+        // score are whatever the snapshotted metrics alone imply. Scoring it here rather than
+        // leaving it null means the card carries a number the moment it appears on the board.
+        var createdAtUtc = DateTime.UtcNow;
         return ServiceResult<DealDto>.Ok(MapToDto(new DealWithTaskStats(
             created, templateTasks.Count, 0, false,
-            DealHealth.Evaluate(created, false, [], DateTime.UtcNow))));
+            DealHealth.Evaluate(created, false, [], createdAtUtc),
+            DealScore.Compute(created, templateTasks.Count, 0, [], createdAtUtc))));
     }
 
     public async Task<ServiceResult<DealDto>> UpdateAsync(string id, UpdateDealDto input,
@@ -319,30 +322,28 @@ public class DealService(IDealRepository repo, IEventPublisher eventPublisher, D
     }
 
     /// <summary>
-    /// ai.deal_score_ready — write a score computed by ai-service onto the deal.
+    /// ai.deal_rationale_ready — store the prose ai-service wrote to explain a deal's score.
     ///
-    /// <para>The only path that writes the Ai* columns; user requests never touch them, which
-    /// is why UpdateDealDto excludes them. A null <paramref name="rationale"/> means only the
-    /// number moved, so the stored prose is left in place rather than cleared.</para>
+    /// <para>The score itself never arrives this way. It is a deterministic formula computed on
+    /// read (see DealScore), so there is nothing to write back and nothing to keep in sync. Only
+    /// the rationale crosses the service boundary, because only the rationale costs a model call
+    /// and cannot be re-derived.</para>
     ///
-    /// <para>The early return is a loop breaker. This write bumps Version and republishes
-    /// deal.snapshot, which ai-service consumes — so a write that changes nothing would bounce
-    /// between the two services forever. ai-service's own fingerprint gate already stops that;
-    /// this is the independent second guard that survives a bug over there.</para>
+    /// <para>The only path that writes AiScoreRationale; user requests never touch it, which is
+    /// why UpdateDealDto excludes it. The early return is a loop breaker: this write bumps
+    /// Version and republishes deal.snapshot, which ai-service consumes, so a write that changes
+    /// nothing would bounce between the two services forever. ai-service's own gate stops that
+    /// too; this is the independent second guard that survives a bug over there.</para>
     /// </summary>
-    public async Task ApplyAiScoreAsync(
-        string dealId, double score, string? rationale, CancellationToken ct = default)
+    public async Task ApplyAiRationaleAsync(string dealId, string rationale, CancellationToken ct = default)
     {
         var row = await repo.GetByIdAsync(dealId, ct);
         if (row is null) return;
 
         var deal = row.Deal;
-        var rationaleUnchanged = rationale is null || deal.AiScoreRationale == rationale;
-        if (deal.AiScore == score && rationaleUnchanged) return;
+        if (deal.AiScoreRationale == rationale) return;
 
-        deal.AiScore = score;
-        if (rationale is not null) deal.AiScoreRationale = rationale;
-
+        deal.AiScoreRationale = rationale;
         await repo.UpdateAsync(deal, ct);
 
         // ReloadAndPublish, not BumpReloadAndPublish: UpdateAsync already bumped Version, and
@@ -434,7 +435,10 @@ public class DealService(IDealRepository repo, IEventPublisher eventPublisher, D
             d.OccupancyRate, d.MarketCapRateBenchmark,
             d.Stage, d.Priority, d.OwnerId, d.DeadReason,
             d.OfferPrice, d.ProjectedCapRate, d.TargetIrr, d.EquityMultiple, d.ProjectedCloseDate,
-            d.AiScore, d.AiScoreRationale, d.RiskFlags,
+            // Derived on this read rather than read off the row — see DealScore. Unscorable
+            // deals surface as null, which is what the UI renders an explanation for.
+            row.Score.HasScore ? row.Score.Score : null,
+            d.AiScoreRationale, d.RiskFlags,
             d.StageEnteredAt, d.CreatedAt, d.UpdatedAt,
             row.TaskCount, row.DoneTaskCount, row.HasOverdueTasks,
             row.HealthFlags.Select(f => new HealthFlagDto(f.Type, f.Severity, f.Message)).ToList());

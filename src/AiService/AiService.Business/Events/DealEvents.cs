@@ -54,15 +54,14 @@ public record DealSnapshot(
     bool Deleted);
 
 /// <summary>
-/// Published to <see cref="Topics.AiDealScoreReady"/> when a deal's score changes. Consumed by
-/// deals-service, which writes it onto the deal row.
+/// Published to <see cref="Topics.AiDealRationaleReady"/> when a deal's score has moved far
+/// enough from the one its stored prose describes to be worth rewriting. Consumed by
+/// deals-service, which stores it.
 ///
-/// <para><paramref name="Rationale"/> is null when only the number moved, and the consumer
-/// leaves the stored prose alone in that case. Slice A never sends one at all: the score is a
-/// deterministic formula and free to recompute, while the rationale costs a model call and is
-/// regenerated only when the score moves materially.</para>
+/// <para>Carries no score. The number is computed on read in deals-service, so it never needs
+/// writing back and the two services cannot drift apart on what it is. Only the prose crosses
+/// the boundary, because only the prose costs a model call.</para>
 /// </summary>
-public record AiDealScoreReady(
+public record AiDealRationaleReady(
     string DealId,
-    double Score,
-    string? Rationale);
+    string Rationale);

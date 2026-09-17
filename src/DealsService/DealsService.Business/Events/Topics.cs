@@ -29,11 +29,12 @@ public static class Topics
     public const string DealSnapshot = "deal.snapshot";
 
     /// <summary>
-    /// Consumed. Published by ai-service when a deal's score changes; the handler writes it
-    /// onto the deal row. The first topic this service consumes rather than produces — see
-    /// ConsumerGroups for why it does not share the service-wide group.
+    /// Consumed. Published by ai-service with the prose explaining a deal's score. The number
+    /// itself never arrives this way: it is computed on read (see DealScore), so only the part
+    /// that costs a model call crosses the boundary. The first topic this service consumes
+    /// rather than produces — see ConsumerGroups for why it has its own group.
     /// </summary>
-    public const string AiDealScoreReady = "ai.deal_score_ready";
+    public const string AiDealRationaleReady = "ai.deal_rationale_ready";
 }
 
 /// <summary>Consumer group ids. One per topic rather than one per service: offsets commit per
@@ -44,5 +45,5 @@ public static class ConsumerGroups
     /// <summary>Named rather than defaulting to KafkaSettings.ConsumerGroupId. That
     /// service-wide id has never had a consumer attached to it, so there are no committed
     /// offsets to preserve and nothing is gained by reusing it.</summary>
-    public const string AiDealScoreReady = "deals-service-ai-scores";
+    public const string AiDealRationaleReady = "deals-service-ai-rationales";
 }
