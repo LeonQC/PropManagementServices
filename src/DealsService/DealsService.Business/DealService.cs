@@ -319,6 +319,38 @@ public class DealService(IDealRepository repo, IEventPublisher eventPublisher, D
     }
 
     /// <summary>
+    /// ai.deal_score_ready — write a score computed by ai-service onto the deal.
+    ///
+    /// <para>The only path that writes the Ai* columns; user requests never touch them, which
+    /// is why UpdateDealDto excludes them. A null <paramref name="rationale"/> means only the
+    /// number moved, so the stored prose is left in place rather than cleared.</para>
+    ///
+    /// <para>The early return is a loop breaker. This write bumps Version and republishes
+    /// deal.snapshot, which ai-service consumes — so a write that changes nothing would bounce
+    /// between the two services forever. ai-service's own fingerprint gate already stops that;
+    /// this is the independent second guard that survives a bug over there.</para>
+    /// </summary>
+    public async Task ApplyAiScoreAsync(
+        string dealId, double score, string? rationale, CancellationToken ct = default)
+    {
+        var row = await repo.GetByIdAsync(dealId, ct);
+        if (row is null) return;
+
+        var deal = row.Deal;
+        var rationaleUnchanged = rationale is null || deal.AiScoreRationale == rationale;
+        if (deal.AiScore == score && rationaleUnchanged) return;
+
+        deal.AiScore = score;
+        if (rationale is not null) deal.AiScoreRationale = rationale;
+
+        await repo.UpdateAsync(deal, ct);
+
+        // ReloadAndPublish, not BumpReloadAndPublish: UpdateAsync already bumped Version, and
+        // bumping twice would put the snapshot's external version ahead of the row's.
+        await snapshots.ReloadAndPublishAsync(dealId, ct);
+    }
+
+    /// <summary>
     /// Republishes every deal's snapshot, for backfilling a new index or repairing drift.
     /// Pages so a large pipeline doesn't load in one go, and returns how many it emitted so
     /// the caller can compare against the row count.

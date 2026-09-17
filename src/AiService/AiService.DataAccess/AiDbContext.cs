@@ -8,6 +8,7 @@ public class AiDbContext(DbContextOptions<AiDbContext> options) : DbContext(opti
     public DbSet<PromptTemplate> PromptTemplates => Set<PromptTemplate>();
     public DbSet<AiRequestLog> AiRequestLogs => Set<AiRequestLog>();
     public DbSet<AiQuestionLog> AiQuestionLogs => Set<AiQuestionLog>();
+    public DbSet<AiWorkFingerprint> AiWorkFingerprints => Set<AiWorkFingerprint>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -61,6 +62,18 @@ public class AiDbContext(DbContextOptions<AiDbContext> options) : DbContext(opti
             // over a window, never across the whole table.
             e.HasIndex(q => new { q.Feature, q.CreatedAt })
                 .HasDatabaseName("ix_ai_question_log_feature_created_at");
+        });
+
+        modelBuilder.Entity<AiWorkFingerprint>(e =>
+        {
+            e.ToTable("ai_work_fingerprints");
+
+            // Composite key rather than a surrogate id: the pair IS the identity, and one row
+            // per (feature, entity) is the invariant the whole idempotency scheme rests on.
+            // A duplicate would let the same deal be scored twice on every replay.
+            e.HasKey(f => new { f.Feature, f.EntityId });
+
+            e.Property(f => f.InputFingerprint).HasMaxLength(64);
         });
 
         base.OnModelCreating(modelBuilder);

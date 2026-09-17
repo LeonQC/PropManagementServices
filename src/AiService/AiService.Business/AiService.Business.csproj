@@ -2,6 +2,9 @@
 
   <ItemGroup>
     <ProjectReference Include="..\AiService.DataAccess\AiService.DataAccess.csproj" />
+    <!-- The Kafka worker half (architecture §2.6). Referenced from Business, not Api, so
+         the Api never sees Confluent types — same placement as every other service. -->
+    <ProjectReference Include="..\..\Shared\PropTrack.Messaging\PropTrack.Messaging.csproj" />
   </ItemGroup>
 
   <ItemGroup>

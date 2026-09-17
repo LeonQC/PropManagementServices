@@ -267,4 +267,10 @@ public static class PromptFeatures
     /// <summary>The tool-using assistant (§6.8). Several ai_request_log rows per
     /// question, grouped by correlation id — unlike deal_qa, which is one row.</summary>
     public const string DealAssistant = "deal_assistant";
+
+    /// <summary>Deal scoring (§6.3). Unlike the two above this is not a prompt feature
+    /// yet — the score is a deterministic formula and spends nothing. The constant exists
+    /// now because it also keys ai_work_fingerprints, which the scoring worker writes from
+    /// its first run.</summary>
+    public const string DealScore = "deal_score";
 }

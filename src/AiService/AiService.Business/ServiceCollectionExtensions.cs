@@ -3,12 +3,14 @@ using AiService.Business.Assistant.Clients;
 using AiService.Business.Assistant.Tools;
 using AiService.Business.Retrieval;
 using AiService.Business.Security;
+using AiService.Business.Workers;
 using AiService.DataAccess;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
+using PropTrack.Messaging;
 
 namespace AiService.Business;
 
@@ -70,10 +72,35 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ToolDispatcher>();
         services.AddScoped<AssistantService>();
 
+        AddScoringWorker(services, config);
+
         services.Configure<JwtValidationOptions>(config.GetSection("Jwt"));
         AddJwtBearerAuth(services);
 
         return services;
+    }
+
+    /// <summary>
+    /// Registers the Kafka worker half (architecture §2.6): the deal.snapshot consumer that
+    /// scores deals and publishes the result back.
+    ///
+    /// <para>No MessagingStartup shim here, unlike listings and deals. Those provision their
+    /// own compacted snapshot topics, because Kafka's auto-creation would give them the
+    /// default delete policy and silently break replay. The only topic this service produces
+    /// is <c>ai.deal_score_ready</c>, a plain notification stream with no state to rebuild, so
+    /// auto-creation is correct and the missing shim is deliberate.</para>
+    /// </summary>
+    private static void AddScoringWorker(IServiceCollection services, IConfiguration config)
+    {
+        services.AddKafkaMessaging(config);
+        services.Configure<WorkerOptions>(config.GetSection("Worker"));
+        services.AddScoped<DealScoreWorker>();
+
+        // Registration is gated rather than the consumer self-disabling: with no reachable
+        // broker Confluent retries the connection forever and buries the log, and
+        // scripts/eval_ragas.py runs against a bare ai-service with no Kafka at all.
+        var worker = config.GetSection("Worker").Get<WorkerOptions>() ?? new WorkerOptions();
+        if (worker.Enabled) services.AddHostedService<DealScoreConsumer>();
     }
 
     /// <summary>

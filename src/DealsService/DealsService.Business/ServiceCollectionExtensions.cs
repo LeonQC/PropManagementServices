@@ -1,3 +1,4 @@
+using DealsService.Business.Consumers;
 using DealsService.Business.Security;
 using DealsService.DataAccess;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -21,6 +22,9 @@ public static class ServiceCollectionExtensions
         services.AddScoped<DealTaskService>();
         services.AddScoped<DealCommentService>();
         services.AddScoped<DealDocumentService>();
+
+        // Inbound event consumers (background services).
+        services.AddHostedService<AiDealScoreReadyConsumer>();
 
         services.Configure<JwtValidationOptions>(config.GetSection("Jwt"));
         AddJwtBearerAuth(services);
