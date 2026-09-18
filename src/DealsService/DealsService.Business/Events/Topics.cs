@@ -27,4 +27,23 @@ public static class Topics
     /// guarantee, so MessagingStartup provisions it explicitly at startup.
     /// </summary>
     public const string DealSnapshot = "deal.snapshot";
+
+    /// <summary>
+    /// Consumed. Published by ai-service with the prose explaining a deal's score. The number
+    /// itself never arrives this way: it is computed on read (see DealScore), so only the part
+    /// that costs a model call crosses the boundary. The first topic this service consumes
+    /// rather than produces — see ConsumerGroups for why it has its own group.
+    /// </summary>
+    public const string AiDealRationaleReady = "ai.deal_rationale_ready";
+}
+
+/// <summary>Consumer group ids. One per topic rather than one per service: offsets commit per
+/// group, so sharing a group would mean replaying one topic from the beginning rewinds the
+/// others, and members of a group with different subscriptions rebalance needlessly.</summary>
+public static class ConsumerGroups
+{
+    /// <summary>Named rather than defaulting to KafkaSettings.ConsumerGroupId. That
+    /// service-wide id has never had a consumer attached to it, so there are no committed
+    /// offsets to preserve and nothing is gained by reusing it.</summary>
+    public const string AiDealRationaleReady = "deals-service-ai-rationales";
 }

@@ -25,7 +25,7 @@ public class DealRepository(DealsDbContext db) : IDealRepository
         if (row is null) return null;
 
         var dwellAverages = await GetStageDwellAveragesAsync(ct);
-        return WithHealth(row, dwellAverages, DateTime.UtcNow);
+        return WithDerived(row, dwellAverages, DateTime.UtcNow);
     }
 
     public Task<bool> ExistsAsync(string id, CancellationToken ct = default)
@@ -137,7 +137,7 @@ public class DealRepository(DealsDbContext db) : IDealRepository
 
         // One aggregate for the whole page, not one per deal.
         var dwellAverages = await GetStageDwellAveragesAsync(ct);
-        var items = rows.Select(r => WithHealth(r, dwellAverages, now)).ToList();
+        var items = rows.Select(r => WithDerived(r, dwellAverages, now)).ToList();
 
         return (items, totalCount);
     }
@@ -240,10 +240,14 @@ public class DealRepository(DealsDbContext db) : IDealRepository
                 g.Count()))
            .ToListAsync(ct);
 
-    private static DealWithTaskStats WithHealth(
+    /// <summary>Attaches the two values derived per read: the health flags and the score.
+    /// Both share the one pre-fetched dwell table and the one clock reading, so a deal's
+    /// stale-stage flag and its momentum component can never disagree.</summary>
+    private static DealWithTaskStats WithDerived(
         DealRow row, IReadOnlyList<StageDwellAverage> dwellAverages, DateTime nowUtc) =>
         new(row.Deal, row.TaskCount, row.DoneTaskCount, row.HasOverdueTasks,
-            DealHealth.Evaluate(row.Deal, row.HasOverdueTasks, dwellAverages, nowUtc));
+            DealHealth.Evaluate(row.Deal, row.HasOverdueTasks, dwellAverages, nowUtc),
+            DealScore.Compute(row.Deal, row.TaskCount, row.DoneTaskCount, dwellAverages, nowUtc));
 
     /// <summary>
     /// Turns a raw keyword string into a Postgres tsquery: sanitized to alphanumeric

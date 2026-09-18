@@ -7,14 +7,16 @@ namespace DealsService.DataAccess;
 /// reserved for the later LLM-derived judgment flags.</summary>
 public record HealthFlag(string Type, string Severity, string Message);
 
-/// <summary>A deal plus the task rollups the board cards render, and the health
-/// flags evaluated for it on this read.</summary>
+/// <summary>A deal plus the task rollups the board cards render, and the two derived values
+/// evaluated for it on this read: the health flags and the score. Both are computed rather
+/// than stored, because both move as days pass — see DealHealth and DealScore.</summary>
 public record DealWithTaskStats(
     Deal Deal,
     int TaskCount,
     int DoneTaskCount,
     bool HasOverdueTasks,
-    IReadOnlyList<HealthFlag> HealthFlags);
+    IReadOnlyList<HealthFlag> HealthFlags,
+    DealScoreResult Score);
 
 /// <summary>Per-stage aggregate for the pipeline summary endpoint.</summary>
 public record StageAggregate(string Stage, int Count, double TotalValue);

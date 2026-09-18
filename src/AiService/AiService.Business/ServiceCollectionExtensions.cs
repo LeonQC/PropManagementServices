@@ -3,12 +3,14 @@ using AiService.Business.Assistant.Clients;
 using AiService.Business.Assistant.Tools;
 using AiService.Business.Retrieval;
 using AiService.Business.Security;
+using AiService.Business.Workers;
 using AiService.DataAccess;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
+using PropTrack.Messaging;
 
 namespace AiService.Business;
 
@@ -70,10 +72,51 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ToolDispatcher>();
         services.AddScoped<AssistantService>();
 
+        AddRationaleWorker(services, config);
+
         services.Configure<JwtValidationOptions>(config.GetSection("Jwt"));
         AddJwtBearerAuth(services);
 
         return services;
+    }
+
+    /// <summary>
+    /// Registers the Kafka worker half (architecture §2.6): the deal.snapshot consumer that
+    /// writes the prose explaining a deal's score.
+    ///
+    /// <para>The score itself is not here. It is a deterministic formula computed on read in
+    /// deals-service, which owns the data it runs on — see DealScore. Only the part that costs
+    /// a model call is asynchronous, which is the only part that needs to be.</para>
+    ///
+    /// <para>No MessagingStartup shim here, unlike listings and deals. Those provision their
+    /// own compacted snapshot topics, because Kafka's auto-creation would give them the
+    /// default delete policy and silently break replay. The only topic this service produces
+    /// is <c>ai.deal_score_ready</c>, a plain notification stream with no state to rebuild, so
+    /// auto-creation is correct and the missing shim is deliberate.</para>
+    /// </summary>
+    private static void AddRationaleWorker(IServiceCollection services, IConfiguration config)
+    {
+        services.AddKafkaMessaging(config);
+        services.Configure<WorkerOptions>(config.GetSection("Worker"));
+        services.Configure<LiteLlmOptions>(config.GetSection("LiteLlm"));
+
+        var liteLlm = config.GetSection("LiteLlm").Get<LiteLlmOptions>() ?? new LiteLlmOptions();
+        services.AddHttpClient<RationaleClient>(client =>
+        {
+            client.BaseAddress = new Uri(liteLlm.BaseUrl);
+            client.Timeout = TimeSpan.FromSeconds(liteLlm.TimeoutSeconds);
+        });
+
+        // Singletons so the spend limits are per process, not per message.
+        services.AddSingleton<ModelCallThrottle>();
+        services.AddSingleton<ModelCallPolicy>();
+        services.AddScoped<DealRationaleWorker>();
+
+        // Registration is gated rather than the consumer self-disabling: with no reachable
+        // broker Confluent retries the connection forever and buries the log, and
+        // scripts/eval_ragas.py runs against a bare ai-service with no Kafka at all.
+        var worker = config.GetSection("Worker").Get<WorkerOptions>() ?? new WorkerOptions();
+        if (worker.Enabled) services.AddHostedService<DealRationaleConsumer>();
     }
 
     /// <summary>

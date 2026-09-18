@@ -8,6 +8,7 @@ public class AiDbContext(DbContextOptions<AiDbContext> options) : DbContext(opti
     public DbSet<PromptTemplate> PromptTemplates => Set<PromptTemplate>();
     public DbSet<AiRequestLog> AiRequestLogs => Set<AiRequestLog>();
     public DbSet<AiQuestionLog> AiQuestionLogs => Set<AiQuestionLog>();
+    public DbSet<AiWorkRecord> AiWorkRecords => Set<AiWorkRecord>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -61,6 +62,16 @@ public class AiDbContext(DbContextOptions<AiDbContext> options) : DbContext(opti
             // over a window, never across the whole table.
             e.HasIndex(q => new { q.Feature, q.CreatedAt })
                 .HasDatabaseName("ix_ai_question_log_feature_created_at");
+        });
+
+        modelBuilder.Entity<AiWorkRecord>(e =>
+        {
+            e.ToTable("ai_work_records");
+
+            // Composite key rather than a surrogate id: the pair IS the identity, and one row
+            // per (feature, entity) is the invariant the cost gate rests on. A duplicate would
+            // let the same deal bill a model call on every replay of the topic.
+            e.HasKey(r => new { r.Feature, r.EntityId });
         });
 
         base.OnModelCreating(modelBuilder);

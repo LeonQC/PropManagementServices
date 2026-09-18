@@ -364,13 +364,15 @@ services:
       retries: 5
 
   ai-service:
-    # Claude-backed features (design doc §6.4). Phase 1 is Deal Q&A: retrieval from
-    # ingestion-service, one Claude call, an answer with page citations.
+    # Claude-backed features (design doc §6.4) plus the Kafka worker half
+    # (architecture §2.6): Deal Q&A and the assistant answer over HTTP/SSE, while a
+    # background consumer scores deals off deal.snapshot.
     #
-    # It holds no service account. Every call to ingestion-service forwards the
+    # It holds no service account. Every HTTP call to ingestion-service forwards the
     # caller's own bearer token, so a question can never reach a document the user
-    # couldn't already fetch — see IngestionSearchClient. The Kafka worker half
-    # described in architecture §2.6 arrives with scoring in Phase 3.
+    # couldn't already fetch — see IngestionSearchClient. The worker sidesteps that
+    # problem rather than solving it: deal.snapshot already carries every field the
+    # score needs, so the consumer reads no API and needs no credential at all.
     build:
       context: ./src
       dockerfile: AiService/AiService.Api/Dockerfile
@@ -402,6 +404,19 @@ services:
       # "narrow before you retrieve" and "disclose what you capped" across six turns.
       # Separate from Anthropic__Model so Deal Q&A's cost profile is unchanged.
       Anthropic__AssistantModel: "claude-sonnet-5"
+      # The scoring worker. Its own consumer group per topic, set in code — see
+      # AiService.Business.Events.ConsumerGroups.
+      Kafka__BootstrapServers: "kafka:9092"
+      Worker__Enabled: ${AI_WORKER_ENABLED:-true}
+      # The one setting that lets this worker spend. On: the gate has been measured, and a
+      # full pass over every scored deal costs about a cent and a half. Set
+      # AI_RATIONALE_ENABLED=false to run the stack without it — the worker still consumes
+      # and still logs what it would have written, which is how the gate was verified.
+      Worker__RationaleEnabled: ${AI_RATIONALE_ENABLED:-true}
+      # Generation for the worker goes through the proxy that already fronts embeddings,
+      # reranking and the eval judge, so the model is a config value rather than a code
+      # dependency. Deal Q&A and the assistant still call Anthropic directly.
+      LiteLlm__BaseUrl: "http://litellm:4000"
     depends_on:
       - ai-db
       - ai-rate-limit-redis
@@ -409,6 +424,8 @@ services:
       - ingestion-service
       - deals-service
       - search-service
+      - kafka
+      - litellm
 
   opensearch:
     # Search engine backing search-service: the cross-entity index (properties today,

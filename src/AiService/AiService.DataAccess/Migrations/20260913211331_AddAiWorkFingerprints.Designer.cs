@@ -2,6 +2,7 @@
 using AiService.DataAccess;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -10,9 +11,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace AiService.DataAccess.Migrations
 {
     [DbContext(typeof(AiDbContext))]
-    partial class AiDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260913211331_AddAiWorkFingerprints")]
+    partial class AddAiWorkFingerprints
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -171,7 +174,7 @@ namespace AiService.DataAccess.Migrations
                     b.ToTable("ai_request_log", (string)null);
                 });
 
-            modelBuilder.Entity("AiService.Models.AiWorkRecord", b =>
+            modelBuilder.Entity("AiService.Models.AiWorkFingerprint", b =>
                 {
                     b.Property<string>("Feature")
                         .HasColumnType("text")
@@ -186,14 +189,20 @@ namespace AiService.DataAccess.Migrations
                         .HasColumnType("text")
                         .HasColumnName("computed_at");
 
+                    b.Property<string>("InputFingerprint")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("input_fingerprint");
+
                     b.Property<double?>("LastOutputScore")
                         .HasColumnType("double precision")
                         .HasColumnName("last_output_score");
 
                     b.HasKey("Feature", "EntityId")
-                        .HasName("pk_ai_work_records");
+                        .HasName("pk_ai_work_fingerprints");
 
-                    b.ToTable("ai_work_records", (string)null);
+                    b.ToTable("ai_work_fingerprints", (string)null);
                 });
 
             modelBuilder.Entity("AiService.Models.PromptTemplate", b =>

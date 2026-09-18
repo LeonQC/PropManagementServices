@@ -20,12 +20,21 @@ public class DealSnapshotPublisher(IDealRepository repo, IEventPublisher eventPu
     public Task PublishAsync(DealSnapshotRow row, CancellationToken ct = default)
     {
         var d = row.Deal;
+
+        // Computed here rather than read off the row, because the score is not stored. It is
+        // a point-in-time value: the snapshot carries the score as it stood at publish, the
+        // same trade already made for the dwell baseline below. Consumers that need it fresh
+        // re-derive from the raw inputs this message also carries.
+        var score = DealScore.Compute(
+            d, row.TaskCount, row.DoneTaskCount,
+            row.StageDwellAverageDays, row.StageDwellSampleCount, DateTime.UtcNow);
+
         return eventPublisher.PublishAsync(Topics.DealSnapshot, d.Id, new DealSnapshot(
             d.Id, d.Version, d.Name, d.PropertyId, d.PropertyName, d.PropertyType, d.MetroArea,
             d.OccupancyRate, d.MarketCapRateBenchmark,
             d.Stage, d.Priority, d.OwnerId, d.DeadReason,
             d.OfferPrice, d.ProjectedCapRate, d.TargetIrr, d.EquityMultiple, d.ProjectedCloseDate,
-            d.AiScore, d.AiScoreRationale, d.RiskFlags,
+            score.HasScore ? score.Score : null, d.AiScoreRationale, d.RiskFlags,
             d.StageEnteredAt, d.CreatedAt, d.UpdatedAt,
             row.TaskCount, row.DoneTaskCount, row.EarliestOpenTaskDueDate,
             row.StageDwellAverageDays, row.StageDwellSampleCount,

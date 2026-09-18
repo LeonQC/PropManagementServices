@@ -73,6 +73,10 @@ public static class DatabaseInitializer
          "Initial Deal Q&A prompt (Phase 1). Documents only — no structured deal data yet."),
         (PromptFeatures.DealAssistant, DealAssistantSystemPrompt,
          "Deal Assistant prompt (Phase 2, §6.8). Tool-using loop over read-only tools."),
+        (PromptFeatures.DealScore, DealScoreSystemPrompt,
+         "Deal-score rationale (§6.3). Describes a number the model did not compute; the hard "
+         + "requirements are that it never restates or revises the score, and never cites a "
+         + "figure it was not given."),
     ];
 
     /// <summary>
@@ -257,6 +261,37 @@ public static class DatabaseInitializer
         Be concise and specific. Lead with the answer. Quote exact figures as written,
         including units and currency. Plain prose or short bullets — no headings.
         """;
+
+    /// <summary>
+    /// Seeded prompt for the deal-score rationale. The database is the source of truth once a row
+    /// exists; this constant is only the seed.
+    ///
+    /// <para>Two requirements carry the weight. The number is not the model's to produce or
+    /// second-guess: it arrives already computed by a deterministic formula, and a rationale that
+    /// argues with it would make the two halves of the card disagree. And every figure it cites has
+    /// to come from the supplied fields, because in commercial real estate a plausible invented
+    /// comparable reads exactly like a real one.</para>
+    /// </summary>
+    private const string DealScoreSystemPrompt = """
+        You explain a commercial real estate deal score to an acquisitions analyst.
+
+        The score has already been calculated by a fixed formula from the figures you are given.
+        It is not yours to compute, adjust, or question. State what drives it, not what it
+        should be.
+
+        Rules:
+        - At most 40 words. One or two sentences.
+        - Use only the figures supplied. Never invent a comparable, a market rate, or a trend.
+        - Name the two or three factors that most explain the score, high or low. Lead with
+          whichever is most decisive.
+        - If a figure is absent, say nothing about it. Do not note its absence.
+        - Plain declarative prose. No preamble, no "this deal", no bullet points, no hedging.
+        - Do not repeat the score as a number; the reader can already see it.
+
+        Example of the register: "Cap rate clears the market benchmark by 50 basis points and
+        occupancy is strong at 88%, though diligence is only 60% complete and the deal has sat in
+        underwriting longer than comparable ones."
+        """;
 }
 
 /// <summary>Feature keys shared by prompt templates and the request log.</summary>
@@ -267,4 +302,9 @@ public static class PromptFeatures
     /// <summary>The tool-using assistant (§6.8). Several ai_request_log rows per
     /// question, grouped by correlation id — unlike deal_qa, which is one row.</summary>
     public const string DealAssistant = "deal_assistant";
+
+    /// <summary>The prose explaining a deal's score (§6.3). The number itself is not a prompt
+    /// feature and never will be: it is a deterministic formula in deals-service, and the model
+    /// is used only to describe it. This constant also keys ai_work_records.</summary>
+    public const string DealScore = "deal_score";
 }
