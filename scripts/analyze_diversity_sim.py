@@ -16,11 +16,18 @@ The metric is depth_to_satisfy: for a cross-document question the rank of the LA
 source, which is exactly what a reordering stage is supposed to move. Lower is better; the
 context budget is 8, so a question is fixed when its depth drops to <= 8.
 
+Targets are chosen from the live ranking rather than hard-coded: every cross-document
+question whose sources are all fetched in the top 20 but which cosine order fails to satisfy
+within the budget. Those are exactly the questions a reordering stage could fix. The search
+is cosine order (rerank off) so MMR is compared against the ranking it would replace.
+
 Usage (needs the stack up):
-    python3 scripts/analyze_diversity_sim.py
+    python3 scripts/analyze_diversity_sim.py                 # embed-local@1024, the shipped model
+    python3 scripts/analyze_diversity_sim.py --model embed-openai@1024
 """
 from __future__ import annotations
 
+import argparse
 import json
 import subprocess
 import sys
@@ -29,16 +36,12 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 import eval_retrieval as ev  # noqa: E402
 
-# The five questions the reranking pre-registration identified as recoverable: gold is
-# fetched at top-20 and then out-ranked before the context cut.
-TARGETS = ("cross-occupancy-3dbd02", "cross-occupancy-ddbf23", "cross-occupancy-41c91f",
-           "cross-cap-rate-72bed4", "cross-cap-rate-58684a")
 LAMBDAS = (0.3, 0.5, 0.7, 0.9)
 QUOTAS = (1, 2)
 BUDGET = 8
 
 
-def sim_matrix(keys: list[tuple[str, int]]) -> dict:
+def sim_matrix(keys: list[tuple[str, int]], model: str) -> dict:
     """Pairwise cosine between chunks, computed by pgvector via a self-join."""
     values = ",".join(f"('{d}',{i})" for d, i in keys)
     sql = f"""
@@ -49,7 +52,7 @@ def sim_matrix(keys: list[tuple[str, int]]) -> dict:
         JOIN k ka ON ka.d = a.document_id AND ka.i = a.chunk_index
         JOIN document_chunks b ON b.embedding_model = a.embedding_model
         JOIN k kb ON kb.d = b.document_id AND kb.i = b.chunk_index
-        WHERE a.embedding_model = 'embed-openai@1024';
+        WHERE a.embedding_model = '{model}';
     """
     out = subprocess.run(
         ["docker", "compose", "exec", "-T", "rag-db", "psql", "-U", "proptrack",
@@ -92,8 +95,24 @@ def quota(chunks: list[dict], n: int) -> list[dict]:
 
 
 def main() -> int:
-    questions = {q["id"]: q for q in json.loads(Path("scripts/eval-questions.json").read_text())}
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    # Must match the tag ingestion-service is serving (EMBEDDING_MODEL), or the pairwise
+    # similarities come from a different vector space than the ranking they reorder.
+    ap.add_argument("--model", default="embed-local@1024", help="embedding_model tag in document_chunks")
+    args = ap.parse_args()
+
+    questions = [q for q in json.loads(Path("scripts/eval-questions.json").read_text())
+                 if q["slice"] == "cross-document"]
     token = ev.login("admin@proptrack.local", "ChangeMe123!")
+
+    ranked = {q["id"]: ev.search(token, q["question"], q["dealId"], 20,
+                                 candidate_k=ev.CANDIDATE_K, rerank=False)
+              for q in questions}
+    targets = [q for q in questions
+               if ev.depth_to_satisfy(ranked[q["id"]], q)
+               and ev.depth_to_satisfy(ranked[q["id"]], q) > BUDGET]
+    print(f"\n  {len(targets)} of {len(questions)} cross-document questions are fetched but "
+          f"cut at k={BUDGET} in cosine order ({args.model}).")
 
     cols = [f"mmr{lam}" for lam in LAMBDAS] + [f"q={n}" for n in QUOTAS]
     print(f"\n  {'question':<26}{'base':>6}" + "".join(f"{c:>8}" for c in cols))
@@ -102,13 +121,11 @@ def main() -> int:
     fixed = dict.fromkeys(cols, 0)
     worse = dict.fromkeys(cols, 0)
 
-    for qid in TARGETS:
-        q = questions[qid]
-        chunks = ev.search(token, q["question"], q["dealId"], 20,
-                           candidate_k=ev.CANDIDATE_K)
-        sim = sim_matrix([(c["documentId"], c["chunkIndex"]) for c in chunks])
+    for q in targets:
+        chunks = ranked[q["id"]]
+        sim = sim_matrix([(c["documentId"], c["chunkIndex"]) for c in chunks], args.model)
         base = ev.depth_to_satisfy(chunks, q)
-        row = f"  {qid:<26}{base if base else '-':>6}"
+        row = f"  {q['id'][:25]:<26}{base if base else '-':>6}"
         for col, reordered in zip(
                 cols, [mmr(chunks, sim, lam) for lam in LAMBDAS]
                       + [quota(chunks, n) for n in QUOTAS]):
@@ -120,7 +137,7 @@ def main() -> int:
                 worse[col] += 1
         print(row)
 
-    n = len(TARGETS)
+    n = len(targets)
     print("  " + "-" * (32 + 8 * len(cols)))
     print(f"  {'fixed at k=8':<26}{'':>6}" + "".join(f"{f'{fixed[c]}/{n}':>8}" for c in cols))
     print(f"  {'worse than base':<26}{'':>6}" + "".join(f"{f'{worse[c]}/{n}':>8}" for c in cols))

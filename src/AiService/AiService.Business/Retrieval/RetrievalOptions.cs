@@ -5,21 +5,21 @@ namespace AiService.Business.Retrieval;
 ///
 /// <para>The score thresholds are calibrated against the real corpus, not the ~0.7
 /// figure in architecture §3.3 — that value does not survive contact with the
-/// embedding model actually in use. Measured cosine scores from
-/// `text-embedding-3-small@1024` over this corpus:</para>
+/// embedding model actually in use. Measured top-hit cosine scores from bge-m3
+/// (<c>embed-local</c>) over the 100-question eval set:</para>
 /// <list type="bullet">
-///   <item>on-topic questions ("what is the going-in cap rate?"): top hit 0.38–0.53</item>
-///   <item>off-domain questions ("best recipe for sourdough bread?"): top hit 0.07–0.08</item>
-///   <item>in-domain but absent ("the tenant's dog policy for the rooftop pool?"): top hit 0.29–0.32</item>
+///   <item>answerable questions ("what is the going-in cap rate?"): 0.41–0.68</item>
+///   <item>off-domain questions ("best recipe for sourdough bread?"): 0.19–0.34</item>
+///   <item>in-domain but absent ("the tenant's dog policy for the rooftop pool?"): 0.40–0.54</item>
 /// </list>
-/// <para>A 0.7 floor would reject every genuine hit and the feature would decline
-/// every question. 0.15 cleanly separates off-domain noise from real matches.</para>
+/// <para>A 0.7 floor would reject nearly every genuine hit and the feature would decline
+/// every question.</para>
 ///
 /// <para>Note the third band: a question about this asset class whose answer simply
-/// isn't in the documents still scores 0.29 — inside the on-topic range. No absolute
-/// threshold can separate "answerable" from "in-domain but not covered", so the floor
-/// is not what makes the feature decline; the system prompt is. The floor's job is to
-/// keep obvious noise out of the prompt, not to judge coverage.</para>
+/// isn't in the documents scores inside the answerable range. No absolute threshold can
+/// separate "answerable" from "in-domain but not covered", so the floor is not what makes
+/// the feature decline; the system prompt is. The floor's job is to keep obvious noise
+/// out of the prompt, not to judge coverage.</para>
 /// </summary>
 public class RetrievalOptions
 {
@@ -41,13 +41,18 @@ public class RetrievalOptions
     /// it, the service answers "not in this deal's documents" without calling Claude.
     ///
     /// <para>CALIBRATED PER EMBEDDING MODEL, and not portable — cosine has no absolute
-    /// meaning across models. 0.375 for <c>embed-local</c> (bge-m3); 0.15 was the value
+    /// meaning across models. 0.35 for <c>embed-local</c> (bge-m3); 0.15 was the value
     /// for <c>embed-openai</c>, whose scale runs far lower. Carrying 0.15 onto bge-m3
     /// measured off-domain abstention at 0.00 — nothing errors, recall stays at 1.000, and
     /// the service simply starts answering questions it should decline. Changing
     /// EMBEDDING_MODEL means re-sweeping this with scripts/eval_retrieval.py; the numbers
-    /// and both models' score distributions are in docs/retrieval-eval.md.</para></summary>
-    public double MinScore { get; set; } = 0.375;
+    /// and both models' score distributions are in docs/retrieval-eval.md.</para>
+    ///
+    /// <para>The usable window on bge-m3 is narrow: the highest off-domain question scores
+    /// 0.340 and the weakest chunk an answer needs scores 0.365. 0.35 sits inside it. 0.375,
+    /// the previous value, cut that weakest chunk and turned one cross-document answer
+    /// wrong.</para></summary>
+    public double MinScore { get; set; } = 0.35;
 
     /// <summary>Relative floor: drop chunks scoring below this fraction of the best
     /// hit. Catches the weak tail of an otherwise good result set, which an absolute
