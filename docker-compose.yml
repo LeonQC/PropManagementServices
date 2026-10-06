@@ -211,11 +211,12 @@ services:
     # tei-rerank before suspecting the code.
     #
     # bge-reranker-base, not the smaller ms-marco-MiniLM-L6-v2 that was tried first. The
-    # model choice was NOT a detail: MiniLM scores every chunk in this corpus at ~1e-4 —
-    # it declines to discriminate at all on markdown tables and document headers — and
-    # made retrieval measurably WORSE (0.938 -> 0.900). bge reaches 1.000. The env override
-    # exists so re-running that comparison is a restart, not an edit; see
-    # docs/retrieval-eval.md.
+    # model choice was NOT a detail: on the 2026-10 stack MiniLM reaches 0.975 recall at
+    # k=12 against bge's 1.000 (cosine alone: 0.900), and in the OpenAI-embeddings era it
+    # made retrieval worse. MiniLM's tokenizer also puts some query+chunk pairs over its
+    # 512-token limit, and the litellm route sends no truncation, so through the proxy those
+    # requests 422. The env override exists so re-running the comparison is a restart, not
+    # an edit; see docs/retrieval-eval.md.
     #   RERANK_MODEL=cross-encoder/ms-marco-MiniLM-L6-v2 docker compose up -d tei-rerank
     #
     # That override still works unchanged now that requests arrive via litellm: the model
@@ -262,9 +263,9 @@ services:
       #   3. docker compose exec ingestion-service python -m app.reembed --model embed-local
       #   4. Flip this value; docker compose up -d ingestion-service
       #   5. Re-sweep RetrievalOptions.MinScore — 0.15 (embed-openai) measured 0.00
-      #      off-domain abstention on bge-m3, where 0.375 is correct. Silent if skipped.
+      #      off-domain abstention on bge-m3, where 0.35 is correct. Silent if skipped.
       # Reversing is step 4 backwards plus the matching MinScore: reembed leaves the old
-      # tag's rows in place. OpenSearch needs no rebuild (lexical.py is model-independent).
+      # tag's rows in place.
       # EMBEDDING_DIMENSIONS stays 1024: bge-m3 is natively 1024-dim.
       EMBEDDING_MODEL: "embed-local"
       EMBEDDING_DIMENSIONS: "1024"
@@ -292,7 +293,7 @@ services:
       # experiment was chasing, without a second copy of the corpus. Set to "false" to
       # revert; nothing else changes.
       #
-      # The cost is latency: median search 0.23s -> 2.75s (p95 3.94s) on CPU.
+      # The cost is latency: median search 0.05s -> 2.31s (p95 3.35s) on CPU (bge-m3, 2026-10).
       # No URL here: the reranker is reached through LITELLM_BASE_URL like the embedding
       # model, and RERANK_ROUTE (default "rerank-local") picks the entry in
       # IngestionService/litellm/config.yaml that resolves to tei-rerank.

@@ -46,12 +46,11 @@ INGESTION_URL = "http://localhost:5500"
 # Defaults mirror RetrievalOptions.cs. Keep them in sync — see module docstring.
 FETCH_TOP_K = 20
 # 12 since cross-encoder reranking shipped; it was 8 before that.
-# check_dense_regression.py's frozen baseline is a k=8 artifact, so the gate command has to
-# pass --max-chunks 8 explicitly — see docs/retrieval-eval.md.
+# check_retrieval_regression.py's frozen reference is this default with --rerank.
 MAX_CONTEXT_CHUNKS = 12
-# 0.375 for embed-local (bge-m3); was 0.15 under embed-openai. Calibrated per embedding
+# 0.35 for embed-local (bge-m3); was 0.15 under embed-openai. Calibrated per embedding
 # model and NOT portable — see RetrievalOptions.MinScore.
-MIN_SCORE = 0.375
+MIN_SCORE = 0.35
 RELATIVE_FLOOR = 0.55
 MAX_CONTEXT_CHARS = 24_000
 
@@ -438,7 +437,7 @@ def main() -> int:
         # Grid chosen around the production values. RelativeFloor gets the widest
         # range because it is the constant most likely to be dropping good chunks:
         # at a top score of 0.50 the current 0.55 kills everything below 0.275.
-        for min_score, rel, k in itertools.product((0.30, 0.375, 0.45), (0.0, 0.35, 0.55, 0.70), (5, 8, 12)):
+        for min_score, rel, k in itertools.product((0.30, 0.35, 0.40, 0.45), (0.0, 0.35, 0.55, 0.70), (5, 8, 12)):
             configs.append(Config(min_score, rel, k, **common, **staged))
     elif args.sweep_rerank:
         # Four arms, NOT rerank crossed into the 36-config filter sweep. Reranking costs

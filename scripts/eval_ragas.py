@@ -298,27 +298,45 @@ def build_metrics(use_llm: bool, judge_model: str):
     return metrics, evaluator_llm
 
 
+def _words(text: str) -> str:
+    """Lowercased alphanumeric words, so markdown and punctuation don't matter."""
+    return " ".join("".join(ch if ch.isalnum() else " " for ch in text.lower()).split())
+
+
+def _states_value(value: str, answer: str) -> bool:
+    digits = "".join(ch for ch in value if ch.isdigit())
+    if digits:
+        return digits in "".join(ch for ch in answer if ch.isdigit())
+    # A value with no digits (title vesting: "Los Angeles Properties LLC, a CA limited
+    # liability company") used to flatten to "" and could never pass, even when the
+    # answer quoted it verbatim. Match it as words instead, equally strict: the whole
+    # value must appear, so "a California limited liability company" still fails.
+    words = _words(value)
+    return bool(words) and words in _words(answer)
+
+
 def answer_contains_expected(rows: list[dict]) -> tuple[float, int]:
     """Share of answerable questions whose answer states the expected value.
 
     Deterministic and free. Compares digits only, so "$67,834,000" matches
     "67,834,000" and "$67.83 million" fails — deliberately strict, since the
-    point is whether the exact figure from the document reached the user."""
+    point is whether the exact figure from the document reached the user.
+    Values with no digits are compared as whole words, ignoring case and
+    punctuation."""
     graded = [r for r in rows
               if r["slice"] not in NEGATIVE_SLICES and r.get("expectedAnswer")]
     if not graded:
         return 0.0, 0
     hits = 0
     for r in graded:
-        actual = "".join(ch for ch in r["answer"] if ch.isdigit())
         # cross-document expectations are composite ("OM: 76.80%; Rent_Roll: 99.2%")
         # because the answer *is* the comparison. Digit-flattening the whole string
         # produces one long number that appears in nothing — it scored 0/20 for
         # that reason, not because the answers were wrong. Require every value.
         parts = str(r["expectedAnswer"]).split("; ") if r["slice"] == "cross-document" \
             else [str(r["expectedAnswer"])]
-        wanted = ["".join(ch for ch in p.split(": ", 1)[-1] if ch.isdigit()) for p in parts]
-        if wanted and all(w and w in actual for w in wanted):
+        values = [p.split(": ", 1)[-1] for p in parts]
+        if values and all(_states_value(v, r["answer"]) for v in values):
             hits += 1
     return hits / len(graded), len(graded)
 
@@ -365,6 +383,14 @@ def main() -> int:
     ap.add_argument("--no-llm", action="store_true",
                     help=argparse.SUPPRESS)  # accepted as a no-op; free is now the default
     ap.add_argument("--regenerate", action="store_true", help="ignore the answer cache")
+    # RAGAS defaults to 16 concurrent jobs with a 180s timeout. Against judge-default that
+    # timed out ~1 in 3 judged jobs, and RAGAS scores a timed-out sample as NaN and then
+    # averages over the rest — so the reported mean silently covered a non-random subset.
+    # Fewer workers and a longer timeout keep every sample in; coverage is printed below.
+    ap.add_argument("--judge-workers", type=int, default=4,
+                    help="concurrent RAGAS jobs (RAGAS default 16 caused judge timeouts)")
+    ap.add_argument("--judge-timeout", type=int, default=600,
+                    help="per-job timeout in seconds (RAGAS default 180)")
     args = ap.parse_args()
 
     if not args.questions.exists():
@@ -450,12 +476,21 @@ def main() -> int:
     runs = []
     for run in range(1, args.repeats + 1):
         print(f"\n--- scoring pass {run}/{args.repeats} ---", file=sys.stderr)
-        result = evaluate(dataset=dataset, metrics=metrics)
+        from ragas import RunConfig
+        result = evaluate(dataset=dataset, metrics=metrics,
+                          run_config=RunConfig(timeout=args.judge_timeout,
+                                               max_workers=args.judge_workers))
         scores = {k: float(v) for k, v in result._repr_dict.items()} if hasattr(result, "_repr_dict") \
             else {k: float(v) for k, v in dict(result).items()}
-        runs.append(scores)
+        # A failed job is NaN and drops out of the mean. Count them, so a mean over a
+        # subset can never pass for a mean over the whole set.
+        frame = result.to_pandas()
+        scored = {k: int(frame[k].notna().sum()) for k in scores if k in frame}
+        runs.append({**scores, "_scoredSamples": scored})
         for name, value in scores.items():
-            print(f"  {name:<38}{value:.3f}")
+            note = "" if scored.get(name, len(dataset)) == len(dataset) \
+                else f"   *** only {scored[name]}/{len(dataset)} samples scored ***"
+            print(f"  {name:<38}{value:.3f}{note}")
 
     # Judge scores wander between runs, and on this stack they cannot be pinned:
     # the generation model rejects `temperature` outright, and the proxy drops the
@@ -463,7 +498,7 @@ def main() -> int:
     # optional rigour, it is the only honest way to quote a judged number.
     if args.repeats > 1:
         print(f"\n  === across {args.repeats} passes (mean +/- spread) ===")
-        for name in runs[0]:
+        for name in (k for k in runs[0] if not k.startswith("_")):
             values = [r[name] for r in runs]
             spread = max(values) - min(values)
             print(f"  {name:<38}{statistics.mean(values):.3f}  +/- {spread:.3f}")
