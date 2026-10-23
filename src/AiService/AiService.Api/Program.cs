@@ -11,6 +11,13 @@ builder.Services.AddControllers();
 builder.Services.AddBusiness(builder.Configuration);
 
 builder.Services.AddAiRateLimiting(builder.Configuration);
+
+// MCP server at /mcp. No tools yet — this only proves the handshake works.
+// Stateless: every request stands alone, so there is no per-client session to keep in
+// memory, and any replica can answer. Fine here because every tool is a one-shot read.
+builder.Services.AddMcpServer()
+    .WithHttpTransport(options => options.Stateless = true);
+
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {
@@ -50,5 +57,8 @@ app.UseAuthorization();
 app.UseAiRateLimiter();
 
 app.MapControllers();
+
+// Same login rule as the controllers: no valid PropTrack JWT, no MCP.
+app.MapMcp("/mcp").RequireAuthorization();
 
 app.Run();
