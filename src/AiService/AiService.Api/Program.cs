@@ -19,7 +19,8 @@ builder.Services.AddAiRateLimiting(builder.Configuration);
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddMcpServer()
     .WithHttpTransport(options => options.Stateless = true)
-    .WithTools<DealMcpTools>();
+    .WithListToolsHandler(AssistantToolsMcp.ListToolsAsync)
+    .WithCallToolHandler(AssistantToolsMcp.CallToolAsync);
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
