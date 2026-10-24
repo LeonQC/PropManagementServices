@@ -1,4 +1,5 @@
 using AiService.Api.Infrastructure;
+using AiService.Api.Mcp;
 using AiService.Business;
 using Microsoft.OpenApi;
 
@@ -12,11 +13,13 @@ builder.Services.AddBusiness(builder.Configuration);
 
 builder.Services.AddAiRateLimiting(builder.Configuration);
 
-// MCP server at /mcp. No tools yet — this only proves the handshake works.
+// MCP server at /mcp, serving the assistant's tools to outside clients.
 // Stateless: every request stands alone, so there is no per-client session to keep in
 // memory, and any replica can answer. Fine here because every tool is a one-shot read.
+builder.Services.AddHttpContextAccessor();
 builder.Services.AddMcpServer()
-    .WithHttpTransport(options => options.Stateless = true);
+    .WithHttpTransport(options => options.Stateless = true)
+    .WithTools<DealMcpTools>();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
