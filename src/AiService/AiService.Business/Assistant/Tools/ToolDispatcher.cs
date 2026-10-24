@@ -27,43 +27,51 @@ public class ToolDispatcher(IEnumerable<IAssistantTool> tools, ILogger<ToolDispa
     public string Label(string name, JsonNode? input) =>
         _byName.TryGetValue(name, out var tool) ? tool.Label(input) : $"Running {name}…";
 
+    public Task<ToolOutcome> InvokeAsync(
+        ClaudeToolUse call, ToolContext context, CancellationToken ct) =>
+        InvokeAsync(call.Name, call.Input, context, ct);
+
+    /// <summary>
+    /// Runs a tool by name. This is the overload for callers that are not the Claude loop —
+    /// the MCP endpoint — and so have a name and arguments but no tool_use block.
+    /// </summary>
     public async Task<ToolOutcome> InvokeAsync(
-        ClaudeToolUse call, ToolContext context, CancellationToken ct)
+        string name, JsonNode? input, ToolContext context, CancellationToken ct)
     {
-        if (!_byName.TryGetValue(call.Name, out var tool))
+        if (!_byName.TryGetValue(name, out var tool))
         {
-            logger.LogWarning("Model called an unknown tool {Tool}.", call.Name);
+            logger.LogWarning("Model called an unknown tool {Tool}.", name);
             return ToolOutcome.Error(
-                $"No tool named '{call.Name}' exists. Available tools: " +
+                $"No tool named '{name}' exists. Available tools: " +
                 $"{string.Join(", ", _byName.Keys.Order(StringComparer.Ordinal))}.");
         }
 
         // A null input means the arguments were not valid JSON at all — the model gets told
         // that rather than the tool being run with nothing.
-        if (call.Input is null)
+        if (input is null)
             return ToolOutcome.Error(
-                $"The arguments for '{call.Name}' were not valid JSON. Send the arguments again as a JSON object.");
+                $"The arguments for '{name}' were not valid JSON. Send the arguments again as a JSON object.");
 
         try
         {
-            return await tool.InvokeAsync(call.Input, context, ct);
+            return await tool.InvokeAsync(input, context, ct);
         }
         catch (ToolArgumentException ex)
         {
-            logger.LogInformation("Rejected arguments for {Tool}: {Message}", call.Name, ex.Message);
+            logger.LogInformation("Rejected arguments for {Tool}: {Message}", name, ex.Message);
             return ToolOutcome.Error(ex.Message);
         }
         catch (DownstreamException ex)
         {
-            logger.LogWarning(ex, "Tool {Tool} failed downstream (denied={Denied}).", call.Name, ex.Denied);
+            logger.LogWarning(ex, "Tool {Tool} failed downstream (denied={Denied}).", name, ex.Denied);
             return ToolOutcome.Error(ex.Denied
                 ? $"Access denied: {ex.Message} Tell the user you do not have access to this, and do not guess at its contents."
                 : ex.Message);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            logger.LogError(ex, "Tool {Tool} threw an unexpected exception.", call.Name);
-            return ToolOutcome.Error($"The '{call.Name}' tool failed unexpectedly. Do not retry it.");
+            logger.LogError(ex, "Tool {Tool} threw an unexpected exception.", name);
+            return ToolOutcome.Error($"The '{name}' tool failed unexpectedly. Do not retry it.");
         }
     }
 }

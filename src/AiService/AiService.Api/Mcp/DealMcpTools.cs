@@ -44,7 +44,7 @@ public class DealMcpTools(ToolDispatcher dispatcher, IHttpContextAccessor http)
         // links; nothing reads it here, but the tools require one.
         var context = new ToolContext(token, PinnedDealId: null, PinnedDocumentId: null, new SourceRegistry());
 
-        var outcome = await dispatcher.InvokeAsync(new ClaudeToolUse($"mcp-{name}", name, input), context, ct);
+        var outcome = await dispatcher.InvokeAsync(name, input, context, ct);
 
         return new CallToolResult
         {
