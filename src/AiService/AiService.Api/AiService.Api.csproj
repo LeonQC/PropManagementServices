@@ -5,6 +5,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Serves the assistant's read-only tools to outside MCP clients (Claude Desktop,
+         Claude Code) at /mcp. Lives in the Api: MCP is another transport over the same
+         Business-layer tools, like the controllers are. -->
+    <PackageReference Include="ModelContextProtocol.AspNetCore" Version="2.3.0" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="10.2.0" />
     <!-- Backs the per-user rate limits, which have to be shared across replicas.
          Referenced by the Api rather than by Business: limiting is a transport

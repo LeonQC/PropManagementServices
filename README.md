@@ -62,6 +62,28 @@ Then start the [UI](https://github.com/zephaniezhu/PropManagementServices-UI) (`
 
 Documents are loaded through the real upload flow with `scripts/seed_deal_documents.py` (see the script header for usage). The PDF corpus itself is not included in this repo.
 
+## MCP server
+
+ai-service also serves the assistant's six read-only tools over the [Model Context Protocol](https://modelcontextprotocol.io), so outside AI apps (Claude Code, Claude Desktop, MCP Inspector) can use PropTrack data.
+
+- **Endpoint:** `http://localhost:5700/mcp` (Streamable HTTP)
+- **Tools:** `get_deal`, `search_deals`, `search_properties`, `search_deal_documents`, `search_anything`, `pipeline_summary`, the same ones the in-app assistant uses, read from the same definitions
+- **Auth:** send a PropTrack JWT as `Authorization: Bearer <token>`. Calls without one get a 401, and each user only sees the data they can see in the app.
+
+Get a token by logging in to auth-service:
+
+```bash
+curl -s -X POST http://localhost:5300/auth/v1/login -H 'Content-Type: application/json' -d '{"email":"<email>","password":"<password>"}'
+```
+
+To try it in MCP Inspector, run `npx @modelcontextprotocol/inspector`, choose **Streamable HTTP**, enter the endpoint URL, and add a custom header `Authorization` with the value `Bearer <accessToken>`. To use it from Claude Code:
+
+```bash
+claude mcp add --transport http proptrack http://localhost:5700/mcp --header "Authorization: Bearer <accessToken>"
+```
+
+Tokens expire, so log in again if calls start returning 401.
+
 ## Evaluation
 
 ```bash
