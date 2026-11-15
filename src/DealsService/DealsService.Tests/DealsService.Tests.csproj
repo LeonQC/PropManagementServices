@@ -16,12 +16,20 @@
          assembles DealWithTaskStats. No database is needed to test either: they are pure
          functions over a Deal plus one pre-fetched aggregate. -->
     <ProjectReference Include="..\DealsService.DataAccess\DealsService.DataAccess.csproj" />
+    <!-- The Kafka reliability tests drive DealService and the shared consumer base class
+         against a real broker and a real Postgres. -->
+    <ProjectReference Include="..\DealsService.Business\DealsService.Business.csproj" />
+    <ProjectReference Include="..\..\Shared\PropTrack.Messaging\PropTrack.Messaging.csproj" />
   </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
     <PackageReference Include="xunit.v3" Version="1.0.0" />
     <PackageReference Include="xunit.runner.visualstudio" Version="3.0.0" />
+    <!-- Real Kafka and Postgres for the reliability tests: what they verify is offset
+         commits and transaction boundaries, which a fake cannot get wrong realistically. -->
+    <PackageReference Include="Testcontainers.Kafka" Version="4.1.0" />
+    <PackageReference Include="Testcontainers.PostgreSql" Version="4.1.0" />
   </ItemGroup>
 
 </Project>
