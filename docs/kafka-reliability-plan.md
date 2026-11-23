@@ -3,9 +3,9 @@
 Step 1 of making PropTrack production-grade. The goal is that no event is lost or
 applied twice, and that this is proven by tests rather than asserted.
 
-Status: drafted 2026-11-13. Slices 0 to 2 built on branch `kafka-reliability` (tests in
-`src/DealsService/DealsService.Tests/Reliability`). The dual-write test stays red until
-slice 3.
+Status: drafted 2026-11-13. Paused 2026-11-23 after slice 2 for higher-priority work;
+slices 3 to 5 are not built. Tests are in `src/DealsService/DealsService.Tests/Reliability`.
+The dual-write test is skipped: it documents a known gap that slice 3 would close.
 
 ## The problem today
 

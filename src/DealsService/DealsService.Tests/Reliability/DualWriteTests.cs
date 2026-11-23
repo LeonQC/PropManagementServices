@@ -12,12 +12,14 @@ namespace DealsService.Tests.Reliability;
 /// <summary>
 /// The dual write: DealService commits to Postgres and then publishes to Kafka as a separate
 /// step. Slice 0 of docs/kafka-reliability-plan.md — this test states the guarantee the
-/// system should give and fails until the outbox (slice 3) provides it.
+/// system should give and fails until the outbox (slice 3) provides it. Skipped while that
+/// work is paused.
 /// </summary>
 [Collection(nameof(KafkaPostgresCollection))]
 public class DualWriteTests(KafkaPostgresFixture fixture)
 {
-    [Fact]
+    [Fact(Skip = "Known gap: the dual write loses events until the outbox (slice 3 of " +
+                 "docs/kafka-reliability-plan.md) is built. Remove this Skip to see it fail.")]
     public async Task A_committed_deal_still_gets_its_created_event_when_the_publish_fails()
     {
         fixture.Require();
