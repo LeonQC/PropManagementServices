@@ -1,4 +1,5 @@
 using Confluent.Kafka;
+using Confluent.Kafka.Admin;
 using DealsService.DataAccess;
 using Microsoft.EntityFrameworkCore;
 using PropTrack.Messaging;
@@ -33,7 +34,12 @@ public class KafkaPostgresFixture : IAsyncLifetime
             _postgres = new PostgreSqlBuilder().WithImage("postgres:16").Build();
             await Task.WhenAll(_kafka.StartAsync(), _postgres.StartAsync());
 
-            Kafka = new KafkaSettings { BootstrapServers = _kafka.GetBootstrapAddress() };
+            // A short backoff so tests that exhaust the retries take milliseconds, not seconds.
+            Kafka = new KafkaSettings
+            {
+                BootstrapServers = _kafka.GetBootstrapAddress(),
+                ConsumerRetryBackoffMs = 50,
+            };
             _connectionString = _postgres.GetConnectionString();
 
             await using var db = NewDbContext();
@@ -62,11 +68,11 @@ public class KafkaPostgresFixture : IAsyncLifetime
             .Options);
 
     /// <summary>
-    /// Reads <paramref name="topic"/> from the beginning with a throwaway group and returns the
-    /// values of every message with <paramref name="key"/> seen before <paramref name="wait"/>
-    /// runs out. Returns as soon as one arrives.
+    /// Reads <paramref name="topic"/> from the beginning with a throwaway group and returns
+    /// every message with <paramref name="key"/> seen before <paramref name="wait"/> runs out.
+    /// Returns as soon as one arrives.
     /// </summary>
-    public List<string> ReadByKey(string topic, string key, TimeSpan wait)
+    public List<Message<string, string>> ReadByKey(string topic, string key, TimeSpan wait)
     {
         using var consumer = new ConsumerBuilder<string, string>(new ConsumerConfig
         {
@@ -78,14 +84,14 @@ public class KafkaPostgresFixture : IAsyncLifetime
         }).Build();
         consumer.Subscribe(topic);
 
-        var found = new List<string>();
+        var found = new List<Message<string, string>>();
         var deadline = DateTime.UtcNow + wait;
         while (DateTime.UtcNow < deadline && found.Count == 0)
         {
             try
             {
                 var result = consumer.Consume(TimeSpan.FromMilliseconds(500));
-                if (result?.Message?.Key == key) found.Add(result.Message.Value);
+                if (result?.Message?.Key == key) found.Add(result.Message);
             }
             catch (ConsumeException)
             {
@@ -95,6 +101,25 @@ public class KafkaPostgresFixture : IAsyncLifetime
 
         consumer.Close();
         return found;
+    }
+
+    /// <summary>Reads one config value of an existing topic, e.g. "retention.ms".</summary>
+    public async Task<string?> TopicConfigAsync(string topic, string name)
+    {
+        using var admin = new AdminClientBuilder(
+            new AdminClientConfig { BootstrapServers = Kafka.BootstrapServers }).Build();
+        var described = await admin.DescribeConfigsAsync(
+            [new ConfigResource { Type = ResourceType.Topic, Name = topic }]);
+        return described.SelectMany(r => r.Entries).FirstOrDefault(e => e.Key == name).Value?.Value;
+    }
+
+    /// <summary>Writes a value exactly as given, bypassing the JSON-serializing publisher —
+    /// the only way to put a malformed payload on a topic.</summary>
+    public async Task ProduceRawAsync(string topic, string key, string value)
+    {
+        using var producer = new ProducerBuilder<string, string>(
+            new ProducerConfig { BootstrapServers = Kafka.BootstrapServers }).Build();
+        await producer.ProduceAsync(topic, new Message<string, string> { Key = key, Value = value });
     }
 }
 

@@ -85,6 +85,63 @@ public sealed class TopicProvisioner(KafkaSettings settings, ILogger<TopicProvis
     }
 
     /// <summary>
+    /// Idempotently ensures the dead-letter topic for <paramref name="sourceTopic"/> exists.
+    /// Auto-create would make one on the first dead letter, but with the broker's default
+    /// retention — and a dead letter that ages out before anyone looks at it is a lost
+    /// message after all. So these keep their messages until someone deals with them.
+    /// </summary>
+    public async Task EnsureDeadLetterTopicAsync(
+        string sourceTopic, int partitions = 1, short replicationFactor = 1, CancellationToken ct = default)
+    {
+        var topic = DeadLetter.TopicFor(sourceTopic);
+        using var admin = new AdminClientBuilder(
+            new AdminClientConfig { BootstrapServers = settings.BootstrapServers }).Build();
+
+        try
+        {
+            ct.ThrowIfCancellationRequested();
+
+            // All topics, not this one — asking about a single topic auto-creates it. See
+            // EnsureCompactedTopicAsync.
+            var meta = admin.GetMetadata(TimeSpan.FromSeconds(10));
+            if (meta.Topics.Any(t => t.Topic == topic && t.Error.Code == ErrorCode.NoError)) return;
+
+            await admin.CreateTopicsAsync([
+                new TopicSpecification
+                {
+                    Name = topic,
+                    NumPartitions = partitions,
+                    ReplicationFactor = replicationFactor,
+                    Configs = new Dictionary<string, string>
+                    {
+                        ["cleanup.policy"] = "delete",
+                        ["retention.ms"] = "-1",
+                    },
+                },
+            ], new CreateTopicsOptions { RequestTimeout = TimeSpan.FromSeconds(15) });
+
+            logger.LogInformation("Created dead-letter Kafka topic {Topic}.", topic);
+        }
+        catch (CreateTopicsException ex) when (
+            ex.Results.All(r => r.Error.Code == ErrorCode.TopicAlreadyExists))
+        {
+            logger.LogInformation("Kafka topic {Topic} was created concurrently.", topic);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            // Not fatal: the broker auto-creates the topic on the first dead letter. It would
+            // only have default retention, so say so.
+            logger.LogError(ex,
+                "Could not ensure dead-letter topic {Topic}. Dead-lettering will still work, but " +
+                "the topic may expire messages under the broker's default retention.", topic);
+        }
+    }
+
+    /// <summary>
     /// Repairs an existing topic that isn't compacted. This happens whenever the broker
     /// auto-created it on first publish (or on a metadata request), which yields
     /// cleanup.policy=delete — silently discarding the history a rebuild depends on.

@@ -3,10 +3,9 @@
 Step 1 of making PropTrack production-grade. The goal is that no event is lost or
 applied twice, and that this is proven by tests rather than asserted.
 
-Status: drafted 2026-11-13. Slices 0 and 1 built on branch `kafka-reliability`
-(tests in `src/DealsService/DealsService.Tests/Reliability`). The dual-write test stays red
-until slice 3. Until slice 2, a handler that always throws is retried forever and blocks
-its partition; undeserializable messages are still logged and skipped.
+Status: drafted 2026-11-13. Slices 0 to 2 built on branch `kafka-reliability` (tests in
+`src/DealsService/DealsService.Tests/Reliability`). The dual-write test stays red until
+slice 3.
 
 ## The problem today
 
@@ -68,6 +67,12 @@ Retry a failed message a small number of times with backoff. If it still fails, 
 it to `<topic>.dlt` with headers for the error, original topic, partition and offset,
 then commit. Messages that cannot be deserialized go straight to the dead-letter topic.
 `TopicProvisioner` creates the dead-letter topics.
+
+As built: retries run in memory with the partition waiting (`Kafka:ConsumerMaxAttempts`,
+default 3; `Kafka:ConsumerRetryBackoffMs`, default 1000, doubling). Each consumer
+provisions its own dead-letter topic at startup, with unlimited retention. A dead letter
+keeps the original key, value and headers and adds `dlt.*` headers (see `DeadLetter.cs`).
+If the dead-letter publish itself fails, the message stays uncommitted and is retried.
 
 Teaches: poison messages.
 Done when a poison message lands in the dead-letter topic and the next message is still
