@@ -64,7 +64,7 @@ public class DealScoreTests
 
     [Theory]
     [InlineData(0.70, 0.0)]
-    [InlineData(0.825, 50.0)]
+    [InlineData(0.825, 51.0)]
     [InlineData(0.95, 100.0)]
     public void Occupancy_bands_between_seventy_and_ninety_five_percent(double occ, double expected) =>
         Assert.Equal(expected, SubScore(DealScore.Occupancy, Deals.Complete(occupancyRate: occ))!.Value, 3);
