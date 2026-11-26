@@ -27,7 +27,7 @@ public class RedisFixture : IAsyncLifetime
             await _container.StartAsync();
             Redis = await ConnectionMultiplexer.ConnectAsync(_container.GetConnectionString());
         }
-        catch (Exception ex)
+        catch (Exception ex) when (!ContainerPolicy.Required)
         {
             Unavailable = $"Redis container unavailable ({ex.GetType().Name}: {ex.Message}). Is Docker running?";
         }
@@ -49,3 +49,14 @@ public class RedisFixture : IAsyncLifetime
 
 [CollectionDefinition(nameof(RedisCollection))]
 public class RedisCollection : ICollectionFixture<RedisFixture>;
+
+/// <summary>
+/// CI sets REQUIRE_CONTAINERS=true. There a missing container is a broken pipeline, not a
+/// reason to skip: the fixture rethrows and every test in the collection fails red.
+/// </summary>
+internal static class ContainerPolicy
+{
+    public static bool Required =>
+        string.Equals(Environment.GetEnvironmentVariable("REQUIRE_CONTAINERS"), "true",
+            StringComparison.OrdinalIgnoreCase);
+}

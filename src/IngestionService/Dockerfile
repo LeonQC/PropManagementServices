@@ -12,7 +12,11 @@ WORKDIR /app
 
 # Build context is the repo's src/ directory (same as the .NET services).
 COPY IngestionService/pyproject.toml ./
-RUN uv pip install --system --no-cache .
+# CPU-only torch (Docling pulls it in): the container has no GPU, and the default
+# Linux wheel adds several GB of CUDA libraries. Same flags as the CI ingestion job.
+RUN uv pip install --system --no-cache . \
+        --extra-index-url https://download.pytorch.org/whl/cpu \
+        --index-strategy unsafe-best-match
 
 # Bake the Docling parsing models into the image (decision: hermetic startup,
 # no runtime downloads) — layout + TableFormer; OCR models excluded (OCR off in v1).

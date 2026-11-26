@@ -10,6 +10,7 @@ namespace AiService.Tests;
 /// their budget.
 /// </summary>
 [Collection(nameof(RedisCollection))]
+[Trait("Category", "Integration")]
 public class RedisRateLimitStoreTests(RedisFixture fixture)
 {
     private RedisRateLimitStore Store() => new(fixture.Require());
