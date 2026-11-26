@@ -16,6 +16,7 @@ namespace DealsService.Tests.Reliability;
 /// work is paused.
 /// </summary>
 [Collection(nameof(KafkaPostgresCollection))]
+[Trait("Category", "Integration")]
 public class DualWriteTests(KafkaPostgresFixture fixture)
 {
     [Fact(Skip = "Known gap: the dual write loses events until the outbox (slice 3 of " +

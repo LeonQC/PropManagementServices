@@ -45,7 +45,7 @@ public class KafkaPostgresFixture : IAsyncLifetime
             await using var db = NewDbContext();
             await db.Database.MigrateAsync();
         }
-        catch (Exception ex)
+        catch (Exception ex) when (!ContainerPolicy.Required)
         {
             Unavailable = $"Kafka/Postgres containers unavailable ({ex.GetType().Name}: {ex.Message}). Is Docker running?";
         }
@@ -125,3 +125,14 @@ public class KafkaPostgresFixture : IAsyncLifetime
 
 [CollectionDefinition(nameof(KafkaPostgresCollection))]
 public class KafkaPostgresCollection : ICollectionFixture<KafkaPostgresFixture>;
+
+/// <summary>
+/// CI sets REQUIRE_CONTAINERS=true. There a missing container is a broken pipeline, not a
+/// reason to skip: the fixture rethrows and every test in the collection fails red.
+/// </summary>
+internal static class ContainerPolicy
+{
+    public static bool Required =>
+        string.Equals(Environment.GetEnvironmentVariable("REQUIRE_CONTAINERS"), "true",
+            StringComparison.OrdinalIgnoreCase);
+}

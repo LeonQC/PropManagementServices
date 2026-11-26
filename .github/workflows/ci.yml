@@ -1,0 +1,117 @@
+# Build and test every backend service on each pull request and on every push to master.
+# The frontend lives in its own repository (PropManagementServices-UI) with its own workflow.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+jobs:
+  dotnet:
+    name: .NET ${{ matrix.service }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service: [AuthService, ListingsService, DealsService, DocumentsService, SearchService, AiService]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+      # No packages.lock.json in the repo, so key the NuGet cache on the project files.
+      - uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('src/**/*.csproj') }}
+          restore-keys: nuget-${{ runner.os }}-
+      - name: Restore
+        run: dotnet restore src/${{ matrix.service }}/${{ matrix.service }}.sln
+      - name: Build
+        run: dotnet build src/${{ matrix.service }}/${{ matrix.service }}.sln -c Release --no-restore
+      # Unit tests only. Tests that need Docker carry Category=Integration and run in the
+      # integration job below. A solution without a test project is a no-op here.
+      - name: Unit tests
+        run: >
+          dotnet test src/${{ matrix.service }}/${{ matrix.service }}.sln -c Release --no-build
+          --filter "Category!=Integration" --logger "console;verbosity=normal"
+
+  dotnet-integration:
+    name: .NET ${{ matrix.service }} integration
+    needs: dotnet
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # Testcontainers: Redis for AiService, Kafka + Postgres for DealsService.
+        service: [AiService, DealsService]
+    env:
+      # Locally the fixtures skip when Docker is missing; here a missing container fails red.
+      REQUIRE_CONTAINERS: "true"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+      # No packages.lock.json in the repo, so key the NuGet cache on the project files.
+      - uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('src/**/*.csproj') }}
+          restore-keys: nuget-${{ runner.os }}-
+      - name: Integration tests
+        run: >
+          dotnet test src/${{ matrix.service }}/${{ matrix.service }}.sln -c Release
+          --filter "Category=Integration" --logger "console;verbosity=normal"
+
+  ingestion:
+    name: Python ingestion-service
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src/IngestionService
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: src/IngestionService/pyproject.toml
+      # Same native libraries the Dockerfile installs for Docling's layout models.
+      - name: System libraries
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libglib2.0-0 libgl1
+      # CPU-only torch: the import check needs no GPU, and the default Linux wheel pulls
+      # several GB of CUDA libraries.
+      - name: Install dependencies
+        run: >
+          uv pip install --system .
+          --extra-index-url https://download.pytorch.org/whl/cpu
+          --index-strategy unsafe-best-match
+      - name: Compile check
+        run: python -m compileall -q app
+      # Imports every module, so a missing or incompatible dependency fails here
+      # rather than at container start. No module connects to anything at import time.
+      - name: Import check
+        run: |
+          python - <<'PY'
+          import importlib, pkgutil
+          import app
+          names = sorted(m.name for m in pkgutil.iter_modules(app.__path__, "app."))
+          for name in names:
+              importlib.import_module(name)
+          print(f"imported {len(names)} modules: {', '.join(names)}")
+          PY

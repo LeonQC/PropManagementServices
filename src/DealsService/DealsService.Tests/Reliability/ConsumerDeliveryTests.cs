@@ -13,6 +13,7 @@ namespace DealsService.Tests.Reliability;
 /// cannot see each other's messages or offsets.
 /// </summary>
 [Collection(nameof(KafkaPostgresCollection))]
+[Trait("Category", "Integration")]
 public class ConsumerDeliveryTests(KafkaPostgresFixture fixture)
 {
     private static readonly TimeSpan Patience = TimeSpan.FromSeconds(30);
